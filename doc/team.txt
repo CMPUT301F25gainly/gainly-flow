@@ -24,3 +24,8 @@ Ilhamoddin Arbabzada
 Question 1: What have you been doing? nothing
 Question 2: What will you do? part1-story points(risk level)
 Question 3: What is blocking you? N/A
+
+Jason Chang
+Question 1: What have you been doing? Nothing
+Question 2: What will you do? I will do the part 1: Product Backlog
+Question 3: What is blocking you? Nothing 
