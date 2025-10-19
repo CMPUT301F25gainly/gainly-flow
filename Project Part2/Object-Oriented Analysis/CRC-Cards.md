@@ -32,5 +32,5 @@ Each CRC card contains:
 * EventFilter
 * CSVExporter
 
-## Total No: of Cards: 19
+## Total No: of Cards: 18
 
