@@ -1,4 +1,5 @@
-UI Mockups Overview - Event Lottery System
+# UI Mockups Overview - Event Lottery System
 Document Purpose
 This document provides a comprehensive overview of all user interface mockups for the Event Lottery System application. 
 Each mockup has been designed to fulfill specific user stories from our product backlog.
+
