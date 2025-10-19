@@ -4,7 +4,7 @@ CRC Cards - Event Lottery System
 This document presents the Object-Oriented Analysis for the Event Lottery System using Class-Responsibility-Collaborator (CRC) cards.
 Each card describes a class, its responsibilities, and the other classes it collaborates with to fulfill those responsibilities.
 
-# Important card created
+## Important card created
 * User (Abstract)
 * Entrant
 * Organizer
@@ -24,5 +24,5 @@ Each card describes a class, its responsibilities, and the other classes it coll
 * EventFilter
 * CSVExporter
 
-# TOtal No: of Cards: 19
+## Total No: of Cards: 19
 
