@@ -21,9 +21,9 @@ Each mockup has been designed to fulfill specific user stories from our product 
 * Admin - Browse & Remove
 
 ## Total Number of Mockups
-Entrant - 6
-Organizer - 7
-Admin - 2
+* Entrant - 6
+* Organizer - 7
+* Admin - 2
 ## Total Numer = 15
 
 ## Storyboard Flowchats:
