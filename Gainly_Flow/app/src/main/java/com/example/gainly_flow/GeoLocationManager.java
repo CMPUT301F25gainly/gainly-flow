@@ -6,6 +6,8 @@ public class GeoLocationManager {
         public Coordinates(double lat, double lng) { this.lat = lat; this.lng = lng; }
     }
 
-    public Coordinates captureJoinLocation(String entrantId, String eventId) { return null; }
+    public Coordinates captureJoinLocation(String entrantId, String eventId) {
+        return(coordinates);
+    }
     public Coordinates getLocationForEntrant(String entrantId, String eventId) { return null; }
 }
