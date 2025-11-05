@@ -11,7 +11,7 @@
         android:id="@+id/btnAdminLogin"
         style="?android:attr/borderlessButtonStyle"
         android:layout_width="wrap_content"
-        android:layout_height="32dp"
+        android:layout_height="48dp"
         android:background="@drawable/bg_admin_pill"
         android:text="Admin login"
         android:textAllCaps="false"

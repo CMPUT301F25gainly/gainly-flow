@@ -8,6 +8,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -27,7 +28,8 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_browse_profiles);
-
+        ImageButton backButton = findViewById(R.id.btnBack);
+        backButton.setOnClickListener(v -> finish());
         // Obtain Administrator instance (singleton preferred; fallback shown)
         try {
             // If you have Administrator.get()
