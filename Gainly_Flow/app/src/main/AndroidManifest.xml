@@ -38,13 +38,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".AdminViewMain"
-            android:exported="false" />
-        <activity
-            android:name=".EntrantViewMain"
-            android:exported="false" />
-        <activity
-            android:name=".OrganizerViewMain"
+            android:name=".AdminMainActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
