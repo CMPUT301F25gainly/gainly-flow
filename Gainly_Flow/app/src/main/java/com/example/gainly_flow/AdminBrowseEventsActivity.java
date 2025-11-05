@@ -6,6 +6,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -29,7 +30,8 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_browse_events);
-
+        ImageButton backButton = findViewById(R.id.btnBack);
+        backButton.setOnClickListener(v -> finish());
         // Attempt to obtain Administrator instance
         try {
             // If Administrator has a singleton method
@@ -95,4 +97,6 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         adapter.addAll(filtered);
         adapter.notifyDataSetChanged();
     }
+
+
 }
