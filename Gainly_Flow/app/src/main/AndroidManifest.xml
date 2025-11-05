@@ -41,6 +41,12 @@
             android:name=".AdminMainActivity"
             android:exported="false" />
         <activity
+            android:name=".AdminBrowseEventsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminBrowseProfilesActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
