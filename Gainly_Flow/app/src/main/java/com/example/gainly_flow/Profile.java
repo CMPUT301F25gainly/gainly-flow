@@ -1,17 +1,20 @@
 package com.example.gainly_flow;
 
 public class Profile {
-    private String name;
-    private String email;
-    private String phone;
-    private boolean notificationsEnabled = true;
+    private final String id;
+    private final String displayName;
+    private final String email;
 
-    public Profile(String name, String email, String phone) {
-        this.name = name; this.email = email; this.phone = phone;
+    public Profile(String id, String displayName, String email) {
+        this.id = id; this.displayName = displayName; this.email = email;
     }
 
-    public void update(String name, String email, String phone) {}
-    public void delete() {}
+    public String getId() { return id; }
+    public String getDisplayName() { return displayName; }
+    public String getEmail() { return email; }
 
-    // Getters/setters omitted for brevity
+    @Override public String toString() {
+        return displayName + (email == null ? "" : " • " + email);
+    }
 }
+
