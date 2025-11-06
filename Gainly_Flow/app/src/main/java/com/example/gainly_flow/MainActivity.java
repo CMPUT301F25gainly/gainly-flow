@@ -6,6 +6,9 @@ import android.view.View;
 import android.widget.Button;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.example.gainly_flow.AdminMainActivity;
 
@@ -45,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
 //                startActivity(new Intent(this, EntrantViewMain.class)));
 //
         organizer.setOnClickListener(v ->
-                startActivity(new Intent(this, CreateEvent.class)));
+                startActivity(new Intent(this, OrganizerLanding.class)));
 
         adminLogin.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminMainActivity.class)));
