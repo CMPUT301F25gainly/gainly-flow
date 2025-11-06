@@ -1,5 +1,16 @@
 package com.example.gainly_flow;
 
+import static java.lang.Long.getLong;
+
+import androidx.annotation.Nullable;
+
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.*;
+
 import java.util.Map;
 
 import java.util.*;
