@@ -18,6 +18,9 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class EntrantViewMain extends AppCompatActivity {
 
     // Header
@@ -37,13 +40,31 @@ public class EntrantViewMain extends AppCompatActivity {
     // Bottom nav
     private BottomNavigationView bottomNav;
 
+    // --- Firebase wrapper you already integrated ---
+    private final Database db = new Database();
+    private static final String COL_EVENTS = "events";
+
+    // Field names used by EventDetailActivity too
+    private static final String F_NAME      = "name";
+    private static final String F_LOCATION  = "location";        // optional to show in row
+    private static final String F_STATUS    = "status";          // "Open"/"Full"/"Closed"
+    private static final String F_WAITING   = "waitingCount";
+    private static final String F_AVAILABLE = "availableCount";
+
+    // Keep a handle from eventId -> inflated row, so we can update on snapshots
+    private final Map<String, View> rowById = new HashMap<>();
+
+    // For now: a few known IDs (swap to your real list later)
+    private static final String[] EVENT_IDS = new String[] { "evt-001", "evt-002", "evt-003" };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Use your existing layout that defines eventListContainer, etc.
         setContentView(R.layout.activity_entrant_home);
 
         // ---- Find views ----
-        returnButton        = findViewById(R.id.returnButton);      // from your updated header
+        returnButton        = findViewById(R.id.returnButton);
         browseEventsButton  = findViewById(R.id.browseEventsButton);
         searchInput         = findViewById(R.id.searchInput);
         categoryButton      = findViewById(R.id.categoryButton);
@@ -51,88 +72,102 @@ public class EntrantViewMain extends AppCompatActivity {
         eventListContainer  = findViewById(R.id.eventListContainer);
         bottomNav           = findViewById(R.id.bottomNav);
 
-        // ---- Back / Return (top-left) ----
-        if (returnButton != null) {
-            returnButton.setOnClickListener(v -> finish());
-        }
+        if (returnButton != null) returnButton.setOnClickListener(v -> finish());
 
-        // ---- Browse Events CTA ----
         if (browseEventsButton != null) {
             browseEventsButton.setOnClickListener(v -> {
-                // For now, just open the detail page as a demo
+                // Demo: open first event detail if available
                 Intent intent = new Intent(this, EventDetailActivity.class);
+                intent.putExtra(EventDetailActivity.EXTRA_EVENT_ID, EVENT_IDS[0]);
                 startActivity(intent);
             });
         }
 
-        // ---- Populate list with a few sample events using your item_event.xml ----
-        populateMockEvents();
+        // 🔥 Live list from Firestore via your Database wrapper
+        populateFromFirestore();
 
-        // ---- Bottom nav handling ----
-        if (bottomNav != null) {
-            bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
+        if (bottomNav != null) bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
+    }
+
+    /** Subscribe to each known eventId and keep the UI row live. */
+    private void populateFromFirestore() {
+        eventListContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        for (String eventId : EVENT_IDS) {
+            // 1) Inflate a row now (so the list shows quickly)
+            View card = inflater.inflate(R.layout.item_event, eventListContainer, false);
+            bindPlaceholders(card); // optional: show placeholders before data arrives
+            eventListContainer.addView(card);
+            rowById.put(eventId, card);
+
+            // 2) Initial render from cache (may be null on first run)
+            renderRow(eventId, db.get(COL_EVENTS, eventId));
+
+            // 3) Subscribe for live updates
+            db.subscribe(COL_EVENTS, eventId, () -> {
+                Map<String, Object> ev = db.get(COL_EVENTS, eventId);
+                renderRow(eventId, ev);
+            });
+
+            // 4) Click → open details with eventId only
+            ((CardView) card).setOnClickListener(v -> {
+                Intent intent = new Intent(this, EventDetailActivity.class);
+                intent.putExtra(EventDetailActivity.EXTRA_EVENT_ID, eventId);
+                startActivity(intent);
+            });
         }
     }
 
-    private void populateMockEvents() {
-        // Clear any existing children (in case of recreation)
-        eventListContainer.removeAllViews();
+    private void bindPlaceholders(View card) {
+        TextView title   = card.findViewById(R.id.eventTitle);
+        TextView date    = card.findViewById(R.id.eventDate);
+        TextView spots   = card.findViewById(R.id.eventSpots);
+        TextView waiting = card.findViewById(R.id.eventWaiting);
+        TextView status  = card.findViewById(R.id.eventStatus);
 
-        // Simple mock data for now; replace with real list later
-        MockEvent[] data = new MockEvent[] {
-                new MockEvent(
-                        "Swimming Lessons for Beginners",
-                        "Jan 15–Mar 15, 2025",
-                        20, 45, "Open"),
-                new MockEvent(
-                        "Test 2",
-                        "Apr 4, 2025",
-                        200, 120, "Open"),
-                new MockEvent(
-                        "Test 3",
-                        "Feb 2–Feb 3, 2025",
-                        12, 60, "Full")
-        };
+        title.setText("Loading…");
+        date.setText("");
+        spots.setText("");
+        waiting.setText("");
+        status.setText("");
+    }
 
-        LayoutInflater inflater = LayoutInflater.from(this);
+    /** Render one row from the Firestore map. */
+    private void renderRow(String eventId, Map<String, Object> ev) {
+        View card = rowById.get(eventId);
+        if (card == null) return;
 
-        for (MockEvent e : data) {
-            View card = inflater.inflate(R.layout.item_event, eventListContainer, false);
+        TextView title   = card.findViewById(R.id.eventTitle);
+        TextView date    = card.findViewById(R.id.eventDate);
+        TextView spots   = card.findViewById(R.id.eventSpots);
+        TextView waiting = card.findViewById(R.id.eventWaiting);
+        TextView status  = card.findViewById(R.id.eventStatus);
 
-            TextView title     = card.findViewById(R.id.eventTitle);
-            TextView date      = card.findViewById(R.id.eventDate);
-            TextView spots     = card.findViewById(R.id.eventSpots);
-            TextView waiting   = card.findViewById(R.id.eventWaiting);
-            TextView status    = card.findViewById(R.id.eventStatus);
-
-            title.setText(e.title);
-            date.setText(e.date);
-            spots.setText(e.capacity + " spots");
-            waiting.setText(e.waiting + " waiting");
-            status.setText(e.status);
-
-            // Color/status badge cue
-            if ("Open".equalsIgnoreCase(e.status)) {
-                status.setTextColor(ContextCompat.getColor(this, R.color.green_500));
-            } else {
-                status.setTextColor(ContextCompat.getColor(this, R.color.gray_700));
-            }
-
-            // Click → open detail screen (you can pass extras later)
-            CardView root = (CardView) card;
-            root.setOnClickListener(v -> {
-                Intent intent = new Intent(this, EventDetailActivity.class);
-                // Example extras if you want to wire them in EventDetailActivity later:
-                intent.putExtra("title", e.title);
-                intent.putExtra("date", e.date);
-                intent.putExtra("capacity", e.capacity);
-                intent.putExtra("waiting", e.waiting);
-                intent.putExtra("status", e.status);
-                startActivity(intent);
-            });
-
-            eventListContainer.addView(card);
+        if (ev == null) {
+            title.setText("Unavailable");
+            date.setText("");
+            spots.setText("");
+            waiting.setText("");
+            status.setText("");
+            status.setTextColor(ContextCompat.getColor(this, R.color.gray_700));
+            return;
         }
+
+        String name  = s(ev.get(F_NAME));
+        String stat  = s(ev.get(F_STATUS));
+        int capLeft  = i(ev.get(F_AVAILABLE));
+        int waitCnt  = i(ev.get(F_WAITING));
+
+        title.setText(name.isEmpty() ? "Untitled Event" : name);
+        // If you store dates in docs later, map them to text here. For now, omit or show location.
+        date.setText(s(ev.get(F_LOCATION)));
+        spots.setText(capLeft + " spots");
+        waiting.setText(waitCnt + " waiting");
+        status.setText(stat);
+
+        status.setTextColor(ContextCompat.getColor(this,
+                "Open".equalsIgnoreCase(stat) ? R.color.green_500 : R.color.gray_700));
     }
 
     private boolean onNavItemSelected(@NonNull MenuItem item) {
@@ -142,26 +177,18 @@ public class EntrantViewMain extends AppCompatActivity {
             return true;
         } else if (id == R.id.menu_notifications) {
             Toast.makeText(this, "Notifications", Toast.LENGTH_SHORT).show();
-            // TODO: startActivity(new Intent(this, EntrantNotificationsActivity.class));
             return true;
         } else if (id == R.id.menu_profile) {
             Toast.makeText(this, "Profile", Toast.LENGTH_SHORT).show();
-            // TODO: startActivity(new Intent(this, EntrantProfileActivity.class));
             return true;
         }
         return false;
     }
 
-    /** Tiny struct for the mock list; you can delete this when you hook real data. */
-    private static class MockEvent {
-        final String title, date, status;
-        final int capacity, waiting;
-        MockEvent(String title, String date, int capacity, int waiting, String status) {
-            this.title = title;
-            this.date = date;
-            this.capacity = capacity;
-            this.waiting = waiting;
-            this.status = status;
-        }
+    private static String s(Object o) { return o == null ? "" : String.valueOf(o); }
+    private static int i(Object o) {
+        if (o instanceof Number) return ((Number) o).intValue();
+        if (o instanceof String) try { return Integer.parseInt((String) o); } catch (Exception ignored) {}
+        return 0;
     }
 }
