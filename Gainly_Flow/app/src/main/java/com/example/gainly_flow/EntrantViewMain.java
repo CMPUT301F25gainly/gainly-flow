@@ -166,8 +166,8 @@ public class EntrantViewMain extends AppCompatActivity {
             Toast.makeText(this, "Events", Toast.LENGTH_SHORT).show();
             return true;
         } else if (id == R.id.menu_notifications) {
-            // startActivity(new Intent(this, NotificationsActivity.class));
-            Toast.makeText(this, "Notifications", Toast.LENGTH_SHORT).show();
+            Intent i = new Intent(this, EntrantNotificationsActivity.class);
+            startActivity(i);
             return true;
         } else if (id == R.id.menu_profile) {
             Toast.makeText(this, "Profile", Toast.LENGTH_SHORT).show();

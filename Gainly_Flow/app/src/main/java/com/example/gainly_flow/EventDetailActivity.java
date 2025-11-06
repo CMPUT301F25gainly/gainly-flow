@@ -15,13 +15,18 @@ import androidx.core.content.ContextCompat;
 
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.SetOptions;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class EventDetailActivity extends AppCompatActivity {
 
@@ -29,22 +34,26 @@ public class EventDetailActivity extends AppCompatActivity {
 
     // Firestore
     private FirebaseFirestore fs;
-    private ListenerRegistration reg;
+    private ListenerRegistration eventReg;
+    private ListenerRegistration waitReg;
 
-    // Collection
-    private static final String COL_EVENTS = "events";
+    // Collections / fields
+    private static final String COL_EVENTS      = "events";
+    private static final String COL_WAITLISTS   = "waiting_lists";
+    private static final String F_NAME          = "name";
+    private static final String F_DESCRIPTION   = "description";
+    private static final String F_EVENT_DATE    = "eventDate";          // UTC midnight (ms)
+    private static final String F_EVENT_TIME_MS = "eventTimeOfDayMs";   // ms from midnight
+    private static final String F_REG_OPEN      = "registrationOpen";   // ms
+    private static final String F_REG_CLOSE     = "registrationClose";  // ms
+    private static final String F_CAPACITY      = "capacity";
 
-    // Field keys (match your teammate’s Database.addEventDatabase)
-    private static final String F_ID                 = "id";
-    private static final String F_NAME               = "name";
-    private static final String F_DESCRIPTION        = "description";
-    private static final String F_EVENT_DATE         = "eventDate";          // UTC midnight (ms)
-    private static final String F_EVENT_TIME_MS      = "eventTimeOfDayMs";   // ms from midnight
-    private static final String F_REG_OPEN           = "registrationOpen";   // ms
-    private static final String F_REG_CLOSE          = "registrationClose";  // ms
-    private static final String F_CAPACITY           = "capacity";
-    private static final String F_POSTER_URI         = "posterUri";          // optional
-    // Note: no location / waiting / available in this schema
+    // waitlist fields
+    private static final String WL_ENTRANT_IDS  = "entrantIds";
+    private static final String WL_SIZE         = "size";
+    private static final String WL_EVENT_ID     = "eventId";
+    private static final String WL_CREATED_AT   = "createdAt";
+    private static final String WL_MAX_CAP      = "maxCapacity";
 
     // UI
     private TextView titleEvent, statusEvent, locationEvent, tvEntrants, tvAvailable;
@@ -55,9 +64,15 @@ public class EventDetailActivity extends AppCompatActivity {
 
     private String eventId;
 
+    private boolean joined = false; // current user in waitlist?
+    private int waitSize = 0;
+
     // Formats
     private static final SimpleDateFormat DATE_DF = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
     private static final SimpleDateFormat TIME_DF = new SimpleDateFormat("h:mm a", Locale.getDefault());
+
+    // TODO: replace with FirebaseAuth uid when you wire auth
+    private String getCurrentUserId() { return "22ae419f5bed11cd"; }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -66,12 +81,12 @@ public class EventDetailActivity extends AppCompatActivity {
 
         fs = FirebaseFirestore.getInstance();
 
-        // Bind views (ids match your XML)
+        // Bind views
         titleEvent      = findViewById(R.id.title_event);
         statusEvent     = findViewById(R.id.event_status);
-        locationEvent   = findViewById(R.id.location_event);  // we’ll leave empty (no location in schema)
-        tvEntrants      = findViewById(R.id.tvEntrants);      // placeholder only
-        tvAvailable     = findViewById(R.id.tvAvailable);     // will show capacity
+        locationEvent   = findViewById(R.id.location_event);
+        tvEntrants      = findViewById(R.id.tvEntrants);
+        tvAvailable     = findViewById(R.id.tvAvailable);
         tvEventDuration = findViewById(R.id.tvEventDuration);
         tvRegOpens      = findViewById(R.id.tvRegOpens);
         tvRegCloses     = findViewById(R.id.tvRegCloses);
@@ -90,63 +105,78 @@ public class EventDetailActivity extends AppCompatActivity {
             return;
         }
 
-        // Back/QR
+        // Back / QR
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());
         if (qrIcon != null)  qrIcon.setOnClickListener(v -> Toast.makeText(this, "QR scanner not wired yet", Toast.LENGTH_SHORT).show());
 
-        // Safe placeholders (so nothing crashes before data arrives)
         applyPlaceholders();
 
-        // Live doc updates
-        DocumentReference ref = fs.collection(COL_EVENTS).document(eventId);
-        reg = ref.addSnapshotListener((snap, err) -> {
+        // Live event doc
+        DocumentReference eventRef = fs.collection(COL_EVENTS).document(eventId);
+        eventReg = eventRef.addSnapshotListener((snap, err) -> {
             if (err != null || snap == null || !snap.exists()) return;
-            render(snap);
+            renderEvent(snap);
         });
 
-        // Buttons (no-ops for now, so you can test the screen safely)
-        btnJoin.setOnClickListener(v -> Toast.makeText(this, "Join: not wired yet", Toast.LENGTH_SHORT).show());
-        btnLeave.setOnClickListener(v -> Toast.makeText(this, "Leave: not wired yet", Toast.LENGTH_SHORT).show());
+        // Live waitlist doc (one doc per event)
+        DocumentReference wlRef = fs.collection(COL_WAITLISTS).document(eventId);
+        waitReg = wlRef.addSnapshotListener((snap, err) -> {
+            if (err != null) return;
+            if (snap != null && snap.exists()) {
+                List<String> ids = (List<String>) snap.get(WL_ENTRANT_IDS);
+                Long s = snap.getLong(WL_SIZE);
+                waitSize = (s != null) ? s.intValue() : (ids == null ? 0 : ids.size());
+                tvEntrants.setText(waitSize + " entrants");
+
+                String uid = getCurrentUserId();
+                joined = (ids != null && uid != null) && ids.contains(uid);
+            } else {
+                waitSize = 0;
+                joined = false;
+                tvEntrants.setText("0 entrants");
+            }
+            updateButtons();
+        });
+
+        // Join/Leave actions
+        btnJoin.setOnClickListener(v -> joinWaitlist());
+        btnLeave.setOnClickListener(v -> leaveWaitlist());
+        updateButtons();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (reg != null) { reg.remove(); reg = null; }
+        if (eventReg != null) { eventReg.remove(); eventReg = null; }
+        if (waitReg  != null) { waitReg.remove();  waitReg  = null; }
     }
 
     /* -------------------- Render -------------------- */
 
-    private void render(DocumentSnapshot d) {
+    private void renderEvent(DocumentSnapshot d) {
         String name   = getStr(d.get(F_NAME));
         String desc   = getStr(d.get(F_DESCRIPTION));
-        Long eventDay = getLong(d.get(F_EVENT_DATE));      // UTC midnight millis
-        Long eventTMs = getLong(d.get(F_EVENT_TIME_MS));   // ms from midnight
+        Long eventDay = getLong(d.get(F_EVENT_DATE));
+        Long eventTMs = getLong(d.get(F_EVENT_TIME_MS));
         Long regOpen  = getLong(d.get(F_REG_OPEN));
         Long regClose = getLong(d.get(F_REG_CLOSE));
         Integer cap   = getInt(d.get(F_CAPACITY));
 
         titleEvent.setText(name.isEmpty() ? "Untitled Event" : name);
-        locationEvent.setText(""); // no location field in schema (leave blank or remove this view)
+        locationEvent.setText(""); // not used yet
 
-        // Status: Open if now within [regOpen, regClose]
         boolean openNow = isNowWithin(regOpen, regClose);
         statusEvent.setText(openNow ? "OPEN" : "CLOSED");
         applyStatusTint(openNow ? "Open" : "Closed");
 
-        // Counts area (your XML expects these)
-        tvEntrants.setText("— entrants"); // not tracked in schema
         tvAvailable.setText(cap == null ? "—" : String.valueOf(Math.max(0, cap)));
 
-        // Event date/time line
         String eventWhen = formatEventDateTime(eventDay, eventTMs);
         tvEventDuration.setText("Event Date: " + (eventWhen.isEmpty() ? "—" : eventWhen));
 
-        // Registration window
         tvRegOpens.setText("Registration Opens: " + (regOpen == null ? "—" : DATE_DF.format(new Date(regOpen))));
         tvRegCloses.setText("Registration Closes: " + (regClose == null ? "—" : DATE_DF.format(new Date(regClose))));
 
-        // Description
         tvDescription.setText(desc.isEmpty() ? "—" : desc);
     }
 
@@ -162,6 +192,81 @@ public class EventDetailActivity extends AppCompatActivity {
         tvDescription.setText("—");
     }
 
+    private void updateButtons() {
+        // Simple UX: disable the action you can't take
+        btnJoin.setEnabled(!joined);
+        btnLeave.setEnabled(joined);
+    }
+
+    /* -------------------- Join / Leave logic -------------------- */
+
+    private void joinWaitlist() {
+        final String uid = getCurrentUserId();
+        if (uid == null || uid.isEmpty()) {
+            Toast.makeText(this, "Please sign in first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final DocumentReference wlRef = fs.collection(COL_WAITLISTS).document(eventId);
+
+        fs.runTransaction(tx -> {
+            DocumentSnapshot snap = tx.get(wlRef);
+
+            // Ensure doc exists and has basic fields
+            Map<String, Object> base = new HashMap<>();
+            base.put(WL_EVENT_ID, eventId);
+            base.put(WL_CREATED_AT, FieldValue.serverTimestamp());
+            base.put(WL_MAX_CAP, -1);
+            tx.set(wlRef, base, SetOptions.merge());
+
+            List<String> ids = (List<String>) (snap.exists() ? snap.get(WL_ENTRANT_IDS) : null);
+            boolean alreadyIn = ids != null && ids.contains(uid);
+            if (alreadyIn) return null; // idempotent
+
+            // arrayUnion + increment
+            Map<String, Object> updates = new HashMap<>();
+            updates.put(WL_ENTRANT_IDS, FieldValue.arrayUnion(uid));
+            updates.put(WL_SIZE, FieldValue.increment(1));
+            tx.set(wlRef, updates, SetOptions.merge());
+            return null;
+        }).addOnSuccessListener(v -> {
+            Toast.makeText(this, "Joined waiting list", Toast.LENGTH_SHORT).show();
+        }).addOnFailureListener(e ->
+                Toast.makeText(this, "Join failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+        );
+    }
+
+    private void leaveWaitlist() {
+        final String uid = getCurrentUserId();
+        if (uid == null || uid.isEmpty()) {
+            Toast.makeText(this, "Please sign in first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final DocumentReference wlRef = fs.collection(COL_WAITLISTS).document(eventId);
+
+        fs.runTransaction(tx -> {
+            DocumentSnapshot snap = tx.get(wlRef);
+            if (!snap.exists()) return null;
+
+            List<String> ids = (List<String>) snap.get(WL_ENTRANT_IDS);
+            if (ids == null || !ids.contains(uid)) return null; // idempotent
+
+            int current = ids.size();
+            Map<String, Object> updates = new HashMap<>();
+            updates.put(WL_ENTRANT_IDS, FieldValue.arrayRemove(uid));
+            updates.put(WL_SIZE, Math.max(0, current - 1)); // keep non-negative
+            tx.set(wlRef, updates, SetOptions.merge());
+            return null;
+        }).addOnSuccessListener(v ->
+                Toast.makeText(this, "Left waiting list", Toast.LENGTH_SHORT).show()
+        ).addOnFailureListener(e ->
+                Toast.makeText(this, "Leave failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+        );
+    }
+
+    /* -------------------- Helpers -------------------- */
+
     private void applyStatusTint(String status) {
         @ColorInt int color;
         if ("Open".equalsIgnoreCase(status)) {
@@ -173,8 +278,6 @@ public class EventDetailActivity extends AppCompatActivity {
         }
         statusEvent.setTextColor(color);
     }
-
-    /* -------------------- Helpers -------------------- */
 
     private static boolean isNowWithin(Long openMs, Long closeMs) {
         long now = System.currentTimeMillis();
@@ -191,7 +294,6 @@ public class EventDetailActivity extends AppCompatActivity {
 
         String timePart = "";
         if (timeMsFromMidnight != null) {
-            // Build a local Date for the time-of-day (on epoch day), then just format the time
             Calendar c = Calendar.getInstance();
             c.clear();
             c.set(Calendar.YEAR, 1970);

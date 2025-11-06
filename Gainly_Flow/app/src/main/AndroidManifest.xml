@@ -34,7 +34,9 @@
         <activity
             android:name=".EventDetailActivity"
             android:exported="false" />
-
+        <activity
+            android:name=".EntrantNotificationsActivity"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
