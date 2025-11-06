@@ -19,7 +19,7 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_organizer_entrantlist);
 
-        ListView entrantListView = findViewById(R.id.entrantList);   // <- must match XML id
+        entrantListView = findViewById(R.id.entrantList);   // <- must match XML id
         findViewById(R.id.waiting);
         findViewById(R.id.Selected);
         findViewById(R.id.sendMsg);

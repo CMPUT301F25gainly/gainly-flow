@@ -44,18 +44,19 @@
         android:layout_marginTop="8dp" />
 
     <!-- First row: Selected | Enrolled | Cancelled | Waiting  -->
+
     <Button
         android:id="@+id/Selected"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Selected"
-        android:textSize="12sp"
-        app:layout_constraintTop_toBottomOf="@id/textView6"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/enrolled"
         android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
         android:layout_marginEnd="8dp"
-        android:layout_marginTop="16dp" />
+        android:text="Selected"
+        android:textSize="10sp"
+        app:layout_constraintEnd_toStartOf="@id/enrolled"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textView6" />
 
     <Button
         android:id="@+id/enrolled"
@@ -142,19 +143,5 @@
         android:layout_marginEnd="8dp"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="16dp" />
-
-    <Switch
-        android:id="@+id/geolocation"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="176dp"
-        android:layout_marginTop="19dp"
-        android:layout_marginEnd="11dp"
-        android:layout_marginBottom="5dp"
-        android:text="GeoLoc?"
-        app:layout_constraintBottom_toTopOf="@+id/textView6"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/textView5"
-        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

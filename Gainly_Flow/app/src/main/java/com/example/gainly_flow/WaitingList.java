@@ -18,7 +18,7 @@ import java.util.Map;
  * with document ID equal to the eventId.
  */
 public class WaitingList {
-    private static final String TAG = "WaitingList";
+    private static final String TAG = "waiting_list";
 
     private String eventId;
     private List<String> entrantList = new ArrayList<>();
@@ -56,7 +56,7 @@ public class WaitingList {
         }
 
         if (capacity > 0 && entrantList.size() >= capacity) {
-            Log.w(TAG, "Waiting list full for event " + eventId + " (capacity: " + capacity + ")");
+            Log.w(TAG, "Waiting list full for event " + eventId + " (maxCapacity: " + capacity + ")");
             return;
         }
 
