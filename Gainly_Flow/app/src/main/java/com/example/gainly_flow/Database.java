@@ -162,4 +162,3 @@ public class Database {
     public int totalEvents() { return events.size(); }
     public int totalUsers() { return profiles.size(); }
 }
-

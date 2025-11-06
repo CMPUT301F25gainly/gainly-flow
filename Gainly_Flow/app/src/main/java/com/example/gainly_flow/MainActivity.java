@@ -37,13 +37,13 @@ public class MainActivity extends AppCompatActivity {
             startActivity(toEntrant);
         });
 
-//         Button entrant = findViewById(R.id.entrantButton);
+        Button entrant = findViewById(R.id.entrantButton);
         Button organizer = findViewById(R.id.organizerButton);
         Button adminLogin = findViewById(R.id.btnAdminLogin);
 
-//        entrant.setOnClickListener(v ->
-//                startActivity(new Intent(this, EntrantViewMain.class)));
-//
+        entrant.setOnClickListener(v ->
+                startActivity(new Intent(this, EntrantViewMain.class)));
+
         organizer.setOnClickListener(v ->
                 startActivity(new Intent(this, CreateEvent.class)));
 

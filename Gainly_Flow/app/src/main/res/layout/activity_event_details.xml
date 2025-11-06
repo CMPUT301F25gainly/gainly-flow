@@ -18,6 +18,19 @@
             android:background="@drawable/blue_gradient_bg"
             android:padding="16dp">
 
+            <!-- Back button -->
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:layout_marginTop="8dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_arrow_back_24"
+                app:tint="@color/white"
+                android:contentDescription="Back" />
+
             <ImageView
                 android:id="@+id/icon_swim"
                 android:layout_width="64dp"
@@ -36,7 +49,6 @@
                 android:contentDescription="QR Code Icon" />
 
         </RelativeLayout>
-
 
         <!-- Title and Subtitle -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -79,7 +91,6 @@
                 app:layout_constraintTop_toBottomOf="@id/title_event" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
 
         <!-- Waiting List Section -->
         <LinearLayout
@@ -156,16 +167,19 @@
             android:layout_marginTop="8dp">
 
             <TextView
+                android:id="@+id/tvEventDuration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Event Duration: Jan 15 - Mar 15, 2025" />
 
             <TextView
+                android:id="@+id/tvRegOpens"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Registration Opens: Jan 1, 2025" />
 
             <TextView
+                android:id="@+id/tvRegCloses"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Registration Closes: Jan 10, 2025" />
@@ -189,6 +203,7 @@
             android:layout_marginTop="8dp">
 
             <TextView
+                android:id="@+id/tvDescription"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Learn essential swimming skills in our beginner-friendly classes. Perfect for adults looking to build water confidence. Classes run every Monday and Wednesday from 6–7 PM." />
