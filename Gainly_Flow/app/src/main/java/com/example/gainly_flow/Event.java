@@ -1,26 +1,128 @@
 package com.example.gainly_flow;
 
+import java.sql.Time;
 import java.util.Date;
 
 public class Event {
-    private final String id;
-    private final String name;
-    private final String description; // or date range
-    private final String location;
+    private String id;
+    private String name;
+    private String description;
+    private Date eventDate;
 
-    public Event(String id, String name, String description, String location) {
-        this.id = id; this.name = name; this.description = description; this.location = location;
+    private Time eventTime;
+    private Date registrationOpen;
+    private Date registrationClose;
+    private int capacity;
+    private boolean geolocationRequired;
+    private String posterImageId;
+    private String organizerId;
+
+    public Event(String id) { this.id = id; }
+
+    // --- Setters ---
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public String getId() { return id; }
-    public String getName() { return name; }
-    public String getDescription() { return description; }
-    public String getLocation() { return location; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    @Override public String toString() {
-        String extra = (description == null ? "" : " • " + description);
-        String loc = (location == null ? "" : " • " + location);
-        return name + extra + loc;
+    public void setEventTime(Time time){
+        this.eventTime = time;
+    }
+    public void setEventDate(Date date){
+        this.eventDate = date;
+    }
+    public void setRegistrationPeriod(Date open, Date close) {
+        this.registrationOpen = open;
+        this.registrationClose = close;
+    }
+
+    public void setCapacity(int capacity) {
+        this.capacity = capacity;
+    }
+
+    public void setPosterImage(String imageId) {
+        this.posterImageId = imageId;
+    }
+
+    public void setGeolocationRequired(boolean required) {
+        this.geolocationRequired = required;
+    }
+
+    public void setOrganizerId(String organizerId) {
+        this.organizerId = organizerId;
+    }
+
+    // --- Getters ---
+    public String getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public Date getEventDate() {
+        return eventDate;
+    }
+
+    public Date getEventTime() {
+        return eventTime;
+    }
+
+    public Date getRegistrationOpen() {
+        return registrationOpen;
+    }
+
+    public Date getRegistrationClose() {
+        return registrationClose;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public boolean isGeolocationRequired() {
+        return geolocationRequired;
+    }
+
+    public String getPosterImageId() {
+        return posterImageId;
+    }
+
+    public String getOrganizerId() {
+        return organizerId;
+    }
+
+    // --- Logic helper ---
+    public boolean isRegistrationOpen() {
+        if (registrationOpen == null || registrationClose == null) {
+            return false;
+        }
+        Date now = new Date();
+        return now.after(registrationOpen) && now.before(registrationClose);
+    }
+
+    @Override
+    public String toString() {
+        return "Event{" +
+                "id='" + id + '\'' +
+                ", name='" + name + '\'' +
+                ", time='" + eventTime + '\'' +
+                ", date='" + eventDate + '\'' +
+                ", description='" + description + '\'' +
+                ", registrationOpen=" + registrationOpen +
+                ", registrationClose=" + registrationClose +
+                ", capacity=" + capacity +
+                ", geolocationRequired=" + geolocationRequired +
+                ", posterImageId='" + posterImageId + '\'' +
+                ", organizerId='" + organizerId + '\'' +
+                '}';
     }
 }
-

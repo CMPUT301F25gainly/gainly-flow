@@ -22,8 +22,8 @@ public class MainActivity extends AppCompatActivity {
 //        entrant.setOnClickListener(v ->
 //                startActivity(new Intent(this, EntrantViewMain.class)));
 //
-//        organizer.setOnClickListener(v ->
-//                startActivity(new Intent(this, OrganizerEntrantListActivity.class)));
+        organizer.setOnClickListener(v ->
+                startActivity(new Intent(this, OrganizerLanding.class)));
 
         adminLogin.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminMainActivity.class)));

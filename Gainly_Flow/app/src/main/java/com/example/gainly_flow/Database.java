@@ -13,9 +13,9 @@ public class Database {
 
     private Database() {
         // --- Seed demo data ---
-        addEvent(new Event("e1", "Swimming Lessons for Beginners", "Jan 15–Mar 15, 2025", "Pool A"));
-        addEvent(new Event("e2", "Interpretive Dance Class", "Jan 1–Mar 1, 2025", "Studio B"));
-        addEvent(new Event("e3", "Piano for Beginners", "Feb 1–Apr 1, 2025", "Room 203"));
+//        addEvent(new Event("e1", "Swimming Lessons for Beginners", "Jan 15–Mar 15, 2025", "Pool A"));
+//        addEvent(new Event("e2", "Interpretive Dance Class", "Jan 1–Mar 1, 2025", "Studio B"));
+//        addEvent(new Event("e3", "Piano for Beginners", "Feb 1–Apr 1, 2025", "Room 203"));
 
         addProfile(new Profile("u1", "Alex Johnson", "alex@demo.com"));
         addProfile(new Profile("u2", "Sam Rivera", "sam@demo.com"));
