@@ -26,7 +26,7 @@ public class WaitingList {
     public WaitingList(String eventId) {
         this.eventId = eventId;
     }
-
+ //add
     /**
      * Load the waiting list for an event from Firestore asynchronously.
      */
