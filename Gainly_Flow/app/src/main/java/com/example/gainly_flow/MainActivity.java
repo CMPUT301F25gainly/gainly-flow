@@ -24,21 +24,13 @@ public class MainActivity extends AppCompatActivity {
         });
 
         Button organizerViewButton = findViewById(R.id.organizerButton);
-        Button adminViewButton = findViewById(R.id.adminButton);
-        Button entrantViewButton = findViewById(R.id.entrantButton);
+
 
         organizerViewButton.setOnClickListener(v -> {
-            Intent toOrganizer = new Intent(MainActivity.this, OrganizerViewMain.class);
+            Intent toOrganizer = new Intent(MainActivity.this, OrganizerLanding.class);
             startActivity(toOrganizer);
         });
-        adminViewButton.setOnClickListener(v -> {
-            Intent toAdmin = new Intent(MainActivity.this, AdminViewMain.class);
-            startActivity(toAdmin);
-        });
-        entrantViewButton.setOnClickListener(v -> {
-            Intent toEntrant = new Intent(MainActivity.this, EntrantViewMain.class);
-            startActivity(toEntrant);
-        });
+
 
     }
 }

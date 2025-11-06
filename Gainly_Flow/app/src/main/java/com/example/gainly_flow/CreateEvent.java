@@ -1,6 +1,8 @@
 package com.example.gainly_flow;
 
 import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -9,7 +11,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 public class CreateEvent extends AppCompatActivity {
-
+    private EditText eventNameInput, eventDescriptionInput, eventDateInput, eventTimeInput, capacityInput;
+    private Button saveEventButton;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

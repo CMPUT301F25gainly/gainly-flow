@@ -11,15 +11,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gainly_Flow">
-        <activity
-            android:name=".AdminViewMain"
-            android:exported="false" />
-        <activity
-            android:name=".EntrantViewMain"
-            android:exported="false" />
-        <activity
-            android:name=".OrganizerViewMain"
-            android:exported="false" />
+        <activity android:name=".OrganizerLanding" />
+        <activity android:name=".CreateEvent" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

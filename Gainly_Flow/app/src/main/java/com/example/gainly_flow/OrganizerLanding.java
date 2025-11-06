@@ -1,6 +1,8 @@
 package com.example.gainly_flow;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,6 +21,13 @@ public class OrganizerLanding extends AppCompatActivity {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
+        });
+
+        Button createEventButton = findViewById(R.id.btn_create_event);
+
+        createEventButton.setOnClickListener(v -> {
+            Intent toCreateEvent = new Intent(OrganizerLanding.this, CreateEvent.class);
+            startActivity(toCreateEvent);
         });
     }
 }
