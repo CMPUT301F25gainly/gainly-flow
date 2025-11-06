@@ -86,7 +86,7 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
             );
         });
     }
-
+    //change
     private void updateListView(List<String> entrantIds) {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this, android.R.layout.simple_list_item_1, entrantIds
