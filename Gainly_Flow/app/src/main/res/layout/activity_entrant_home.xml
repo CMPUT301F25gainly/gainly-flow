@@ -13,32 +13,51 @@
         android:id="@+id/headerLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:backgroundTint="@color/blue_500"
+        android:orientation="horizontal"
+        android:background="@color/blue_500"
         android:padding="16dp"
-        android:background="?attr/colorPrimary"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:id="@+id/titleText"
+        <!-- Return Button -->
+        <ImageButton
+            android:id="@+id/returnButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Event Lottery"
-            android:textColor="@android:color/white"
-            android:textStyle="bold"
-            android:textSize="22sp" />
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_arrow_back_24"
+            android:layout_gravity="center_vertical"
+            app:tint="@color/white" />
 
-        <TextView
-            android:id="@+id/subtitleText"
+        <!-- Title and Subtitle -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Find your next adventure"
-            android:textColor="@android:color/white"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
+            android:orientation="vertical"
+            android:layout_marginStart="8dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Event Lottery"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/subtitleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Find your next adventure"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
     </LinearLayout>
+
 
     <!-- Browse Events Button -->
     <com.google.android.material.button.MaterialButton
