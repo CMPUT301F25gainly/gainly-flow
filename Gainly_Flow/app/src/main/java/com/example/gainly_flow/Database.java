@@ -2,22 +2,38 @@ package com.example.gainly_flow;
 
 import java.util.Map;
 
+import java.util.*;
+
 public class Database {
+    private static final Database INSTANCE = new Database();
+    public static Database get() { return INSTANCE; }
 
-    public void save(String collection, String id, Map<String, Object> data) {
-        // TODO: Save data to database
+    private final Map<String, Event> events = new LinkedHashMap<>();
+    private final Map<String, Profile> profiles = new LinkedHashMap<>();
+
+    private Database() {
+        // --- Seed demo data ---
+//        addEvent(new Event("e1", "Swimming Lessons for Beginners", "Jan 15–Mar 15, 2025", "Pool A"));
+//        addEvent(new Event("e2", "Interpretive Dance Class", "Jan 1–Mar 1, 2025", "Studio B"));
+//        addEvent(new Event("e3", "Piano for Beginners", "Feb 1–Apr 1, 2025", "Room 203"));
+
+        addProfile(new Profile("u1", "Alex Johnson", "alex@demo.com"));
+        addProfile(new Profile("u2", "Sam Rivera", "sam@demo.com"));
+        addProfile(new Profile("u3", "Taylor Kim", "taylor@demo.com"));
     }
 
-    public Map<String, Object> get(String collection, String id) {
-        // TODO: Retrieve a record by ID
-        return null;
-    }
+    // Events
+    public List<Event> getAllEvents() { return new ArrayList<>(events.values()); }
+    public void addEvent(Event e) { events.put(e.getId(), e); }
+    public void removeEvent(String id) { events.remove(id); }
 
-    public void delete(String collection, String id) {
-        // TODO: Delete a record
-    }
+    // Profiles
+    public List<Profile> getAllProfiles() { return new ArrayList<>(profiles.values()); }
+    public void addProfile(Profile p) { profiles.put(p.getId(), p); }
+    public void removeProfile(String id) { profiles.remove(id); }
 
-    public void subscribe(String collection, String id, Runnable listener) {
-        // TODO: Add listener for real-time updates
-    }
+    // Simple stats
+    public int totalEvents() { return events.size(); }
+    public int totalUsers() { return profiles.size(); }
 }
+
