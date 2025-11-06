@@ -9,16 +9,115 @@
 
     <!-- Top purple header -->
 
+    <TextView
+        android:id="@+id/header_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Create Event"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="12dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!-- Title -->
+    <TextView
+        android:id="@+id/createEventTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Create Event"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <ScrollView
-        android:layout_width="412dp"
-        android:layout_height="680dp"
-        tools:layout_editor_absoluteX="-2dp"
-        tools:layout_editor_absoluteY="50dp">
+    <!-- Event Name -->
+    <EditText
+        android:id="@+id/eventNameInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Event Name"
+        android:inputType="textPersonName"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/createEventTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
+    <!-- Date Picker -->
+    <EditText
+        android:id="@+id/eventDateInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Date"
+        android:focusable="false"
+        android:inputType="none"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/eventNameInput"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Time Picker -->
+    <EditText
+        android:id="@+id/eventTimeInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Time"
+        android:focusable="false"
+        android:inputType="none"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/eventDateInput"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Available Spots -->
+    <EditText
+        android:id="@+id/availableSpotsInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Available Spots"
+        android:inputType="number"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/eventTimeInput"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Max Waiting List -->
+    <EditText
+        android:id="@+id/maxWaitingListInput"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Max Waiting List"
+        android:inputType="number"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/availableSpotsInput"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Description -->
+    <EditText
+        android:id="@+id/eventDescriptionInput"
+        android:layout_width="0dp"
+        android:layout_height="120dp"
+        android:hint="Description"
+        android:gravity="top|start"
+        android:inputType="textMultiLine"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/maxWaitingListInput"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Save Button -->
+    <Button
+        android:id="@+id/saveEventButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Save Event"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/eventDescriptionInput"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
