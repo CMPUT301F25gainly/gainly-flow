@@ -1,6 +1,8 @@
 package com.example.gainly_flow;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
@@ -26,6 +28,9 @@ import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -38,6 +43,7 @@ import java.util.UUID;
 
 public class CreateEvent extends AppCompatActivity {
     private ImageView posterPreview;
+    private ImageView qrPreview;
     private Button selectPosterBtn;
     private Button saveEventButton;
     @Nullable
@@ -136,10 +142,10 @@ public class CreateEvent extends AppCompatActivity {
         // 1) Read text
         String name        = text(eventNameInput);
         String desc        = text(eventDescriptionInput);
-        String dateStr     = text(eventDateInput);          // "yyyy-MM-dd"
-        String timeStr     = text(eventTimeInput);          // "h:mm AM/PM"
-        String regOpenStr  = text(registrationOpenInput);   // "yyyy-MM-dd" or empty
-        String regCloseStr = text(registrationCloseInput);  // "yyyy-MM-dd" or empty
+        String dateStr     = text(eventDateInput);          // yyyy-MM-dd
+        String timeStr     = text(eventTimeInput);          // h:mm AM/PM
+        String regOpenStr  = text(registrationOpenInput);   // yyyy-MM-dd
+        String regCloseStr = text(registrationCloseInput);  // yyyy-MM-dd
         String capStr      = text(capacityInput);
         String geoStr      = String.valueOf(geolocationCheckbox != null && geolocationCheckbox.isChecked());
         String poster      = (posterUri == null) ? "" : posterUri.toString();
@@ -159,12 +165,16 @@ public class CreateEvent extends AppCompatActivity {
         if (eventDateMillis == null) { eventDateInput.setError("Invalid date"); return; }
         if (eventTimeOfDayMillis == null) { eventTimeInput.setError("Invalid time"); return; }
 
+        //random id using uuid
         String id = UUID.randomUUID().toString();
 
+
+        String qrUrl = QRUrlCreator.buildDeepLink(id); // or buildHttpsLink(id)
+        Bitmap qrBmp = QRImage.bitmapFromUrl(qrUrl, 512);
+
+            // Fallback: save without QR (or show error)
         Database.get().addEventDatabase(
-                id,
-                name,
-                desc,
+                id, name, desc,
                 String.valueOf(eventDateMillis),
                 String.valueOf(eventTimeOfDayMillis),
                 regOpenMillis == null ? "" : String.valueOf(regOpenMillis),
@@ -172,19 +182,24 @@ public class CreateEvent extends AppCompatActivity {
                 capStr,
                 String.valueOf(geolocationCheckbox.isChecked()),
                 poster,
+                qrUrl,
                 new Database.Callback() {
                     @Override public void onSuccess() {
-                        Toast.makeText(CreateEvent.this, "Event saved to Firestore", Toast.LENGTH_SHORT).show();
-                        setResult(RESULT_OK);
-                        finish();
+                        showQrDialog(qrUrl, () -> {
+                            Toast.makeText(CreateEvent.this, "Event saved", Toast.LENGTH_SHORT).show();
+                            setResult(RESULT_OK);
+                            finish();
+                        });
                     }
                     @Override public void onError(Exception e) {
                         Toast.makeText(CreateEvent.this, "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 }
-                );
-    }
-// ---------- helpers ----------
+        );
+            return;
+
+}
+
 
     private String text(EditText et) { return et == null ? "" : et.getText().toString().trim(); }
 
@@ -318,6 +333,53 @@ public class CreateEvent extends AppCompatActivity {
         local.clear();
         local.set(y, m, d);
         return dateFmt.format(local.getTime());  // <-- DATE format, not time
+    }
+
+    private void showQrDialog(String qrUrl, @Nullable Runnable onClose) {
+        // Build QR bitmap (512px looks crisp)
+        Bitmap bmp = QRImage.bitmapFromUrl(qrUrl, 512);
+        if (bmp == null) {
+            Toast.makeText(this, "Couldn't generate QR", Toast.LENGTH_SHORT).show();
+            if (onClose != null) onClose.run();
+            return;
+        }
+
+        // Inflate a small layout with an ImageView
+        View view = getLayoutInflater().inflate(R.layout.dialog_qr, null);
+        ImageView qr = view.findViewById(R.id.qrImage);
+        qr.setImageBitmap(bmp);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Event QR Code")
+                .setView(view)
+                .setPositiveButton("Done", (d, w) -> {
+                    d.dismiss();
+                    if (onClose != null) onClose.run();
+                })
+                .setNeutralButton("Share", (d, w) -> {
+                    // Share PNG bytes
+                    byte[] png = QRImage.pngFromUrl(qrUrl, 1024);
+                    if (png != null) {
+                        // quick in-memory share via ACTION_SEND
+                        try {
+                            // write to cache file so we can share
+                            File out = new File(getCacheDir(), "event_qr.png");
+                            try (FileOutputStream fos = new FileOutputStream(out)) { fos.write(png); }
+                            Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                                    this, getPackageName() + ".fileprovider", out);
+
+                            Intent share = new Intent(Intent.ACTION_SEND);
+                            share.setType("image/png");
+                            share.putExtra(Intent.EXTRA_STREAM, uri);
+                            share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            startActivity(Intent.createChooser(share, "Share QR"));
+                        } catch (Exception e) {
+                            Toast.makeText(this, "Share failed", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setCancelable(true)
+                .show();
     }
 
 }

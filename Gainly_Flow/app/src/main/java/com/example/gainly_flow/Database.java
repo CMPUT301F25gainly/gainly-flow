@@ -46,7 +46,7 @@ public class Database {
             String id, String name, String description, String eventDate,
             String eventTimeofDayMillis, String registrationOpen,
             String registrationClose, String Capacity,
-            String geolocationRequired, String posterUri,
+            String geolocationRequired, String posterUri, String qrUrl,
             @Nullable Callback cb) {
 
         if (id == null || id.trim().isEmpty()) { if (cb != null) cb.onError(new IllegalArgumentException("id required")); return; }
@@ -74,6 +74,7 @@ public class Database {
         row.put("capacity", capacity);
         row.put("geolocationRequired", geoReq);
         row.put("posterUri", emptyToNull(posterUri));
+        if (qrUrl != null && !qrUrl.isEmpty()) row.put("qrUrl", qrUrl);
         row.put("createdAt", FieldValue.serverTimestamp());
 
         fs.collection("events")
@@ -102,23 +103,35 @@ public class Database {
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .addSnapshotListener((snap, err) -> {
                     if (err != null || snap == null) return;
-                    // Rebuild cache from snapshot (simple approach)
                     events.clear();
                     for (DocumentSnapshot doc : snap.getDocuments()) {
                         String id = doc.getString("id");
                         if (id == null) continue;
+
                         Event e = new Event(id);
                         e.setName(doc.getString("name"));
                         e.setDescription(doc.getString("description"));
+
                         Long cap = getLong(doc, "capacity");
                         if (cap != null) e.setCapacity(cap.intValue());
+
                         e.setGeolocationRequired(Boolean.TRUE.equals(doc.getBoolean("geolocationRequired")));
+
                         String poster = doc.getString("posterUri");
                         if (poster != null) e.setPosterImage(poster);
 
                         Long ro = getLong(doc, "registrationOpen");
                         Long rc = getLong(doc, "registrationClose");
-                        e.setRegistrationPeriod(ro == null ? null : new Date(ro), rc == null ? null : new Date(rc));
+                        e.setRegistrationPeriod(ro == null ? null : new Date(ro),
+                                rc == null ? null : new Date(rc));
+
+
+
+                        String qrUrl = doc.getString("qrUrl");
+                        if (qrUrl != null && !qrUrl.isEmpty()) {
+                            e.setQrUrl(qrUrl);
+                        }
+                        // ------------------------
 
                         events.put(id, e);
                     }
