@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -16,6 +17,7 @@ public class EntrantViewMain extends AppCompatActivity {
     private MaterialButton browseEventsButton;
     private BottomNavigationView bottomNav;
     private LinearLayout eventListContainer;
+    private ImageButton backButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,11 +27,15 @@ public class EntrantViewMain extends AppCompatActivity {
         browseEventsButton = findViewById(R.id.browseEventsButton);
         bottomNav = findViewById(R.id.bottomNav);
         eventListContainer = findViewById(R.id.eventListContainer);
+        backButton = findViewById(R.id.backButton);
 
         // Button to QR Page
         browseEventsButton.setOnClickListener(v -> {
             Intent toQR = new Intent(EntrantViewMain.this, QRCodeScanner.class);
             startActivity(toQR);
+        });
+        backButton.setOnClickListener(v -> {
+            onBackPressed();
         });
 
         // Add Click for Each Event
