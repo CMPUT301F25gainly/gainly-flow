@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "202899287649",
-    "project_id": "gainlyflow-f4a27",
-    "storage_bucket": "gainlyflow-f4a27.firebasestorage.app"
+    "project_number": "261330697137",
+    "project_id": "gainlyflow-3a0c8",
+    "storage_bucket": "gainlyflow-3a0c8.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:202899287649:android:cf15b7875a1bab54fb4420",
+        "mobilesdk_app_id": "1:261330697137:android:b4b6cdb464aa7771115b90",
         "android_client_info": {
           "package_name": "com.example.gainly_flow"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBqp6hdsD9lisd_kkbsjkW8m4bxKIifH60"
+          "current_key": "AIzaSyCNbx3GSfti4d01W9qip5DQCs8iwg47QJc"
         }
       ],
       "services": {
