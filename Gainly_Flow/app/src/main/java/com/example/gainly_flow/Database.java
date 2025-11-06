@@ -15,12 +15,21 @@ import java.util.Map;
 
 import java.util.*;
 
+import javax.security.auth.callback.Callback;
+
 public class Database {
     private static final Database INSTANCE = new Database();
     public static Database get() { return INSTANCE; }
 
+    private final FirebaseFirestore fs = FirebaseFirestore.getInstance();
     private final Map<String, Event> events = new LinkedHashMap<>();
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
+
+    private ListenerRegistration eventsListener;
+    public interface Callback {
+        void onSuccess();
+        void onError(Exception e);
+    }
 
     private Database() {
         // --- Seed demo data ---
@@ -138,6 +147,20 @@ public class Database {
         catch (Exception ignore) { return null; }
     }
 
+    private static Integer tryParseInt(String s) {
+        try { return (s == null || s.trim().isEmpty()) ? null : Integer.parseInt(s.trim()); }
+        catch (Exception ignore) { return null; }
+    }
+
+    private static boolean parseBool(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        return t.equalsIgnoreCase("true") || t.equals("1") || t.equalsIgnoreCase("yes");
+    }
+
+    private static String emptyToNull(String s) {
+        return (s == null || s.trim().isEmpty()) ? null : s.trim();
+    }
     // Events
     public List<Event> getAllEvents() { return new ArrayList<>(events.values()); }
     public void addEvent(Event e) { events.put(e.getId(), e); }
@@ -152,4 +175,3 @@ public class Database {
     public int totalEvents() { return events.size(); }
     public int totalUsers() { return profiles.size(); }
 }
-
