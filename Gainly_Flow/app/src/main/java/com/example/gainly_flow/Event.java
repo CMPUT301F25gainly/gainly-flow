@@ -1,102 +1,68 @@
 package com.example.gainly_flow;
 
-import android.util.Log;
+import java.sql.Time;
+import java.util.Date;
 
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.firestore.DocumentSnapshot;
-
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * Represents an event organized in the system.
- * Stored under collection "events" in Firestore.
- */
 public class Event {
-    private static final String TAG = "Event";
-
-    private String eventId;
+    private String id;
     private String name;
     private String description;
+    private Date eventDate;
+
+    private Time eventTime;
+    private Date registrationOpen;
+    private Date registrationClose;
+    private int capacity;
+    private boolean geolocationRequired;
+    private String posterImageId;
     private String organizerId;
-    private int capacity; // 0 = unlimited
-    private long registrationOpen;
-    private long registrationClose;
+    private String qrUrl;
 
-    public Event() {}
+    public Event(String id) { this.id = id; }
 
-    public Event(String eventId, String name, String description, String organizerId,
-                 int capacity, long registrationOpen, long registrationClose) {
-        this.eventId = eventId;
+    // --- Setters ---
+    public void setName(String name) {
         this.name = name;
+    }
+
+    public void setDescription(String description) {
         this.description = description;
-        this.organizerId = organizerId;
-        this.capacity = capacity;
-        this.registrationOpen = registrationOpen;
-        this.registrationClose = registrationClose;
     }
 
-    public Event(String eventId, String name, String description, String organizerId) {
-        this.eventId = eventId;
-        this.name = name;
-        this.description = description;
-        this.organizerId = organizerId;
+    public void setEventTime(Time time){
+        this.eventTime = time;
+    }
+    public void setEventDate(Date date){
+        this.eventDate = date;
+    }
+    public void setRegistrationPeriod(Date open, Date close) {
+        this.registrationOpen = open;
+        this.registrationClose = close;
     }
 
-    // -------------------------------
-    // Firestore Operations
-    // -------------------------------
-
-    /**
-     * Load this event from Firestore asynchronously.
-     */
-    public void load(String eventId, OnSuccessListener<Event> listener) {
-        Database.get("events", eventId, document -> {
-            if (document.exists()) {
-                fromDocument(document);
-                Log.d(TAG, "Loaded event " + eventId);
-            } else {
-                Log.w(TAG, "Event not found: " + eventId);
-                this.eventId = eventId;   // <-- keep requested id to avoid nulls
-            }
-            listener.onSuccess(this);
-        });
-    }
-
-    /**
-     * Save (create or update) this event in Firestore.
-     */
-    public void save() {
-        Database.save("events", eventId, toMap());
-    }
-
-    /**
-     * Update capacity of the event.
-     * 0 = unlimited waiting list size
-     */
     public void setCapacity(int capacity) {
-        this.capacity = Math.max(0, capacity);
-        Map<String, Object> update = new HashMap<>();
-        update.put("capacity", this.capacity);
-        Database.update("events", eventId, update);
-        Log.d(TAG, "Set capacity for event " + eventId + " to " + capacity);
+        this.capacity = capacity;
     }
 
-    // -------------------------------
-    // Getters and Helpers
-    // -------------------------------
-
-    public int getCapacity() {
-        return capacity;
+    public void setPosterImage(String imageId) {
+        this.posterImageId = imageId;
     }
 
-    public String getEventId() {
-        return eventId;
+    public void setGeolocationRequired(boolean required) {
+        this.geolocationRequired = required;
     }
 
+    public void setOrganizerId(String organizerId) {
+        this.organizerId = organizerId;
+    }
+    public void setQrUrl(String qrUrl) { this.qrUrl = qrUrl; }
+
+    // --- Getters ---
     public String getId() {
-        return eventId;
+        return id;
     }
+
+    public String getQrUrl() { return qrUrl; }
 
     public String getName() {
         return name;
@@ -106,30 +72,61 @@ public class Event {
         return description;
     }
 
+    public Date getEventDate() {
+        return eventDate;
+    }
+
+    public Date getEventTime() {
+        return eventTime;
+    }
+
+    public Date getRegistrationOpen() {
+        return registrationOpen;
+    }
+
+    public Date getRegistrationClose() {
+        return registrationClose;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public boolean isGeolocationRequired() {
+        return geolocationRequired;
+    }
+
+    public String getPosterImageId() {
+        return posterImageId;
+    }
+
+    public String getOrganizerId() {
+        return organizerId;
+    }
+
+    // --- Logic helper ---
     public boolean isRegistrationOpen() {
-        long now = System.currentTimeMillis();
-        return now >= registrationOpen && now <= registrationClose;
+        if (registrationOpen == null || registrationClose == null) {
+            return false;
+        }
+        Date now = new Date();
+        return now.after(registrationOpen) && now.before(registrationClose);
     }
 
-    public Map<String, Object> toMap() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("name", name);
-        map.put("description", description);
-        map.put("organizerId", organizerId);
-        map.put("capacity", capacity);
-        map.put("registrationOpen", registrationOpen);
-        map.put("registrationClose", registrationClose);
-        return map;
-    }
-
-    private void fromDocument(DocumentSnapshot doc) {
-        this.eventId = doc.getId();
-        this.name = doc.getString("name");
-        this.description = doc.getString("description");
-        this.organizerId = doc.getString("organizerId");
-        Long cap = doc.getLong("capacity");
-        this.capacity = cap != null ? cap.intValue() : 0;
-        this.registrationOpen = doc.getLong("registrationOpen") != null ? doc.getLong("registrationOpen") : 0;
-        this.registrationClose = doc.getLong("registrationClose") != null ? doc.getLong("registrationClose") : 0;
+    @Override
+    public String toString() {
+        return "Event{" +
+                "id='" + id + '\'' +
+                ", name='" + name + '\'' +
+                ", time='" + eventTime + '\'' +
+                ", date='" + eventDate + '\'' +
+                ", description='" + description + '\'' +
+                ", registrationOpen=" + registrationOpen +
+                ", registrationClose=" + registrationClose +
+                ", capacity=" + capacity +
+                ", geolocationRequired=" + geolocationRequired +
+                ", posterImageId='" + posterImageId + '\'' +
+                ", organizerId='" + organizerId + '\'' +
+                '}';
     }
 }

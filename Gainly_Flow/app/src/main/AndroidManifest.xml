@@ -41,11 +41,29 @@
             android:name=".AdminMainActivity"
             android:exported="false" />
         <activity
+            android:name=".OrganizerLanding"/>
+        <activity
+            android:name=".CreateEvent"/>
+        <activity
             android:name=".AdminBrowseEventsActivity"
             android:exported="false" />
         <activity
             android:name=".AdminBrowseProfilesActivity"
             android:exported="false" />
+
+        <activity android:name=".QRCodeScanner"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+        <activity
+            android:name=".EventDetailActivity"
+            android:name=".AdminBrowseEventsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminBrowseProfilesActivity"
+            android:name=".EntrantViewMain"
+            android:exported="false" />
+
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

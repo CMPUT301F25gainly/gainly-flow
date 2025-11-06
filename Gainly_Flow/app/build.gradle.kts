@@ -1,8 +1,9 @@
+import org.gradle.kotlin.dsl.implementation
+
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services")   // <-- keep this here
+    id("com.google.gms.google-services")
 }
-
 
 android {
     namespace = "com.example.gainly_flow"
@@ -43,4 +44,11 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    // QR Code Scanning
+    implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation ("com.google.android.material:material:1.12.0")
+
+
+
 }
