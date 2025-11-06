@@ -1,5 +1,9 @@
 package com.example.gainly_flow;
 
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.view.View;
@@ -18,6 +22,9 @@ import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -25,6 +32,12 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class CreateEvent extends AppCompatActivity {
+    private ImageView posterPreview;
+    private ImageView qrPreview;
+    private Button selectPosterBtn;
+    private Button saveEventButton;
+    @Nullable
+    private Uri posterUri = null; // store selected image
     private EditText eventNameInput, eventDescriptionInput, eventDateInput, eventTimeInput, capacityInput;
 
     // Add these two date fields from your XML
@@ -66,6 +79,113 @@ public class CreateEvent extends AppCompatActivity {
         eventDateInput.setOnClickListener(v -> showEventDatePicker());
         registrationOpenInput.setOnClickListener(v -> showOpenPicker());
         registrationCloseInput.setOnClickListener(v -> showClosePicker());
+
+
+        View.OnClickListener pick = v -> openPosterLauncher.launch(new String[]{"image/*"});
+        selectPosterBtn.setOnClickListener(pick);
+        posterPreview.setOnClickListener(pick); // make preview tappable too
+        saveEventButton.setOnClickListener(v -> saveEvent());
+    }
+
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (posterUri != null) outState.putString("posterUri", posterUri.toString());
+    }
+
+    // Call this when you press “Save Event”
+    private void saveEvent() {
+        // 1) Read text
+        String name        = text(eventNameInput);
+        String desc        = text(eventDescriptionInput);
+        String dateStr     = text(eventDateInput);          // yyyy-MM-dd
+        String timeStr     = text(eventTimeInput);          // h:mm AM/PM
+        String regOpenStr  = text(registrationOpenInput);   // yyyy-MM-dd
+        String regCloseStr = text(registrationCloseInput);  // yyyy-MM-dd
+        String capStr      = text(capacityInput);
+        String geoStr      = String.valueOf(geolocationCheckbox != null && geolocationCheckbox.isChecked());
+        String poster      = (posterUri == null) ? "" : posterUri.toString();
+
+        // 2) Light validation
+        if (name.isEmpty()) { eventNameInput.setError("Required"); eventNameInput.requestFocus(); return; }
+        if (dateStr.isEmpty()) { eventDateInput.setError("Required"); eventDateInput.requestFocus(); return; }
+        if (timeStr.isEmpty()) { eventTimeInput.setError("Required"); eventTimeInput.requestFocus(); return; }
+        if (capStr.isEmpty()) { capacityInput.setError("Required"); capacityInput.requestFocus(); return; }
+
+        // 3) Convert to the String millis your Database.addEventDatabase expects
+        Long eventDateMillis      = parseDayUtc(dateStr);                // UTC midnight of that date
+        Long eventTimeOfDayMillis = parseTimeMsFromMidnight(timeStr);    // ms from midnight
+        Long regOpenMillis        = regOpenStr.isEmpty()  ? null : parseDayUtc(regOpenStr);
+        Long regCloseMillis       = regCloseStr.isEmpty() ? null : parseDayUtc(regCloseStr);
+
+        if (eventDateMillis == null) { eventDateInput.setError("Invalid date"); return; }
+        if (eventTimeOfDayMillis == null) { eventTimeInput.setError("Invalid time"); return; }
+
+        //random id using uuid
+        String id = UUID.randomUUID().toString();
+
+
+        String qrUrl = QRUrlCreator.buildDeepLink(id); // or buildHttpsLink(id)
+        Bitmap qrBmp = QRImage.bitmapFromUrl(qrUrl, 512);
+
+            // Fallback: save without QR (or show error)
+        Database.get().addEventDatabase(
+                id, name, desc,
+                String.valueOf(eventDateMillis),
+                String.valueOf(eventTimeOfDayMillis),
+                regOpenMillis == null ? "" : String.valueOf(regOpenMillis),
+                regCloseMillis == null ? "" : String.valueOf(regCloseMillis),
+                capStr,
+                String.valueOf(geolocationCheckbox.isChecked()),
+                poster,
+                qrUrl,
+                new Database.Callback() {
+                    @Override public void onSuccess() {
+                        showQrDialog(qrUrl, () -> {
+                            Toast.makeText(CreateEvent.this, "Event saved", Toast.LENGTH_SHORT).show();
+                            setResult(RESULT_OK);
+                            finish();
+                        });
+                    }
+                    @Override public void onError(Exception e) {
+                        Toast.makeText(CreateEvent.this, "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }
+        );
+            return;
+
+}
+
+
+    private String text(EditText et) { return et == null ? "" : et.getText().toString().trim(); }
+
+    @Nullable
+    private Integer tryParseInt(String s) {
+        try { return Integer.parseInt(s.trim()); } catch (Exception e) { return null; }
+    }
+
+    /** Parse "yyyy-MM-dd" (local) as a UTC day epoch millis (00:00 UTC of that day). */
+    @Nullable
+    private Long parseDayUtc(String ymd) {
+        try {
+            dateFmt.setLenient(false);
+            Date local = dateFmt.parse(ymd);
+            Calendar cLocal = Calendar.getInstance();    // local tz
+            cLocal.setTime(local);
+            // Normalize to that calendar day (local)
+            cLocal.set(Calendar.HOUR_OF_DAY, 0);
+            cLocal.set(Calendar.MINUTE, 0);
+            cLocal.set(Calendar.SECOND, 0);
+            cLocal.set(Calendar.MILLISECOND, 0);
+            // Create a UTC calendar at same Y-M-D
+            Calendar cUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+            cUtc.clear();
+            cUtc.set(cLocal.get(Calendar.YEAR), cLocal.get(Calendar.MONTH), cLocal.get(Calendar.DAY_OF_MONTH));
+            return cUtc.getTimeInMillis();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
 
@@ -183,25 +303,51 @@ public class CreateEvent extends AppCompatActivity {
         return displayFmt.format(local.getTime());
     }
 
-    /** Parse a local yyyy-MM-dd and return the UTC millis at that day's UTC midnight (for constraints). */
-    private Long localDateStringToUtcStartOfDay(String s) {
-        try {
-            displayFmt.setLenient(false);
-            Calendar local = Calendar.getInstance();
-            local.setTime(displayFmt.parse(s));
-            // Normalize to local start of day
-            local.set(Calendar.HOUR_OF_DAY, 0);
-            local.set(Calendar.MINUTE, 0);
-            local.set(Calendar.SECOND, 0);
-            local.set(Calendar.MILLISECOND, 0);
-
-            // Convert that local date to UTC midnight millis (MaterialDatePicker uses UTC days)
-            Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-            utc.clear();
-            utc.set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH));
-            return utc.getTimeInMillis();
-        } catch (ParseException e) {
-            return null;
+    private void showQrDialog(String qrUrl, @Nullable Runnable onClose) {
+        // Build QR bitmap (512px looks crisp)
+        Bitmap bmp = QRImage.bitmapFromUrl(qrUrl, 512);
+        if (bmp == null) {
+            Toast.makeText(this, "Couldn't generate QR", Toast.LENGTH_SHORT).show();
+            if (onClose != null) onClose.run();
+            return;
         }
+
+        // Inflate a small layout with an ImageView
+        View view = getLayoutInflater().inflate(R.layout.dialog_qr, null);
+        ImageView qr = view.findViewById(R.id.qrImage);
+        qr.setImageBitmap(bmp);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Event QR Code")
+                .setView(view)
+                .setPositiveButton("Done", (d, w) -> {
+                    d.dismiss();
+                    if (onClose != null) onClose.run();
+                })
+                .setNeutralButton("Share", (d, w) -> {
+                    // Share PNG bytes
+                    byte[] png = QRImage.pngFromUrl(qrUrl, 1024);
+                    if (png != null) {
+                        // quick in-memory share via ACTION_SEND
+                        try {
+                            // write to cache file so we can share
+                            File out = new File(getCacheDir(), "event_qr.png");
+                            try (FileOutputStream fos = new FileOutputStream(out)) { fos.write(png); }
+                            Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                                    this, getPackageName() + ".fileprovider", out);
+
+                            Intent share = new Intent(Intent.ACTION_SEND);
+                            share.setType("image/png");
+                            share.putExtra(Intent.EXTRA_STREAM, uri);
+                            share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            startActivity(Intent.createChooser(share, "Share QR"));
+                        } catch (Exception e) {
+                            Toast.makeText(this, "Share failed", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setCancelable(true)
+                .show();
     }
+
 }

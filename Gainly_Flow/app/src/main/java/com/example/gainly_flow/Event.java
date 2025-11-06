@@ -16,6 +16,7 @@ public class Event {
     private boolean geolocationRequired;
     private String posterImageId;
     private String organizerId;
+    private String qrUrl;
 
     public Event(String id) { this.id = id; }
 
@@ -54,11 +55,14 @@ public class Event {
     public void setOrganizerId(String organizerId) {
         this.organizerId = organizerId;
     }
+    public void setQrUrl(String qrUrl) { this.qrUrl = qrUrl; }
 
     // --- Getters ---
     public String getId() {
         return id;
     }
+
+    public String getQrUrl() { return qrUrl; }
 
     public String getName() {
         return name;
