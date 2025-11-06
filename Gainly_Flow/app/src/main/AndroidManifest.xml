@@ -15,6 +15,10 @@
             android:name=".AdminMainActivity"
             android:exported="false" />
         <activity
+            android:name=".OrganizerLanding"/>
+        <activity
+            android:name=".CreateEvent"/>
+        <activity
             android:name=".AdminBrowseEventsActivity"
             android:exported="false" />
         <activity
