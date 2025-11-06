@@ -14,11 +14,11 @@ public class MainActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-//        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-//            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-//            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-//            return insets;
-//        });
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
 
 //         Button organizerViewButton = findViewById(R.id.organizerButton);
 //         Button adminViewButton = findViewById(R.id.adminButton);
@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
 //                startActivity(new Intent(this, EntrantViewMain.class)));
 //
         organizer.setOnClickListener(v ->
-                startActivity(new Intent(this, CreateEvent.class)));
+                startActivity(new Intent(this, OrganizerLanding.class)));
 
         adminLogin.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminMainActivity.class)));
