@@ -1,11 +1,15 @@
 package com.example.gainly_flow;
 
+import java.sql.Time;
 import java.util.Date;
 
 public class Event {
     private String id;
     private String name;
     private String description;
+    private Date eventDate;
+
+    private Time eventTime;
     private Date registrationOpen;
     private Date registrationClose;
     private int capacity;
@@ -24,6 +28,12 @@ public class Event {
         this.description = description;
     }
 
+    public void setEventTime(Time time){
+        this.eventTime = time;
+    }
+    public void setEventDate(Date date){
+        this.eventDate = date;
+    }
     public void setRegistrationPeriod(Date open, Date close) {
         this.registrationOpen = open;
         this.registrationClose = close;
@@ -56,6 +66,14 @@ public class Event {
 
     public String getDescription() {
         return description;
+    }
+
+    public Date getEventDate() {
+        return eventDate;
+    }
+
+    public Date getEventTime() {
+        return eventTime;
     }
 
     public Date getRegistrationOpen() {
@@ -96,6 +114,8 @@ public class Event {
         return "Event{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
+                ", time='" + eventTime + '\'' +
+                ", date='" + eventDate + '\'' +
                 ", description='" + description + '\'' +
                 ", registrationOpen=" + registrationOpen +
                 ", registrationClose=" + registrationClose +
