@@ -35,7 +35,7 @@
         android:layout_height="wrap_content"
         android:text="Enrolled"
         android:textSize="12sp"
-        tools:layout_editor_absoluteX="118dp"
+        tools:layout_editor_absoluteX="113dp"
         tools:layout_editor_absoluteY="109dp" />
 
     <Button

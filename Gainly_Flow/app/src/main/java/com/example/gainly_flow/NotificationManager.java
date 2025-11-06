@@ -6,6 +6,7 @@ public class NotificationManager {
     private final NotificationLog log = new NotificationLog();
 
     public void notifySelected(List<String> entrantIds, String eventId) {
+        //there should be a value in entrant displaying where they're joining from, but
         for(String entrandId : entrantIds){
 
         }
