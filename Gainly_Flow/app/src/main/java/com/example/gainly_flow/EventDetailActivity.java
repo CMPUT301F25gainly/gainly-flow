@@ -13,38 +13,38 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.google.firebase.Firebase;
-import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
-import java.util.HashMap;
-import java.util.Map;
 
 public class EventDetailActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
 
-    // Firestore-backed wrapper you already have
-    private FirebaseFirestore db = FirebaseFirestore.getInstance();
+    // Firestore
+    private FirebaseFirestore fs;
+    private ListenerRegistration reg;
 
-    private static final String COL_EVENTS     = "events";
-    private static final String COL_WAITLISTS  = "waitlists";
+    // Collection
+    private static final String COL_EVENTS = "events";
 
-    // Fields expected in events/{eventId}
-    private static final String F_NAME        = "name";
-    private static final String F_LOCATION    = "location";
-    private static final String F_STATUS      = "status";
-    private static final String F_WAITING     = "waitingCount";
-    private static final String F_AVAILABLE   = "availableCount";
-    private static final String F_DESCRIPTION = "description";
-    private static final String F_REG_OPEN    = "registrationOpen";
-    private static final String F_REG_CLOSE   = "registrationClose";
-
-    private String eventId;
+    // Field keys (match your teammate’s Database.addEventDatabase)
+    private static final String F_ID                 = "id";
+    private static final String F_NAME               = "name";
+    private static final String F_DESCRIPTION        = "description";
+    private static final String F_EVENT_DATE         = "eventDate";          // UTC midnight (ms)
+    private static final String F_EVENT_TIME_MS      = "eventTimeOfDayMs";   // ms from midnight
+    private static final String F_REG_OPEN           = "registrationOpen";   // ms
+    private static final String F_REG_CLOSE          = "registrationClose";  // ms
+    private static final String F_CAPACITY           = "capacity";
+    private static final String F_POSTER_URI         = "posterUri";          // optional
+    // Note: no location / waiting / available in this schema
 
     // UI
     private TextView titleEvent, statusEvent, locationEvent, tvEntrants, tvAvailable;
@@ -53,17 +53,25 @@ public class EventDetailActivity extends AppCompatActivity {
     private ImageButton btnBack;
     private ImageView qrIcon;
 
+    private String eventId;
+
+    // Formats
+    private static final SimpleDateFormat DATE_DF = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+    private static final SimpleDateFormat TIME_DF = new SimpleDateFormat("h:mm a", Locale.getDefault());
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_details);
 
-        // Find views already in your XML
+        fs = FirebaseFirestore.getInstance();
+
+        // Bind views (ids match your XML)
         titleEvent      = findViewById(R.id.title_event);
         statusEvent     = findViewById(R.id.event_status);
-        locationEvent   = findViewById(R.id.location_event);
-        tvEntrants      = findViewById(R.id.tvEntrants);
-        tvAvailable     = findViewById(R.id.tvAvailable);
+        locationEvent   = findViewById(R.id.location_event);  // we’ll leave empty (no location in schema)
+        tvEntrants      = findViewById(R.id.tvEntrants);      // placeholder only
+        tvAvailable     = findViewById(R.id.tvAvailable);     // will show capacity
         tvEventDuration = findViewById(R.id.tvEventDuration);
         tvRegOpens      = findViewById(R.id.tvRegOpens);
         tvRegCloses     = findViewById(R.id.tvRegCloses);
@@ -73,6 +81,7 @@ public class EventDetailActivity extends AppCompatActivity {
         btnBack         = findViewById(R.id.btnBack);
         qrIcon          = findViewById(R.id.qr_icon);
 
+        // Get eventId
         Intent src = getIntent();
         eventId = src.getStringExtra(EXTRA_EVENT_ID);
         if (eventId == null || eventId.isEmpty()) {
@@ -81,100 +90,83 @@ public class EventDetailActivity extends AppCompatActivity {
             return;
         }
 
-        // Initial render (may be null until first snapshot arrives)
-        renderFrom(db.get(COL_EVENTS, eventId));
-
-        // Live updates
-        db.subscribe(COL_EVENTS, eventId, () -> renderFrom(db.get(COL_EVENTS, eventId)));
-
-        // Back + QR
+        // Back/QR
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());
-        qrIcon.setOnClickListener(v -> startActivity(new Intent(this, QRCodeScanner.class)));
+        if (qrIcon != null)  qrIcon.setOnClickListener(v -> Toast.makeText(this, "QR scanner not wired yet", Toast.LENGTH_SHORT).show());
 
-        // Join / Leave (simple counter updates for now)
-        btnJoin.setOnClickListener(v -> {
-            Map<String, Object> ev = ensureDefaults(db.get(COL_EVENTS, eventId));
-            int waiting   = i(ev.get(F_WAITING));
-            int available = i(ev.get(F_AVAILABLE));
-            ev.put(F_WAITING, waiting + 1);
-            ev.put(F_AVAILABLE, Math.max(0, available - 1));
-            db.save(COL_EVENTS, eventId, ev);
+        // Safe placeholders (so nothing crashes before data arrives)
+        applyPlaceholders();
 
-            String userId = "demo-user"; // TODO: use your real auth uid
-            Map<String, Object> wl = new HashMap<>();
-            wl.put("eventId", eventId);
-            wl.put("userId", userId);
-            db.save(COL_WAITLISTS, eventId + ":" + userId, wl);
-
-            Toast.makeText(this, "Joined waiting list!", Toast.LENGTH_SHORT).show();
+        // Live doc updates
+        DocumentReference ref = fs.collection(COL_EVENTS).document(eventId);
+        reg = ref.addSnapshotListener((snap, err) -> {
+            if (err != null || snap == null || !snap.exists()) return;
+            render(snap);
         });
 
-        btnLeave.setOnClickListener(v -> {
-            Map<String, Object> ev = ensureDefaults(db.get(COL_EVENTS, eventId));
-            int waiting   = i(ev.get(F_WAITING));
-            int available = i(ev.get(F_AVAILABLE));
-            ev.put(F_WAITING, Math.max(0, waiting - 1));
-            ev.put(F_AVAILABLE, available + 1);
-            db.save(COL_EVENTS, eventId, ev);
-
-            String userId = "demo-user";
-            db.delete(COL_WAITLISTS, eventId + ":" + userId);
-            Toast.makeText(this, "Left waiting list!", Toast.LENGTH_SHORT).show();
-        });
+        // Buttons (no-ops for now, so you can test the screen safely)
+        btnJoin.setOnClickListener(v -> Toast.makeText(this, "Join: not wired yet", Toast.LENGTH_SHORT).show());
+        btnLeave.setOnClickListener(v -> Toast.makeText(this, "Leave: not wired yet", Toast.LENGTH_SHORT).show());
     }
 
-    private Map<String, Object> ensureDefaults(Map<String, Object> ev) {
-        if (ev == null) ev = new HashMap<>();
-        if (!ev.containsKey(F_NAME))        ev.put(F_NAME, "Untitled Event");
-        if (!ev.containsKey(F_LOCATION))    ev.put(F_LOCATION, "");
-        if (!ev.containsKey(F_STATUS))      ev.put(F_STATUS, "Open");
-        if (!ev.containsKey(F_WAITING))     ev.put(F_WAITING, 0);
-        if (!ev.containsKey(F_AVAILABLE))   ev.put(F_AVAILABLE, 0);
-        if (!ev.containsKey(F_DESCRIPTION)) ev.put(F_DESCRIPTION, "");
-        return ev;
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (reg != null) { reg.remove(); reg = null; }
     }
 
-    private void renderFrom(@Nullable Map<String, Object> ev) {
-        if (ev == null) {
-            titleEvent.setText("Loading...");
-            locationEvent.setText("");
-            statusEvent.setText("");
-            tvEntrants.setText("0 entrants");
-            tvAvailable.setText("0");
-            if (tvDescription != null) tvDescription.setText("—");
-            if (tvRegOpens != null) tvRegOpens.setText("Registration Opens: —");
-            if (tvRegCloses != null) tvRegCloses.setText("Registration Closes: —");
-            if (tvEventDuration != null) tvEventDuration.setText("Event Duration: —");
-            return;
-        }
+    /* -------------------- Render -------------------- */
 
-        String name     = s(ev.get(F_NAME));
-        String location = s(ev.get(F_LOCATION));
-        String status   = s(ev.get(F_STATUS));
-        int waiting     = i(ev.get(F_WAITING));
-        int available   = i(ev.get(F_AVAILABLE));
-        String desc     = s(ev.get(F_DESCRIPTION));
-        Date open       = toDate(ev.get(F_REG_OPEN));
-        Date close      = toDate(ev.get(F_REG_CLOSE));
+    private void render(DocumentSnapshot d) {
+        String name   = getStr(d.get(F_NAME));
+        String desc   = getStr(d.get(F_DESCRIPTION));
+        Long eventDay = getLong(d.get(F_EVENT_DATE));      // UTC midnight millis
+        Long eventTMs = getLong(d.get(F_EVENT_TIME_MS));   // ms from midnight
+        Long regOpen  = getLong(d.get(F_REG_OPEN));
+        Long regClose = getLong(d.get(F_REG_CLOSE));
+        Integer cap   = getInt(d.get(F_CAPACITY));
 
         titleEvent.setText(name.isEmpty() ? "Untitled Event" : name);
-        locationEvent.setText(location);
-        statusEvent.setText(status.isEmpty() ? "" : status.toUpperCase());
-        applyStatusTint(status);
-        tvEntrants.setText(waiting + " entrants");
-        tvAvailable.setText(String.valueOf(available));
+        locationEvent.setText(""); // no location field in schema (leave blank or remove this view)
 
-        if (tvDescription != null) tvDescription.setText(desc.isEmpty() ? "—" : desc);
-        if (tvRegOpens != null) tvRegOpens.setText("Registration Opens: " + (open == null ? "—" : formatDate(open)));
-        if (tvRegCloses != null) tvRegCloses.setText("Registration Closes: " + (close == null ? "—" : formatDate(close)));
-        if (tvEventDuration != null) tvEventDuration.setText("Event Duration: " + formatRange(open, close));
+        // Status: Open if now within [regOpen, regClose]
+        boolean openNow = isNowWithin(regOpen, regClose);
+        statusEvent.setText(openNow ? "OPEN" : "CLOSED");
+        applyStatusTint(openNow ? "Open" : "Closed");
+
+        // Counts area (your XML expects these)
+        tvEntrants.setText("— entrants"); // not tracked in schema
+        tvAvailable.setText(cap == null ? "—" : String.valueOf(Math.max(0, cap)));
+
+        // Event date/time line
+        String eventWhen = formatEventDateTime(eventDay, eventTMs);
+        tvEventDuration.setText("Event Date: " + (eventWhen.isEmpty() ? "—" : eventWhen));
+
+        // Registration window
+        tvRegOpens.setText("Registration Opens: " + (regOpen == null ? "—" : DATE_DF.format(new Date(regOpen))));
+        tvRegCloses.setText("Registration Closes: " + (regClose == null ? "—" : DATE_DF.format(new Date(regClose))));
+
+        // Description
+        tvDescription.setText(desc.isEmpty() ? "—" : desc);
+    }
+
+    private void applyPlaceholders() {
+        titleEvent.setText("Loading...");
+        statusEvent.setText("");
+        locationEvent.setText("");
+        tvEntrants.setText("— entrants");
+        tvAvailable.setText("—");
+        tvEventDuration.setText("Event Date: —");
+        tvRegOpens.setText("Registration Opens: —");
+        tvRegCloses.setText("Registration Closes: —");
+        tvDescription.setText("—");
     }
 
     private void applyStatusTint(String status) {
         @ColorInt int color;
         if ("Open".equalsIgnoreCase(status)) {
             color = ContextCompat.getColor(this, android.R.color.holo_green_dark);
-        } else if ("Full".equalsIgnoreCase(status) || "Closed".equalsIgnoreCase(status)) {
+        } else if ("Closed".equalsIgnoreCase(status)) {
             color = ContextCompat.getColor(this, android.R.color.darker_gray);
         } else {
             color = ContextCompat.getColor(this, android.R.color.black);
@@ -182,41 +174,48 @@ public class EventDetailActivity extends AppCompatActivity {
         statusEvent.setTextColor(color);
     }
 
-    // ---- date helpers ----
-    private static final SimpleDateFormat DF = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
-    private static String formatDate(Date d) { return d == null ? "—" : DF.format(d); }
+    /* -------------------- Helpers -------------------- */
 
-    private static String formatRange(Date start, Date end) {
-        if (start == null && end == null) return "—";
-        if (start != null && end == null) return DF.format(start) + " – ?";
-        if (start == null) return "? – " + DF.format(end);
-        Calendar cs = Calendar.getInstance(); cs.setTime(start);
-        Calendar ce = Calendar.getInstance(); ce.setTime(end);
-        if (cs.get(Calendar.YEAR) == ce.get(Calendar.YEAR)) {
-            SimpleDateFormat dfStart = new SimpleDateFormat("MMM d", Locale.getDefault());
-            return dfStart.format(start) + " – " + DF.format(end);
-        }
-        return DF.format(start) + " – " + DF.format(end);
+    private static boolean isNowWithin(Long openMs, Long closeMs) {
+        long now = System.currentTimeMillis();
+        if (openMs == null && closeMs == null) return true;
+        if (openMs != null && now < openMs) return false;
+        if (closeMs != null && now > closeMs) return false;
+        return true;
     }
 
-    private static Date toDate(Object o) {
-        if (o == null) return null;
-        if (o instanceof Timestamp) return ((Timestamp) o).toDate();
-        if (o instanceof Date) return (Date) o;
-        if (o instanceof String) {
-            try {
-                long ms = java.time.Instant.parse((String) o).toEpochMilli();
-                return new Date(ms);
-            } catch (Exception ignored) {}
+    private String formatEventDateTime(@Nullable Long dayUtc, @Nullable Long timeMsFromMidnight) {
+        if (dayUtc == null && timeMsFromMidnight == null) return "";
+        Date day = (dayUtc == null) ? null : new Date(dayUtc);
+        String dayPart = (day == null) ? "" : DATE_DF.format(day);
+
+        String timePart = "";
+        if (timeMsFromMidnight != null) {
+            // Build a local Date for the time-of-day (on epoch day), then just format the time
+            Calendar c = Calendar.getInstance();
+            c.clear();
+            c.set(Calendar.YEAR, 1970);
+            c.set(Calendar.MONTH, Calendar.JANUARY);
+            c.set(Calendar.DAY_OF_MONTH, 1);
+            c.set(Calendar.MILLISECOND, 0);
+            c.setTimeInMillis(c.getTimeInMillis() + timeMsFromMidnight);
+            timePart = TIME_DF.format(c.getTime());
         }
-        return null;
+
+        if (!dayPart.isEmpty() && !timePart.isEmpty()) return dayPart + " • " + timePart;
+        if (!dayPart.isEmpty()) return dayPart;
+        return timePart;
     }
 
-    // ---- tiny utils ----
-    private static String s(Object o) { return o == null ? "" : String.valueOf(o); }
-    private static int i(Object o) {
+    private static String getStr(Object o) { return o == null ? "" : String.valueOf(o); }
+    private static Integer getInt(Object o) {
         if (o instanceof Number) return ((Number) o).intValue();
         if (o instanceof String) try { return Integer.parseInt((String) o); } catch (Exception ignored) {}
-        return 0;
+        return null;
+    }
+    private static Long getLong(Object o) {
+        if (o instanceof Number) return ((Number) o).longValue();
+        if (o instanceof String) try { return Long.parseLong((String) o); } catch (Exception ignored) {}
+        return null;
     }
 }

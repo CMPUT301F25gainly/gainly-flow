@@ -17,165 +17,156 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class EntrantViewMain extends AppCompatActivity {
 
-    // Header
-    private View returnButton;
-
-    // Top CTA
+    // UI (these ids exist in activity_entrant_home.xml)
     private MaterialButton browseEventsButton;
-
-    // Filters (present in XML, not fully used yet)
     private EditText searchInput;
-    private View categoryButton;
-    private View dateButton;
-
-    // List container for event cards
+    private View categoryButton, dateButton;
     private LinearLayout eventListContainer;
-
-    // Bottom nav
     private BottomNavigationView bottomNav;
 
-    // --- Firebase wrapper you already integrated ---
-    private final Database db = new Database();
-    private static final String COL_EVENTS = "events";
+    // Firestore
+    private FirebaseFirestore fs;
+    private ListenerRegistration eventsReg;
 
-    // Field names used by EventDetailActivity too
-    private static final String F_NAME      = "name";
-    private static final String F_LOCATION  = "location";        // optional to show in row
-    private static final String F_STATUS    = "status";          // "Open"/"Full"/"Closed"
-    private static final String F_WAITING   = "waitingCount";
-    private static final String F_AVAILABLE = "availableCount";
-
-    // Keep a handle from eventId -> inflated row, so we can update on snapshots
-    private final Map<String, View> rowById = new HashMap<>();
-
-    // For now: a few known IDs (swap to your real list later)
-    private static final String[] EVENT_IDS = new String[] { "evt-001", "evt-002", "evt-003" };
+    private final SimpleDateFormat DF = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Use your existing layout that defines eventListContainer, etc.
         setContentView(R.layout.activity_entrant_home);
 
-        // ---- Find views ----
-        returnButton        = findViewById(R.id.returnButton);
-        browseEventsButton  = findViewById(R.id.browseEventsButton);
-        searchInput         = findViewById(R.id.searchInput);
-        categoryButton      = findViewById(R.id.categoryButton);
-        dateButton          = findViewById(R.id.dateButton);
-        eventListContainer  = findViewById(R.id.eventListContainer);
-        bottomNav           = findViewById(R.id.bottomNav);
+        // bind
+        browseEventsButton = findViewById(R.id.browseEventsButton);
+        searchInput        = findViewById(R.id.searchInput);
+        categoryButton     = findViewById(R.id.categoryButton);
+        dateButton         = findViewById(R.id.dateButton);
+        eventListContainer = findViewById(R.id.eventListContainer);
+        bottomNav          = findViewById(R.id.bottomNav);
 
-        if (returnButton != null) returnButton.setOnClickListener(v -> finish());
+        fs = FirebaseFirestore.getInstance();
 
         if (browseEventsButton != null) {
             browseEventsButton.setOnClickListener(v -> {
-                // Demo: open first event detail if available
-                Intent intent = new Intent(this, EventDetailActivity.class);
-                intent.putExtra(EventDetailActivity.EXTRA_EVENT_ID, EVENT_IDS[0]);
-                startActivity(intent);
+                // optional: scroll to top or just toast
+                Toast.makeText(this, "Browse all events", Toast.LENGTH_SHORT).show();
             });
         }
-
-        // 🔥 Live list from Firestore via your Database wrapper
-        populateFromFirestore();
-
         if (bottomNav != null) bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
     }
 
-    /** Subscribe to each known eventId and keep the UI row live. */
-    private void populateFromFirestore() {
-        eventListContainer.removeAllViews();
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // Live list direct from Firestore (no Database.java changes)
+        eventsReg = fs.collection("events")
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .addSnapshotListener((snap, err) -> {
+                    if (err != null || snap == null) return;
+                    List<EventRow> rows = new ArrayList<>();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        String id   = getStr(d.get("id"));        // your schema stores its own id
+                        if (id.isEmpty()) id = d.getId();          // fallback to doc id
+                        String name = getStr(d.get("name"));
+                        String desc = getStr(d.get("description"));
+
+                        Long regOpen  = getLong(d.get("registrationOpen"));
+                        Long regClose = getLong(d.get("registrationClose"));
+                        Integer cap   = getInt(d.get("capacity"));
+
+                        rows.add(new EventRow(id, name, desc, regOpen, regClose, cap));
+                    }
+                    renderList(rows);
+                });
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (eventsReg != null) { eventsReg.remove(); eventsReg = null; }
+    }
+
+    /* ---------- UI render ---------- */
+
+    private void renderList(List<EventRow> rows) {
+        if (eventListContainer == null) return;
         LayoutInflater inflater = LayoutInflater.from(this);
+        eventListContainer.removeAllViews();
 
-        for (String eventId : EVENT_IDS) {
-            // 1) Inflate a row now (so the list shows quickly)
+        for (EventRow r : rows) {
             View card = inflater.inflate(R.layout.item_event, eventListContainer, false);
-            bindPlaceholders(card); // optional: show placeholders before data arrives
-            eventListContainer.addView(card);
-            rowById.put(eventId, card);
 
-            // 2) Initial render from cache (may be null on first run)
-            renderRow(eventId, db.get(COL_EVENTS, eventId));
+            TextView title   = card.findViewById(R.id.eventTitle);
+            TextView date    = card.findViewById(R.id.eventDate);
+            TextView spots   = card.findViewById(R.id.eventSpots);
+            TextView waiting = card.findViewById(R.id.eventWaiting);
+            TextView status  = card.findViewById(R.id.eventStatus);
 
-            // 3) Subscribe for live updates
-            db.subscribe(COL_EVENTS, eventId, () -> {
-                Map<String, Object> ev = db.get(COL_EVENTS, eventId);
-                renderRow(eventId, ev);
-            });
+            title.setText(r.name.isEmpty() ? "Untitled Event" : r.name);
+            date.setText(formatRegRange(r.regOpenMs, r.regCloseMs));
 
-            // 4) Click → open details with eventId only
+            int capacity = Math.max(0, r.capacity == null ? 0 : r.capacity);
+            spots.setText(capacity + " spots");
+
+            waiting.setText(""); // not tracked yet in your schema; leave blank or "—"
+
+            // Basic open/closed based on reg window
+            boolean isOpen = isNowWithin(r.regOpenMs, r.regCloseMs);
+            status.setText(isOpen ? "Open" : "Closed");
+            status.setTextColor(ContextCompat.getColor(this,
+                    isOpen ? android.R.color.holo_green_dark : android.R.color.darker_gray));
+
             ((CardView) card).setOnClickListener(v -> {
                 Intent intent = new Intent(this, EventDetailActivity.class);
-                intent.putExtra(EventDetailActivity.EXTRA_EVENT_ID, eventId);
+                intent.putExtra(EventDetailActivity.EXTRA_EVENT_ID, r.id);
                 startActivity(intent);
             });
+
+            eventListContainer.addView(card);
         }
     }
 
-    private void bindPlaceholders(View card) {
-        TextView title   = card.findViewById(R.id.eventTitle);
-        TextView date    = card.findViewById(R.id.eventDate);
-        TextView spots   = card.findViewById(R.id.eventSpots);
-        TextView waiting = card.findViewById(R.id.eventWaiting);
-        TextView status  = card.findViewById(R.id.eventStatus);
+    private String formatRegRange(Long openMs, Long closeMs) {
+        if (openMs == null && closeMs == null) return "";
+        if (openMs != null && closeMs == null) return "Opens " + DF.format(new java.util.Date(openMs));
+        if (openMs == null) return "Closes " + DF.format(new java.util.Date(closeMs));
 
-        title.setText("Loading…");
-        date.setText("");
-        spots.setText("");
-        waiting.setText("");
-        status.setText("");
-    }
-
-    /** Render one row from the Firestore map. */
-    private void renderRow(String eventId, Map<String, Object> ev) {
-        View card = rowById.get(eventId);
-        if (card == null) return;
-
-        TextView title   = card.findViewById(R.id.eventTitle);
-        TextView date    = card.findViewById(R.id.eventDate);
-        TextView spots   = card.findViewById(R.id.eventSpots);
-        TextView waiting = card.findViewById(R.id.eventWaiting);
-        TextView status  = card.findViewById(R.id.eventStatus);
-
-        if (ev == null) {
-            title.setText("Unavailable");
-            date.setText("");
-            spots.setText("");
-            waiting.setText("");
-            status.setText("");
-            status.setTextColor(ContextCompat.getColor(this, R.color.gray_700));
-            return;
+        java.util.Calendar cs = java.util.Calendar.getInstance(); cs.setTimeInMillis(openMs);
+        java.util.Calendar ce = java.util.Calendar.getInstance(); ce.setTimeInMillis(closeMs);
+        if (cs.get(java.util.Calendar.YEAR) == ce.get(java.util.Calendar.YEAR)) {
+            SimpleDateFormat shortDF = new SimpleDateFormat("MMM d", Locale.getDefault());
+            return shortDF.format(new java.util.Date(openMs)) + " – " + DF.format(new java.util.Date(closeMs));
         }
-
-        String name  = s(ev.get(F_NAME));
-        String stat  = s(ev.get(F_STATUS));
-        int capLeft  = i(ev.get(F_AVAILABLE));
-        int waitCnt  = i(ev.get(F_WAITING));
-
-        title.setText(name.isEmpty() ? "Untitled Event" : name);
-        // If you store dates in docs later, map them to text here. For now, omit or show location.
-        date.setText(s(ev.get(F_LOCATION)));
-        spots.setText(capLeft + " spots");
-        waiting.setText(waitCnt + " waiting");
-        status.setText(stat);
-
-        status.setTextColor(ContextCompat.getColor(this,
-                "Open".equalsIgnoreCase(stat) ? R.color.green_500 : R.color.gray_700));
+        return DF.format(new java.util.Date(openMs)) + " – " + DF.format(new java.util.Date(closeMs));
     }
 
+    private boolean isNowWithin(Long openMs, Long closeMs) {
+        long now = System.currentTimeMillis();
+        if (openMs == null && closeMs == null) return true; // default open if no windows set
+        if (openMs != null && now < openMs) return false;
+        if (closeMs != null && now > closeMs) return false;
+        return true;
+    }
+
+    /* ---------- Nav ---------- */
     private boolean onNavItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.menu_events) {
             Toast.makeText(this, "Events", Toast.LENGTH_SHORT).show();
             return true;
         } else if (id == R.id.menu_notifications) {
+            // startActivity(new Intent(this, NotificationsActivity.class));
             Toast.makeText(this, "Notifications", Toast.LENGTH_SHORT).show();
             return true;
         } else if (id == R.id.menu_profile) {
@@ -185,10 +176,31 @@ public class EntrantViewMain extends AppCompatActivity {
         return false;
     }
 
-    private static String s(Object o) { return o == null ? "" : String.valueOf(o); }
-    private static int i(Object o) {
+    /* ---------- tiny utils ---------- */
+    private static String getStr(Object o) { return o == null ? "" : String.valueOf(o); }
+    private static Integer getInt(Object o) {
         if (o instanceof Number) return ((Number) o).intValue();
         if (o instanceof String) try { return Integer.parseInt((String) o); } catch (Exception ignored) {}
-        return 0;
+        return null;
+    }
+    private static Long getLong(Object o) {
+        if (o instanceof Number) return ((Number) o).longValue();
+        if (o instanceof String) try { return Long.parseLong((String) o); } catch (Exception ignored) {}
+        return null;
+    }
+
+    /* ---------- light row model ---------- */
+    private static class EventRow {
+        final String id, name, desc;
+        final Long regOpenMs, regCloseMs;
+        final Integer capacity;
+        EventRow(String id, String name, String desc, Long regOpenMs, Long regCloseMs, Integer capacity) {
+            this.id = id;
+            this.name = name == null ? "" : name;
+            this.desc = desc == null ? "" : desc;
+            this.regOpenMs = regOpenMs;
+            this.regCloseMs = regCloseMs;
+            this.capacity = capacity;
+        }
     }
 }
