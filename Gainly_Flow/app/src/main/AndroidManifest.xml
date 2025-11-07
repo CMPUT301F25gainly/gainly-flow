@@ -20,6 +20,8 @@
         <activity
             android:name=".OrganizerLanding"/>
         <activity
+            android:name=".OrganizerEntrantListActivity"/>
+        <activity
             android:name=".CreateEvent"/>
         <activity
             android:name=".AdminBrowseEventsActivity"
@@ -37,8 +39,9 @@
         <activity
             android:name=".EntrantViewMain"
             android:exported="false" />
-
-
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
