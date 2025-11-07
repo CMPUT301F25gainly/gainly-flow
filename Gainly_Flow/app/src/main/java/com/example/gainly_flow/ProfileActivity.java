@@ -13,17 +13,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageButton;
-import android.widget.ProgressBar;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -32,24 +22,79 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * {@code ProfileActivity} manages the display and modification of user profile data within the app.
+ * <p>
+ * This activity interacts with Firebase Firestore to:
+ * <ul>
+ *     <li>Retrieve and display an existing profile.</li>
+ *     <li>Create a new profile if none exists.</li>
+ *     <li>Allow users to update profile information such as name, email, and phone number.</li>
+ *     <li>Toggle notification preferences.</li>
+ *     <li>Delete the profile document if desired.</li>
+ * </ul>
+ *
+ * <p>The class also generates a unique device ID to associate with each profile and ensures
+ * synchronization between UI inputs and Firestore records.</p>
+ *
+ * <p><b>Firestore Collection:</b> {@code profiles}</p>
+ */
 public class ProfileActivity extends AppCompatActivity {
 
     // --- UI Elements ---
-    private TextView textUserName, textDeviceId;
-    private TextInputEditText editFullName, editEmail, editPhoneNumber;
-    private SwitchMaterial switchNotifications, switchLocation;
-    private MaterialButton buttonUpdateProfile, buttonDeleteAccount;
+    /** Displays the user's full name. */
+    private TextView textUserName;
+
+    /** Displays the user's unique device ID. */
+    private TextView textDeviceId;
+
+    /** Editable field for user's full name. */
+    private TextInputEditText editFullName;
+
+    /** Editable field for user's email address. */
+    private TextInputEditText editEmail;
+
+    /** Editable field for user's phone number. */
+    private TextInputEditText editPhoneNumber;
+
+    /** Toggle switch for enabling or disabling app notifications. */
+    private SwitchMaterial switchNotifications;
+
+    /** Toggle switch for enabling or disabling location services (currently unused). */
+    private SwitchMaterial switchLocation;
+
+    /** Button to confirm and upload profile updates to Firestore. */
+    private MaterialButton buttonUpdateProfile;
+
+    /** Button to delete the user's profile from Firestore. */
+    private MaterialButton buttonDeleteAccount;
+
+    /** Navigates back to the previous screen. */
     private ImageButton backButton;
+
+    /** Displays the user's profile icon. */
     private ImageView profileIcon;
 
     // --- Firebase ---
+    /** Instance of Firestore database. */
     private FirebaseFirestore db;
-    private String profileId = "114514"; // Replace this dynamically later
+
+    /** Hardcoded profile ID (intended to be dynamic in future implementations). */
+    private String profileId = "114514";
+
+    /** Reference to the user's document in the "profiles" collection. */
     private DocumentReference profileRef;
 
     // --- Device ID ---
+    /** Unique device identifier associated with the profile. */
     private String deviceId;
 
+    /**
+     * Called when the activity is first created.
+     * Initializes Firestore, binds UI components, and loads or creates the user's profile.
+     *
+     * @param savedInstanceState previously saved state of the activity, if any.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,10 +104,10 @@ public class ProfileActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         profileRef = db.collection("profiles").document(profileId);
 
-        // --- Generate unique device ID ---
+        // Generate unique device ID
         deviceId = generateDeviceId();
 
-        // --- Bind UI ---
+        // Bind UI components
         textUserName = findViewById(R.id.text_user_name);
         textDeviceId = findViewById(R.id.text_device_id);
         editFullName = findViewById(R.id.edit_full_name);
@@ -75,31 +120,35 @@ public class ProfileActivity extends AppCompatActivity {
         backButton = findViewById(R.id.back_button_profile);
         profileIcon = findViewById(R.id.profile_icon);
 
-        // --- Load or create profile ---
+        // Load or create user profile
         loadOrCreateProfile();
 
-        // --- Button Listeners ---
+        // Set button listeners
         buttonUpdateProfile.setOnClickListener(v -> updateProfile());
         buttonDeleteAccount.setOnClickListener(v -> deleteAccount());
         backButton.setOnClickListener(v -> onBackPressed());
     }
 
     /**
-     * Generates a unique device ID.
+     * Generates a unique device identifier for the current device.
+     * <p>
+     * Attempts to use {@link Settings.Secure#ANDROID_ID}, and falls back to a randomly generated
+     * UUID if unavailable.
+     *
+     * @return a unique device ID string.
      */
     private String generateDeviceId() {
-        String androidId = Settings.Secure.getString(getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         if (androidId == null || androidId.isEmpty()) {
             return UUID.randomUUID().toString();
         }
         return androidId;
     }
 
-
     /**
-     * Loads existing profile or creates a new one if missing.
+     * Loads an existing user profile from Firestore, or creates a new one if it does not exist.
+     * <p>
+     * Displays a toast message upon failure.
      */
     private void loadOrCreateProfile() {
         profileRef.get()
@@ -115,7 +164,9 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     /**
-     * Populates UI with Firestore data.
+     * Populates the UI fields with profile information retrieved from Firestore.
+     *
+     * @param snapshot Firestore {@link DocumentSnapshot} containing user profile data.
      */
     private void loadProfile(DocumentSnapshot snapshot) {
         String name = snapshot.getString("name");
@@ -133,7 +184,9 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     /**
-     * Creates a new profile if none exists.
+     * Creates a new Firestore document with default user profile values if none exists.
+     * <p>
+     * Called when no document is found during {@link #loadOrCreateProfile()}.
      */
     private void createNewProfile() {
         Map<String, Object> data = new HashMap<>();
@@ -156,7 +209,10 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     /**
-     * Updates profile data in Firestore (creates if missing).
+     * Updates user profile fields in Firestore.
+     * <p>
+     * Uses {@link DocumentReference#set(Object)} with {@code merge=true} to overwrite or create
+     * the document as needed.
      */
     private void updateProfile() {
         String name = editFullName.getText().toString().trim();
@@ -172,7 +228,6 @@ public class ProfileActivity extends AppCompatActivity {
         updates.put("deviceId", deviceId);
         updates.put("valid", true);
 
-        // Use set() with merge = true to update or create if missing
         profileRef.set(updates)
                 .addOnSuccessListener(aVoid ->
                         Toast.makeText(this, "Profile updated successfully!", Toast.LENGTH_SHORT).show())
@@ -181,7 +236,9 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     /**
-     * Deletes the profile document from Firestore.
+     * Deletes the user's profile document from Firestore.
+     * <p>
+     * Displays a success or failure message depending on the result.
      */
     private void deleteAccount() {
         profileRef.delete()

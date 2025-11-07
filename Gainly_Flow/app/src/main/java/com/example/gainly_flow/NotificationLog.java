@@ -12,24 +12,56 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Logs all notifications sent to entrants.
- * Stored under collection "notification_logs" in Firestore.
+ * The {@code NotificationLog} class provides functionality for recording
+ * and retrieving logs of notifications sent to entrants in the system.
+ * <p>
+ * Each log entry is stored as a document in the Firestore collection
+ * {@code "notification_logs"} and includes recipient details, message content,
+ * event association, timestamp, and delivery status.
+ * <p>
+ * This class can be used by administrators or developers for auditing
+ * notification activity and debugging message delivery.
  */
 public class NotificationLog {
     private static final String TAG = "NotificationLog";
 
     /**
-     * Represents one log entry for a notification sent.
+     * Represents a single notification log entry.
+     * <p>
+     * Each entry contains metadata such as the recipient ID, associated event ID,
+     * message body, timestamp, and status (e.g., "sent", "failed").
+     * Entries can be serialized to and from Firestore documents.
      */
     public static class Entry {
+        /** The ID of the recipient who received the notification. */
         public String to;
-        public String eventId;
-        public String message;
-        public Date timestamp;
-        public String status; // e.g., "sent", "failed"
 
+        /** The ID of the event associated with the notification. */
+        public String eventId;
+
+        /** The message content of the notification. */
+        public String message;
+
+        /** The timestamp representing when the notification was sent. */
+        public Date timestamp;
+
+        /** The status of the notification, such as "sent" or "failed". */
+        public String status;
+
+        /**
+         * Default constructor required for Firestore deserialization.
+         */
         public Entry() {}
 
+        /**
+         * Constructs a new {@code Entry} with the specified parameters.
+         *
+         * @param to        the recipient ID
+         * @param eventId   the associated event ID
+         * @param message   the message content
+         * @param timestamp the timestamp of when the notification was sent
+         * @param status    the delivery status of the notification
+         */
         public Entry(String to, String eventId, String message, Date timestamp, String status) {
             this.to = to;
             this.eventId = eventId;
@@ -38,6 +70,14 @@ public class NotificationLog {
             this.status = status;
         }
 
+        /**
+         * Converts this {@code Entry} into a Firestore-compatible map.
+         * <p>
+         * This method is typically used before saving the entry to the
+         * {@code "notification_logs"} collection.
+         *
+         * @return a {@code Map} containing the entry's fields for Firestore
+         */
         public Map<String, Object> toMap() {
             Map<String, Object> map = new HashMap<>();
             map.put("to", to);
@@ -48,6 +88,12 @@ public class NotificationLog {
             return map;
         }
 
+        /**
+         * Creates a {@code NotificationLog.Entry} instance from a Firestore document.
+         *
+         * @param doc the {@code DocumentSnapshot} representing a Firestore document
+         * @return a populated {@code Entry} object
+         */
         public static Entry fromDocument(DocumentSnapshot doc) {
             Entry e = new Entry();
             e.to = doc.getString("to");
@@ -61,7 +107,12 @@ public class NotificationLog {
     }
 
     /**
-     * Record a new log entry to Firestore.
+     * Records a new notification log entry into the Firestore collection.
+     * <p>
+     * This method generates a unique deterministic log ID based on the event ID,
+     * recipient ID, and current system time.
+     *
+     * @param entry the {@code NotificationLog.Entry} object to record
      */
     public void record(Entry entry) {
         if (entry == null) {
@@ -75,15 +126,25 @@ public class NotificationLog {
     }
 
     /**
-     * Generate deterministic log ID.
+     * Generates a deterministic log ID based on the event ID, recipient ID,
+     * and the current timestamp.
+     * <p>
+     * This helps avoid duplicate records for the same user-event pair.
+     *
+     * @param entry the {@code NotificationLog.Entry} used to build the ID
+     * @return a unique string identifier for the log
      */
     private String generateLogId(Entry entry) {
         return entry.eventId + "_" + entry.to + "_" + System.currentTimeMillis();
     }
 
     /**
-     * (Optional) List all logs from Firestore.
-     * This can be called by admin panels or debugging tools.
+     * Retrieves all notification logs from Firestore.
+     * <p>
+     * This method can be used by admin panels or debugging tools to list
+     * all recorded notification entries.
+     *
+     * @param listener a {@code OnSuccessListener} that receives a list of {@code Entry} objects
      */
     public void listAll(com.google.android.gms.tasks.OnSuccessListener<List<Entry>> listener) {
         com.google.firebase.firestore.FirebaseFirestore.getInstance()

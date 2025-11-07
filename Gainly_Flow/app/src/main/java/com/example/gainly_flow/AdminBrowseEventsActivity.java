@@ -22,13 +22,62 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+/**
+ * {@code AdminBrowseEventsActivity} allows administrators to browse, view, and delete events
+ * stored in Firebase Firestore.
+ * <p>
+ * The activity displays all events in descending order of their creation time.
+ * Each event is represented by a card containing details such as title, date, capacity,
+ * and registration status. Administrators can also delete an event after a confirmation dialog.
+ * </p>
+ *
+ * <h3>Features:</h3>
+ * <ul>
+ *     <li>Displays a list of all events fetched from Firestore.</li>
+ *     <li>Supports reloading the list dynamically after event deletion.</li>
+ *     <li>Provides a back button to return to the previous screen.</li>
+ *     <li>Shows a placeholder message if no events are available.</li>
+ * </ul>
+ *
+ * <h3>Firestore Structure:</h3>
+ * <pre>
+ * Collection: events
+ * ├── id: String
+ * ├── name: String
+ * ├── description: String
+ * ├── capacity: Long
+ * ├── geolocationRequired: Boolean
+ * ├── posterUri: String
+ * ├── registrationOpen: Long (timestamp)
+ * ├── registrationClose: Long (timestamp)
+ * ├── createdAt: Long (timestamp)
+ * </pre>
+ *
+ * @author
+ *     Gainly Flow Development Team
+ * @version
+ *     1.0, November 2025
+ */
 public class AdminBrowseEventsActivity extends AppCompatActivity {
 
+    /** Container layout holding dynamically generated event cards. */
     private LinearLayout eventListContainer;
+
+    /** Search box for filtering events (future implementation). */
     private EditText searchBox;
+
+    /** Button that navigates back to the previous activity. */
     private ImageButton backButton;
+
+    /** Formatter for displaying event dates in user-friendly format. */
     private SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
 
+    /**
+     * Called when the activity is created.
+     * Initializes UI elements, sets listeners, and loads event data from Firestore.
+     *
+     * @param savedInstanceState the saved instance state bundle.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,6 +92,15 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         loadEventsFromFirebase();
     }
 
+    /**
+     * Loads all events from the Firebase Firestore database.
+     * <p>
+     * The events are ordered by creation time (newest first).
+     * If no events are found, a placeholder message is displayed.
+     * Each event document is mapped into an {@link Event} object and displayed
+     * via {@link #addEventCard(Event)}.
+     * </p>
+     */
     private void loadEventsFromFirebase() {
         FirebaseFirestore.getInstance()
                 .collection("events")
@@ -78,7 +136,6 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                         e.setGeolocationRequired(Boolean.TRUE.equals(doc.getBoolean("geolocationRequired")));
                         e.setPosterImage(doc.getString("posterUri"));
 
-                        // registration dates
                         Long regOpen = doc.getLong("registrationOpen");
                         Long regClose = doc.getLong("registrationClose");
                         if (regOpen != null || regClose != null) {
@@ -96,6 +153,13 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * Dynamically adds a new event card to the list container.
+     * Each card displays event information such as title, date, spots, waiting count, and status.
+     * It also provides a delete button for removing the event from Firestore.
+     *
+     * @param event the {@link Event} object containing event details.
+     */
     private void addEventCard(Event event) {
         CardView eventCard = (CardView) LayoutInflater.from(this)
                 .inflate(R.layout.item_event_admin, eventListContainer, false);
@@ -112,7 +176,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
             date.setText(dateFormat.format(event.getEventDate()));
 
         spots.setText(event.getCapacity() + " spots");
-        waiting.setText("45 waiting"); // Placeholder, replace later with real data
+        waiting.setText("45 waiting"); // Placeholder value; to be replaced with dynamic data.
 
         if (event.isRegistrationOpen()) {
             status.setText("Open");
@@ -124,8 +188,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
             status.setBackgroundResource(R.drawable.status_closed_bg);
         }
 
-
-        // On delete click → confirm and delete
+        // Handle delete confirmation and action.
         deleteButton.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setTitle("Delete Event")
                 .setMessage("Are you sure you want to delete \"" + event.getName() + "\"?")

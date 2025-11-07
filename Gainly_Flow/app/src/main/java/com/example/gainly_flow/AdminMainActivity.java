@@ -10,23 +10,64 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+/**
+ * {@code AdminMainActivity} serves as the main dashboard for administrators.
+ * <p>
+ * This activity provides quick navigation to administrative management screens,
+ * including browsing events, profiles, images, and notification logs.
+ * It also displays basic statistics such as the total number of events and users.
+ * </p>
+ *
+ * <p><b>Features:</b></p>
+ * <ul>
+ *     <li>Navigation to different admin management activities.</li>
+ *     <li>Displays total counts of events and users (currently stubbed with placeholder data).</li>
+ *     <li>Includes a back button to return to the previous activity.</li>
+ * </ul>
+ *
+ * <p><b>Associated Layout:</b></p>
+ * <ul>
+ *     <li>{@code activity_admin_main.xml} — Defines the main layout for the admin dashboard.</li>
+ * </ul>
+ *
+ * @author
+ * @version 1.0
+ */
 public class AdminMainActivity extends AppCompatActivity {
 
+    /** Row that navigates to the event browsing screen. */
     private LinearLayout rowBrowseEvents;
-    private LinearLayout rowBrowseProfiles; // optional: hook up if you want
-    private LinearLayout rowBrowseImages;   // optional
-    private LinearLayout rowNotificationLogs; // optional
 
+    /** Row that navigates to the profile browsing screen. */
+    private LinearLayout rowBrowseProfiles;
+
+    /** Row for image management (currently not implemented). */
+    private LinearLayout rowBrowseImages;
+
+    /** Row for viewing notification logs (currently not implemented). */
+    private LinearLayout rowNotificationLogs;
+
+    /** TextView displaying the total number of events. */
     private TextView tvTotalEvents;
+
+    /** TextView displaying the total number of users. */
     private TextView tvTotalUsers;
+
+    /** Back button to return to the previous screen. */
     private ImageButton backButton;
 
+    /**
+     * Initializes the admin dashboard and sets up UI components,
+     * click listeners, and placeholder data.
+     *
+     * @param savedInstanceState the previously saved instance state, if available
+     */
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_main);
 
-        // ---- bind views (IDs come from activity_admin_main.xml) ----
+        // ---- Bind views (IDs come from activity_admin_main.xml) ----
         rowBrowseEvents = findViewById(R.id.rowBrowseEvents);
         rowBrowseProfiles = findViewById(R.id.rowBrowseProfiles);
         rowBrowseImages = findViewById(R.id.rowBrowseImages);
@@ -36,40 +77,56 @@ public class AdminMainActivity extends AppCompatActivity {
         tvTotalUsers  = findViewById(R.id.tvTotalUsers);
 
         backButton = findViewById(R.id.backButton_admin);
-        backButton.setOnClickListener(v -> {
-            onBackPressed();
-        });
+        backButton.setOnClickListener(v -> onBackPressed());
 
-        // ---- wire up navigation ----
+        // ---- Wire up navigation ----
         rowBrowseEvents.setOnClickListener(v ->
                 startActivity(new Intent(AdminMainActivity.this, AdminBrowseEventsActivity.class))
         );
 
-        // (Optional) enable these if you’ve created the screens
+        // Navigate to profile management screen
         rowBrowseProfiles.setOnClickListener(v ->
                 startActivity(new Intent(AdminMainActivity.this, AdminBrowseProfilesActivity.class))
         );
 
-        // TODO: when you create activities for Images and Logs, point these to them.
-        rowBrowseImages.setOnClickListener(v ->
-                toastNotImplemented(v)
-        );
-        rowNotificationLogs.setOnClickListener(v ->
-                toastNotImplemented(v)
-        );
+        // Placeholder for upcoming features
+        rowBrowseImages.setOnClickListener(this::toastNotImplemented);
+        rowNotificationLogs.setOnClickListener(this::toastNotImplemented);
 
-        // ---- populate dashboard stats (stubbed; replace with real data source) ----
-        // TODO: Replace with counts from your database / repository.
+        // ---- Populate dashboard stats (stubbed; replace with real data source) ----
         tvTotalEvents.setText(String.valueOf(getFakeEventCount()));
         tvTotalUsers.setText(String.valueOf(getFakeUserCount()));
     }
 
+    /**
+     * Displays a placeholder message (e.g., "Coming soon") for unimplemented features.
+     *
+     * @param v the view that triggered the click event
+     */
     private void toastNotImplemented(View v) {
         // You can swap this for a Snackbar/Toast to indicate the screen is coming soon.
         // Toast.makeText(this, "Coming soon", Toast.LENGTH_SHORT).show();
     }
 
-    // --------- stub data (remove once wired to real repo) ----------
+    /**
+     * Returns a stubbed count of events.
+     * <p>
+     * This method currently returns a hardcoded value and should be replaced
+     * with a real data source connection once implemented.
+     * </p>
+     *
+     * @return a fake total event count
+     */
     private int getFakeEventCount() { return 3; }
+
+    /**
+     * Returns a stubbed count of users.
+     * <p>
+     * This method currently returns a hardcoded value and should be replaced
+     * with a real data source connection once implemented.
+     * </p>
+     *
+     * @return a fake total user count
+     */
     private int getFakeUserCount()  { return 3; }
 }

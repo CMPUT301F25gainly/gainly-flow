@@ -24,15 +24,47 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+/**
+ * Entrant home screen that lists available events, provides quick access to QR scanning,
+ * lottery guidelines, and bottom navigation to notifications and profile.
+ * <p>
+ * Events are fetched from the {@code events} collection in Cloud Firestore and rendered
+ * as cards in a vertical list. Tapping a card opens {@link EventDetailActivity}.
+ * </p>
+ *
+ * <h3>Responsibilities</h3>
+ * <ul>
+ *   <li>Fetch and display events ordered by {@code createdAt} descending.</li>
+ *   <li>Navigate to QR code scanner, notifications, and profile screens.</li>
+ *   <li>Display a modal dialog describing the lottery selection process.</li>
+ * </ul>
+ *
+ * <h3>Notes</h3>
+ * This activity reads all events once at creation time (no live snapshot). Consider
+ * switching to a real-time listener if you need automatic updates.
+ */
 public class EntrantViewMain extends AppCompatActivity {
 
+
+    /** Button that navigates to the QR code scanner screen. */
     private MaterialButton browseEventsButton, lotteryGuidelinesButton;
+    /** Bottom navigation for switching between main sections. */
     private BottomNavigationView bottomNav;
+    /** Container that holds event item views. */
     private LinearLayout eventListContainer;
+    /** Back arrow in the app bar. */
     private ImageButton backButton;
+    /** Button that shows the lottery guidelines dialog. */
+    private MaterialButton lotteryGuidelinesButton;
+    /** Date formatter for event dates (e.g., "Jan 05, 2025"). */
     private SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
     private String currentUserId;
 
+    /**
+     * Initializes the UI, wires click listeners, and loads events from Firestore.
+     *
+     * @param savedInstanceState previously saved state, if any
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,6 +108,22 @@ public class EntrantViewMain extends AppCompatActivity {
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
     }
 
+    /**
+     * Loads event documents from Firestore in descending {@code createdAt} order and renders
+     * them in {@link #eventListContainer}. If no events exist, displays a placeholder message.
+     * <p>
+     * Expected schema (subset) for each document:
+     * <ul>
+     *   <li>{@code id} (String)</li>
+     *   <li>{@code name} (String)</li>
+     *   <li>{@code description} (String, optional)</li>
+     *   <li>{@code capacity} (Number, optional)</li>
+     *   <li>{@code geolocationRequired} (Boolean, optional)</li>
+     *   <li>{@code posterUri} (String, optional)</li>
+     *   <li>{@code registrationOpen}, {@code registrationClose} (epoch ms, optional)</li>
+     * </ul>
+     * </p>
+     */
     private void loadEventsFromFirebase() {
         FirebaseFirestore.getInstance()
                 .collection("events")
@@ -126,6 +174,13 @@ public class EntrantViewMain extends AppCompatActivity {
                 .addOnFailureListener(e -> Toast.makeText(this, "Failed to load events: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
+    /**
+     * Inflates an event card from {@code R.layout.item_event}, binds event fields,
+     * sets up click behavior to open {@link EventDetailActivity}, and adds the card
+     * to the container.
+     *
+     * @param event the event to render
+     */
     private void addEventToView(Event event) {
         CardView eventView = (CardView) LayoutInflater.from(this).inflate(R.layout.item_event, eventListContainer, false);
 
@@ -176,6 +231,12 @@ public class EntrantViewMain extends AppCompatActivity {
         eventListContainer.addView(eventView);
     }
 
+    /**
+     * Handles bottom navigation selections and launches the corresponding activity.
+     *
+     * @param item the selected menu item
+     * @return {@code true} to indicate the selection was handled
+     */
     private boolean onNavItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.menu_events) {
@@ -189,5 +250,25 @@ public class EntrantViewMain extends AppCompatActivity {
             startActivity(toProfile);
         }
         return true;
+    }
+
+    /**
+     * Displays a simple informational dialog that outlines the lottery selection process.
+     * The dialog is dismissible via the "OK" button.
+     */
+    private void showLotteryGuidelines() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Lottery Selection Process");
+
+        builder.setMessage("Here are the guidelines for the lottery selection process:\n\n" +
+                "1. All entrants must register before the deadline.\n" +
+                "2. Lottery is random and fair.\n" +
+                "3. Only registered entrants are eligible.\n" +
+                "4. Winners will be notified via email or app notification.\n" +
+                "5. Each entrant can only win one spot per event.\n" +
+                "\nFor more details, please contact support.");
+
+        builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+        builder.show();
     }
 }
