@@ -29,16 +29,19 @@ import java.util.Locale;
 
 public class EntrantViewMain extends AppCompatActivity {
 
-    // UI (these ids exist in activity_entrant_home.xml)
-    private MaterialButton browseEventsButton;
+    // UI (ids exist in activity_entrant_home.xml)
+    private MaterialButton scanButton;
     private EditText searchInput;
-    private View categoryButton, dateButton;
+    private View searchButton;
     private LinearLayout eventListContainer;
     private BottomNavigationView bottomNav;
 
     // Firestore
     private FirebaseFirestore fs;
     private ListenerRegistration eventsReg;
+
+    // Cached rows for filtering
+    private final List<EventRow> allRows = new ArrayList<>();
 
     private final SimpleDateFormat DF = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
 
@@ -48,36 +51,39 @@ public class EntrantViewMain extends AppCompatActivity {
         setContentView(R.layout.activity_entrant_home);
 
         // bind
-        browseEventsButton = findViewById(R.id.browseEventsButton);
+        scanButton         = findViewById(R.id.scanButton);
         searchInput        = findViewById(R.id.searchInput);
-        categoryButton     = findViewById(R.id.categoryButton);
-        dateButton         = findViewById(R.id.dateButton);
+        searchButton       = findViewById(R.id.searchButton);
         eventListContainer = findViewById(R.id.eventListContainer);
         bottomNav          = findViewById(R.id.bottomNav);
 
         fs = FirebaseFirestore.getInstance();
 
-        if (browseEventsButton != null) {
-            browseEventsButton.setOnClickListener(v -> {
-                // optional: scroll to top or just toast
-                Toast.makeText(this, "Browse all events", Toast.LENGTH_SHORT).show();
-            });
+        if (scanButton != null) {
+            scanButton.setOnClickListener(v ->
+                    Toast.makeText(this, "Scan QR Code (coming soon)", Toast.LENGTH_SHORT).show()
+            );
         }
+
+        if (searchButton != null) {
+            searchButton.setOnClickListener(v -> applyFilter());
+        }
+
         if (bottomNav != null) bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        // Live list direct from Firestore (no Database.java changes)
+        // Live list direct from Firestore
         eventsReg = fs.collection("events")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .addSnapshotListener((snap, err) -> {
                     if (err != null || snap == null) return;
-                    List<EventRow> rows = new ArrayList<>();
+                    allRows.clear();
                     for (DocumentSnapshot d : snap.getDocuments()) {
-                        String id   = getStr(d.get("id"));        // your schema stores its own id
-                        if (id.isEmpty()) id = d.getId();          // fallback to doc id
+                        String id   = getStr(d.get("id"));
+                        if (id.isEmpty()) id = d.getId();
                         String name = getStr(d.get("name"));
                         String desc = getStr(d.get("description"));
 
@@ -85,9 +91,10 @@ public class EntrantViewMain extends AppCompatActivity {
                         Long regClose = getLong(d.get("registrationClose"));
                         Integer cap   = getInt(d.get("capacity"));
 
-                        rows.add(new EventRow(id, name, desc, regOpen, regClose, cap));
+                        allRows.add(new EventRow(id, name, desc, regOpen, regClose, cap));
                     }
-                    renderList(rows);
+                    // Show filtered view if a query exists; otherwise show all
+                    applyFilter();
                 });
     }
 
@@ -97,7 +104,28 @@ public class EntrantViewMain extends AppCompatActivity {
         if (eventsReg != null) { eventsReg.remove(); eventsReg = null; }
     }
 
-    /* ---------- UI render ---------- */
+    /* ---------- Filter + render ---------- */
+
+    private void applyFilter() {
+        String q = normalize(searchInput == null ? "" : searchInput.getText().toString());
+        if (q.isEmpty()) {
+            renderList(allRows);
+            return;
+        }
+        List<EventRow> filtered = new ArrayList<>();
+        for (EventRow r : allRows) {
+            String hay = normalize(r.name + " " + r.desc);
+            if (hay.contains(q)) {
+                filtered.add(r);
+            }
+        }
+        renderList(filtered);
+    }
+
+    private static String normalize(String s) {
+        if (s == null) return "";
+        return s.toLowerCase(Locale.getDefault()).trim();
+    }
 
     private void renderList(List<EventRow> rows) {
         if (eventListContainer == null) return;
@@ -119,9 +147,8 @@ public class EntrantViewMain extends AppCompatActivity {
             int capacity = Math.max(0, r.capacity == null ? 0 : r.capacity);
             spots.setText(capacity + " spots");
 
-            waiting.setText(""); // not tracked yet in your schema; leave blank or "—"
+            waiting.setText(""); // not tracked yet; leave blank
 
-            // Basic open/closed based on reg window
             boolean isOpen = isNowWithin(r.regOpenMs, r.regCloseMs);
             status.setText(isOpen ? "Open" : "Closed");
             status.setTextColor(ContextCompat.getColor(this,
@@ -134,6 +161,13 @@ public class EntrantViewMain extends AppCompatActivity {
             });
 
             eventListContainer.addView(card);
+        }
+
+        if (rows.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("No events match your search.");
+            empty.setPadding(8, 16, 8, 16);
+            eventListContainer.addView(empty);
         }
     }
 
@@ -153,7 +187,7 @@ public class EntrantViewMain extends AppCompatActivity {
 
     private boolean isNowWithin(Long openMs, Long closeMs) {
         long now = System.currentTimeMillis();
-        if (openMs == null && closeMs == null) return true; // default open if no windows set
+        if (openMs == null && closeMs == null) return true;
         if (openMs != null && now < openMs) return false;
         if (closeMs != null && now > closeMs) return false;
         return true;
