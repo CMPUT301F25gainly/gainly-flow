@@ -17,7 +17,7 @@
             android:id="@+id/eventTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Swimming Lessons for Beginners"
+            android:text="Sample Event"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -25,7 +25,7 @@
             android:id="@+id/eventDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Jan 15–Mar 15, 2025"
+            android:text="Jan 1–Dec 31, 2025"
             android:textSize="13sp"
             android:drawableStart="@drawable/ic_calendar"
             android:drawablePadding="6dp"

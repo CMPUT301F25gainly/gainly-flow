@@ -163,7 +163,6 @@ public class EntrantViewMain extends AppCompatActivity {
     private boolean onNavItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.menu_events) {
-            Toast.makeText(this, "Events", Toast.LENGTH_SHORT).show();
             return true;
         } else if (id == R.id.menu_notifications) {
             Intent i = new Intent(this, EntrantNotificationsActivity.class);

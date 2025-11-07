@@ -31,12 +31,6 @@
                 app:tint="@color/white"
                 android:contentDescription="Back" />
 
-            <ImageView
-                android:id="@+id/icon_swim"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_centerInParent="true"
-                android:contentDescription="Swimmer Icon" />
 
             <ImageView
                 android:id="@+id/qr_icon"
@@ -59,7 +53,7 @@
                 android:id="@+id/title_event"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Swimming Lessons"
+                android:text="Event Title"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:layout_marginTop="12dp"
@@ -84,7 +78,7 @@
                 android:id="@+id/location_event"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Community Recreation Center"
+                android:text="Location"
                 android:textSize="14sp"
                 android:textColor="#666666"
                 app:layout_constraintStart_toStartOf="@id/title_event"
@@ -119,7 +113,7 @@
                     android:id="@+id/tvEntrants"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="45 entrants"
+                    android:text="0 entrants"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="#0047FF" />
@@ -142,7 +136,7 @@
                     android:id="@+id/tvAvailable"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="20"
+                    android:text="0"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="#1FBF75" />
@@ -170,7 +164,7 @@
                 android:id="@+id/tvEventDuration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Event Duration: Jan 15 - Mar 15, 2025" />
+                android:text="Event Duration: Jan 1 - Dec 31, 2025" />
 
             <TextView
                 android:id="@+id/tvRegOpens"
@@ -206,20 +200,7 @@
                 android:id="@+id/tvDescription"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Learn essential swimming skills in our beginner-friendly classes. Perfect for adults looking to build water confidence. Classes run every Monday and Wednesday from 6–7 PM." />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🏊 Indoor Pool, Community Rec Center"
-                android:layout_marginTop="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Price: $60 for full session"
-                android:textStyle="bold"
-                android:layout_marginTop="8dp" />
+                android:text="Description" />
         </LinearLayout>
 
         <!-- Buttons -->
