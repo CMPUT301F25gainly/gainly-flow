@@ -89,7 +89,7 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
     private void loadEntrants(String mode) {
         final String TAG = "OrganizerEntrantList";
         progress.setVisibility(View.VISIBLE);
-        empty.setVisibility(View.GONE);
+        showEmpty(false);
 
         // 1) Try original subcollection path (kept for compatibility)
         db.collection("events").document(eventId).collection(mode)
@@ -104,9 +104,11 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
                             String email = getStringField(doc, "email");
                             data.add(new EntrantRow(id, name, email, mode));
                         }
+                        data.clear();
                         adapter.notifyDataSetChanged();
+                        showEmpty(true);
                         progress.setVisibility(View.GONE);
-                        empty.setVisibility(data.isEmpty() ? View.VISIBLE : View.GONE);
+                        showEmpty(data.isEmpty());
                         android.util.Log.d(TAG, "Loaded from events/" + eventId + "/" + mode + ": " + data.size());
                         return;
                     }
@@ -117,13 +119,13 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
                     } else {
                         // If you later store selectedIds, mirror the waiting loader with that field.
                         progress.setVisibility(View.GONE);
-                        empty.setVisibility(View.VISIBLE);
+                        showEmpty(true);
                         android.util.Log.d(TAG, "No 'selected' data source found for event " + eventId);
                     }
                 })
                 .addOnFailureListener(e -> {
                     progress.setVisibility(View.GONE);
-                    empty.setVisibility(View.VISIBLE);
+                    showEmpty(true);
                     android.util.Log.e(TAG, "Primary load failed: " + e.getMessage(), e);
                     Toast.makeText(this, "Load failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
@@ -134,7 +136,7 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
                 .addOnSuccessListener(doc -> {
                     if (!doc.exists()) {
                         progress.setVisibility(View.GONE);
-                        empty.setVisibility(View.VISIBLE);
+                        showEmpty(true);
                         android.util.Log.d(TAG, "waiting_lists/" + eventId + " does not exist");
                         return;
                     }
@@ -145,7 +147,7 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
                         data.clear();
                         adapter.notifyDataSetChanged();
                         progress.setVisibility(View.GONE);
-                        empty.setVisibility(View.VISIBLE);
+                        showEmpty(true);
                         android.util.Log.d(TAG, "waiting_lists has empty entrantIds");
                         return;
                     }
@@ -169,13 +171,13 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
                         }
                         adapter.notifyDataSetChanged();
                         progress.setVisibility(View.GONE);
-                        empty.setVisibility(data.isEmpty() ? View.VISIBLE : View.GONE);
+                        showEmpty(data.isEmpty());
                         android.util.Log.d(TAG, "Loaded " + data.size() + " entrants from waiting_lists/" + eventId);
                     });
                 })
                 .addOnFailureListener(e -> {
                     progress.setVisibility(View.GONE);
-                    empty.setVisibility(View.VISIBLE);
+                    showEmpty(true);
                     android.util.Log.e(TAG, "waiting_lists fetch failed: " + e.getMessage(), e);
                     Toast.makeText(this, "Load failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
@@ -257,4 +259,10 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         if (s == null || s.isEmpty()) return "";
         return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
+
+    private void showEmpty(boolean show) {
+        empty.setVisibility(show ? View.VISIBLE : View.GONE);
+        recycler.setVisibility(show ? View.GONE : View.VISIBLE);
+    }
+
 }
