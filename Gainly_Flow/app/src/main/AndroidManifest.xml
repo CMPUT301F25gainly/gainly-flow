@@ -20,6 +20,8 @@
         <activity
             android:name=".OrganizerLanding"/>
         <activity
+            android:name=".OrganizerEntrantListActivity"/>
+        <activity
             android:name=".CreateEvent"/>
         <activity
             android:name=".AdminBrowseEventsActivity"
