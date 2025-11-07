@@ -95,9 +95,13 @@ public class WaitingList {
     /**
      * Persist the waiting list to Firestore.
      */
+    // WaitingList.java -> save()
     private void save() {
         Map<String, Object> data = new HashMap<>();
-        data.put("entrants", entrantList);
+        data.put("entrantIds", entrantList);     // <-- match your Firestore docs
+        data.put("size", entrantList.size());    // optional but consistent with your docs
         Database.save("waiting_lists", eventId, data);
     }
+
+
 }

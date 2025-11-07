@@ -33,6 +33,21 @@ public class OrganizerLanding extends AppCompatActivity {
     private FirebaseFirestore db;
     private LinearLayout eventListContainer;
 
+    private @Nullable Long getLongFlexible(DocumentSnapshot d, String key) {
+        Object v = d.get(key);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).longValue();
+        if (v instanceof String) {
+            try {
+                String s = ((String) v).trim();
+                if (s.isEmpty()) return null;
+                return Long.parseLong(s);
+            } catch (NumberFormatException ignore) { return null; }
+        }
+        return null;
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,7 +90,8 @@ public class OrganizerLanding extends AppCompatActivity {
                         TextView status  = card.findViewById(R.id.eventStatus);
 
                         String name = doc.getString("name");
-                        Long capacity = doc.getLong("capacity");
+                        Long capacity = getLongFlexible(doc, "capacity"); // instead of document.getLong("capacity")
+                        long capValue = capacity != null ? capacity : 0L;      // choose a sensible default
                         String eventId = doc.getString("id");
 
                         Long dtMs = getMillis(doc, "eventDateTimeUtc");
