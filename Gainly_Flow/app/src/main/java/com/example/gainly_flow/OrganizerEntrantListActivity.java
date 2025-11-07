@@ -150,7 +150,7 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         loadEntrants("waiting");
     }
 
-    /*
+    /*!
      * Loads entrant profiles for the given mode.
      * <p>
      * For <b>waiting</b>, reads {@code entrantIds}; for <b>selected</b>, reads {@code selectedIds}
