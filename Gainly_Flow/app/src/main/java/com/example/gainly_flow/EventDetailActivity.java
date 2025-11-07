@@ -33,7 +33,7 @@ public class EventDetailActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
 
-    // Firestoree
+    // Firestore
     private FirebaseFirestore fs;
     private ListenerRegistration eventReg;
     private ListenerRegistration waitReg;
