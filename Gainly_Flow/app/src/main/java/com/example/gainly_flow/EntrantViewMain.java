@@ -61,7 +61,7 @@ public class EntrantViewMain extends AppCompatActivity {
 
         if (scanButton != null) {
             scanButton.setOnClickListener(v ->
-                Toast.makeText(this, "Scan QR Code (coming soon)", Toast.LENGTH_SHORT).show()
+                startActivity(new Intent(this, QRCodeScanner.class))
             );
         }
 

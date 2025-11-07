@@ -8,11 +8,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -47,6 +46,7 @@ public class EventDetailActivity extends AppCompatActivity {
     private static final String F_REG_OPEN      = "registrationOpen";   // ms
     private static final String F_REG_CLOSE     = "registrationClose";  // ms
     private static final String F_CAPACITY      = "capacity";
+    private static final String F_POSTER_URL    = "posterUrl";          // HTTPS image url
 
     // waitlist fields
     private static final String WL_ENTRANT_IDS  = "entrantIds";
@@ -56,16 +56,15 @@ public class EventDetailActivity extends AppCompatActivity {
     private static final String WL_MAX_CAP      = "maxCapacity";
 
     // UI
-    private TextView titleEvent, statusEvent, locationEvent, tvEntrants, tvAvailable;
+    private TextView titleEvent, statusEvent, tvEntrants, tvAvailable;
     private TextView tvEventDuration, tvRegOpens, tvRegCloses, tvDescription;
     private Button btnJoin, btnLeave;
     private ImageButton btnBack;
     private ImageView qrIcon;
+    private ImageView posterImage;
 
     private String eventId;
-
     private boolean joined = false; // current user in waitlist?
-    private int waitSize = 0;
 
     // Formats
     private static final SimpleDateFormat DATE_DF = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
@@ -75,16 +74,16 @@ public class EventDetailActivity extends AppCompatActivity {
     private String getCurrentUserId() { return "22ae419f5bed11cd"; }
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_details);
 
         fs = FirebaseFirestore.getInstance();
 
-        // Bind views
+        // Bind views (only what's actually used)
+        posterImage     = findViewById(R.id.posterImage);
         titleEvent      = findViewById(R.id.title_event);
         statusEvent     = findViewById(R.id.event_status);
-        locationEvent   = findViewById(R.id.location_event);
         tvEntrants      = findViewById(R.id.tvEntrants);
         tvAvailable     = findViewById(R.id.tvAvailable);
         tvEventDuration = findViewById(R.id.tvEventDuration);
@@ -105,9 +104,11 @@ public class EventDetailActivity extends AppCompatActivity {
             return;
         }
 
-        // Back / QR
-        if (btnBack != null) btnBack.setOnClickListener(v -> finish());
-        if (qrIcon != null)  qrIcon.setOnClickListener(v -> Toast.makeText(this, "QR scanner not wired yet", Toast.LENGTH_SHORT).show());
+        // Basic UI hooks
+        btnBack.setOnClickListener(v -> finish());
+        qrIcon.setOnClickListener(v ->
+                startActivity(new Intent(this, QRCodeScanner.class))
+        );
 
         applyPlaceholders();
 
@@ -122,19 +123,17 @@ public class EventDetailActivity extends AppCompatActivity {
         DocumentReference wlRef = fs.collection(COL_WAITLISTS).document(eventId);
         waitReg = wlRef.addSnapshotListener((snap, err) -> {
             if (err != null) return;
+            int size = 0;
+            List<String> ids = null;
             if (snap != null && snap.exists()) {
-                List<String> ids = (List<String>) snap.get(WL_ENTRANT_IDS);
+                ids = (List<String>) snap.get(WL_ENTRANT_IDS);
                 Long s = snap.getLong(WL_SIZE);
-                waitSize = (s != null) ? s.intValue() : (ids == null ? 0 : ids.size());
-                tvEntrants.setText(waitSize + " entrants");
-
-                String uid = getCurrentUserId();
-                joined = (ids != null && uid != null) && ids.contains(uid);
-            } else {
-                waitSize = 0;
-                joined = false;
-                tvEntrants.setText("0 entrants");
+                size = (s != null) ? s.intValue() : (ids == null ? 0 : ids.size());
             }
+            tvEntrants.setText(size + " entrants");
+
+            String uid = getCurrentUserId();
+            joined = (ids != null && uid != null) && ids.contains(uid);
             updateButtons();
         });
 
@@ -154,16 +153,20 @@ public class EventDetailActivity extends AppCompatActivity {
     /* -------------------- Render -------------------- */
 
     private void renderEvent(DocumentSnapshot d) {
-        String name   = getStr(d.get(F_NAME));
-        String desc   = getStr(d.get(F_DESCRIPTION));
-        Long eventDay = getLong(d.get(F_EVENT_DATE));
-        Long eventTMs = getLong(d.get(F_EVENT_TIME_MS));
-        Long regOpen  = getLong(d.get(F_REG_OPEN));
-        Long regClose = getLong(d.get(F_REG_CLOSE));
-        Integer cap   = getInt(d.get(F_CAPACITY));
+        String name      = getStr(d.get(F_NAME));
+        String desc      = getStr(d.get(F_DESCRIPTION));
+        Long eventDay    = getLong(d.get(F_EVENT_DATE));
+        Long eventTMs    = getLong(d.get(F_EVENT_TIME_MS));
+        Long regOpen     = getLong(d.get(F_REG_OPEN));
+        Long regClose    = getLong(d.get(F_REG_CLOSE));
+        Integer cap      = getInt(d.get(F_CAPACITY));
+        String posterUrl = getStr(d.get(F_POSTER_URL));
 
+        // Poster
+        loadPoster(posterUrl);
+
+        // Text bits
         titleEvent.setText(name.isEmpty() ? "Untitled Event" : name);
-        locationEvent.setText(""); // not used yet
 
         boolean openNow = isNowWithin(regOpen, regClose);
         statusEvent.setText(openNow ? "OPEN" : "CLOSED");
@@ -181,9 +184,10 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void applyPlaceholders() {
+        // A clean “loading” state that won’t flicker
+        posterImage.setImageResource(R.drawable.blue_gradient_bg);
         titleEvent.setText("Loading...");
         statusEvent.setText("");
-        locationEvent.setText("");
         tvEntrants.setText("— entrants");
         tvAvailable.setText("—");
         tvEventDuration.setText("Event Date: —");
@@ -193,7 +197,6 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void updateButtons() {
-        // Simple UX: disable the action you can't take
         btnJoin.setEnabled(!joined);
         btnLeave.setEnabled(joined);
     }
@@ -230,9 +233,9 @@ public class EventDetailActivity extends AppCompatActivity {
             tx.set(wlRef, updates, SetOptions.merge());
             return null;
         }).addOnSuccessListener(v ->
-            Toast.makeText(this, "Joined waiting list", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Joined waiting list", Toast.LENGTH_SHORT).show()
         ).addOnFailureListener(e ->
-            Toast.makeText(this, "Join failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Join failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
         );
     }
 
@@ -259,16 +262,32 @@ public class EventDetailActivity extends AppCompatActivity {
             tx.set(wlRef, updates, SetOptions.merge());
             return null;
         }).addOnSuccessListener(v ->
-            Toast.makeText(this, "Left waiting list", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Left waiting list", Toast.LENGTH_SHORT).show()
         ).addOnFailureListener(e ->
-            Toast.makeText(this, "Leave failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Leave failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
         );
     }
 
     /* -------------------- Helpers -------------------- */
 
+    private void loadPoster(String url) {
+        int fallback = R.drawable.blue_gradient_bg;
+
+        if (url == null || url.trim().isEmpty()) {
+            posterImage.setImageResource(fallback);
+            return;
+        }
+
+        Glide.with(this)
+                .load(url)
+                .placeholder(fallback)
+                .error(fallback)
+                .centerCrop()
+                .into(posterImage);
+    }
+
     private void applyStatusTint(String status) {
-        @ColorInt int color;
+        int color;
         if ("Open".equalsIgnoreCase(status)) {
             color = ContextCompat.getColor(this, android.R.color.holo_green_dark);
         } else if ("Closed".equalsIgnoreCase(status)) {
@@ -287,7 +306,7 @@ public class EventDetailActivity extends AppCompatActivity {
         return true;
     }
 
-    private String formatEventDateTime(@Nullable Long dayUtc, @Nullable Long timeMsFromMidnight) {
+    private String formatEventDateTime(Long dayUtc, Long timeMsFromMidnight) {
         if (dayUtc == null && timeMsFromMidnight == null) return "";
         Date day = (dayUtc == null) ? null : new Date(dayUtc);
         String dayPart = (day == null) ? "" : DATE_DF.format(day);

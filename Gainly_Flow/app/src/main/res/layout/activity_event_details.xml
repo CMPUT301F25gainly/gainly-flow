@@ -12,12 +12,20 @@
         android:padding="16dp">
 
         <!-- Top Banner -->
+
         <RelativeLayout
-            android:id="@+id/topBanner"
             android:layout_width="match_parent"
             android:layout_height="180dp"
-            android:padding="16dp"
-            android:background="@drawable/blue_gradient_bg">
+            android:padding="16dp">
+
+            <!-- Poster image goes behind everything -->
+            <ImageView
+                android:id="@+id/posterImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:adjustViewBounds="true"
+                android:src="@drawable/blue_gradient_bg" />
 
             <!-- Back button -->
             <ImageButton
@@ -74,15 +82,15 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@id/title_event" />
 
-            <TextView
-                android:id="@+id/location_event"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Location"
-                android:textSize="14sp"
-                android:textColor="#666666"
-                app:layout_constraintStart_toStartOf="@id/title_event"
-                app:layout_constraintTop_toBottomOf="@id/title_event" />
+<!--            <TextView-->
+<!--                android:id="@+id/location_event"-->
+<!--                android:layout_width="wrap_content"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:text="Location"-->
+<!--                android:textSize="14sp"-->
+<!--                android:textColor="#666666"-->
+<!--                app:layout_constraintStart_toStartOf="@id/title_event"-->
+<!--                app:layout_constraintTop_toBottomOf="@id/title_event" />-->
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
