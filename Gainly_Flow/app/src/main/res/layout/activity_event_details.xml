@@ -275,7 +275,22 @@
                 android:textColor="#000000"
                 android:textSize="16sp"
                 android:padding="12dp" />
+
+
+
         </LinearLayout>
+
+        <!-- View Waiting List Button -->
+        <Button
+            android:id="@+id/btnViewWaitingList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="View Waiting List"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#1FBF75"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:layout_marginTop="12dp" />
 
         <!-- QR Code Section (Optional) -->
         <LinearLayout

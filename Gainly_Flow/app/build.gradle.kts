@@ -56,6 +56,8 @@ dependencies {
     implementation("androidx.cardview:cardview:1.0.0")          // your item_event root is CardView
     implementation("com.google.android.material:material:1.12.0")// you use MaterialButton
 
+    implementation("com.google.firebase:firebase-auth:22.3.0")
+
 
 
 }
