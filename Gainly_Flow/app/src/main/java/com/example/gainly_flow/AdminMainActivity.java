@@ -3,6 +3,7 @@ package com.example.gainly_flow;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -18,6 +19,7 @@ public class AdminMainActivity extends AppCompatActivity {
 
     private TextView tvTotalEvents;
     private TextView tvTotalUsers;
+    private ImageButton backButton;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -32,6 +34,11 @@ public class AdminMainActivity extends AppCompatActivity {
 
         tvTotalEvents = findViewById(R.id.tvTotalEvents);
         tvTotalUsers  = findViewById(R.id.tvTotalUsers);
+
+        backButton = findViewById(R.id.backButton_admin);
+        backButton.setOnClickListener(v -> {
+            onBackPressed();
+        });
 
         // ---- wire up navigation ----
         rowBrowseEvents.setOnClickListener(v ->

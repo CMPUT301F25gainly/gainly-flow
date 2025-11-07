@@ -13,7 +13,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.bumptech.glide.Glide;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -24,10 +23,10 @@ import com.google.firebase.firestore.SetOptions;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.HashMap;
 
 public class EventDetailActivity extends AppCompatActivity {
 
@@ -48,7 +47,6 @@ public class EventDetailActivity extends AppCompatActivity {
     private static final String F_REG_OPEN      = "registrationOpen";   // ms
     private static final String F_REG_CLOSE     = "registrationClose";  // ms
     private static final String F_CAPACITY      = "capacity";
-    private static final String F_POSTER_URL    = "posterUrl";          // NEW
 
     // waitlist fields
     private static final String WL_ENTRANT_IDS  = "entrantIds";
@@ -63,7 +61,6 @@ public class EventDetailActivity extends AppCompatActivity {
     private Button btnJoin, btnLeave;
     private ImageButton btnBack;
     private ImageView qrIcon;
-    private ImageView posterImage; // NEW
 
     private String eventId;
 
@@ -98,7 +95,6 @@ public class EventDetailActivity extends AppCompatActivity {
         btnLeave        = findViewById(R.id.btnLeave);
         btnBack         = findViewById(R.id.btnBack);
         qrIcon          = findViewById(R.id.qr_icon);
-        posterImage     = findViewById(R.id.posterImage); // NEW
 
         // Get eventId
         Intent src = getIntent();
@@ -165,10 +161,6 @@ public class EventDetailActivity extends AppCompatActivity {
         Long regOpen  = getLong(d.get(F_REG_OPEN));
         Long regClose = getLong(d.get(F_REG_CLOSE));
         Integer cap   = getInt(d.get(F_CAPACITY));
-
-        // NEW: poster
-        String posterUrl = getStr(d.get(F_POSTER_URL));
-        loadPoster(posterUrl);
 
         titleEvent.setText(name.isEmpty() ? "Untitled Event" : name);
         locationEvent.setText(""); // not used yet
@@ -237,10 +229,10 @@ public class EventDetailActivity extends AppCompatActivity {
             updates.put(WL_SIZE, FieldValue.increment(1));
             tx.set(wlRef, updates, SetOptions.merge());
             return null;
-        }).addOnSuccessListener(v -> {
-            Toast.makeText(this, "Joined waiting list", Toast.LENGTH_SHORT).show();
-        }).addOnFailureListener(e ->
-                Toast.makeText(this, "Join failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+        }).addOnSuccessListener(v ->
+            Toast.makeText(this, "Joined waiting list", Toast.LENGTH_SHORT).show()
+        ).addOnFailureListener(e ->
+            Toast.makeText(this, "Join failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
         );
     }
 
@@ -267,38 +259,13 @@ public class EventDetailActivity extends AppCompatActivity {
             tx.set(wlRef, updates, SetOptions.merge());
             return null;
         }).addOnSuccessListener(v ->
-                Toast.makeText(this, "Left waiting list", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Left waiting list", Toast.LENGTH_SHORT).show()
         ).addOnFailureListener(e ->
-                Toast.makeText(this, "Leave failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Leave failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
         );
     }
 
     /* -------------------- Helpers -------------------- */
-
-    private void loadPoster(@Nullable String url) {
-        int fallback = R.drawable.blue_gradient_bg;
-
-        if (url == null || url.trim().isEmpty()) {
-            posterImage.setImageResource(fallback);
-            return;
-        }
-
-        // GIF vs static image
-        if (url.toLowerCase(Locale.ROOT).endsWith(".gif")) {
-            Glide.with(this)
-                    .asGif()
-                    .load(url)
-                    .placeholder(fallback)
-                    .error(fallback)
-                    .into(posterImage);
-        } else {
-            Glide.with(this)
-                    .load(url)
-                    .placeholder(fallback)
-                    .error(fallback)
-                    .into(posterImage);
-        }
-    }
 
     private void applyStatusTint(String status) {
         @ColorInt int color;

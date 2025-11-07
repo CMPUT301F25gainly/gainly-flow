@@ -61,7 +61,7 @@ public class EntrantViewMain extends AppCompatActivity {
 
         if (scanButton != null) {
             scanButton.setOnClickListener(v ->
-                    Toast.makeText(this, "Scan QR Code (coming soon)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Scan QR Code (coming soon)", Toast.LENGTH_SHORT).show()
             );
         }
 
@@ -93,7 +93,6 @@ public class EntrantViewMain extends AppCompatActivity {
 
                         allRows.add(new EventRow(id, name, desc, regOpen, regClose, cap));
                     }
-                    // Show filtered view if a query exists; otherwise show all
                     applyFilter();
                 });
     }
@@ -185,7 +184,7 @@ public class EntrantViewMain extends AppCompatActivity {
         return DF.format(new java.util.Date(openMs)) + " – " + DF.format(new java.util.Date(closeMs));
     }
 
-    private boolean isNowWithin(Long openMs, Long closeMs) {
+    private static boolean isNowWithin(Long openMs, Long closeMs) {
         long now = System.currentTimeMillis();
         if (openMs == null && closeMs == null) return true;
         if (openMs != null && now < openMs) return false;
@@ -193,7 +192,7 @@ public class EntrantViewMain extends AppCompatActivity {
         return true;
     }
 
-    /* ---------- Nav ---------- */
+    /* ---------- Bottom nav ---------- */
     private boolean onNavItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.menu_events) {

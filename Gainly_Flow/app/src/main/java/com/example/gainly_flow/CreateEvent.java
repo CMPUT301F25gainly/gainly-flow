@@ -1,74 +1,49 @@
 package com.example.gainly_flow;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
-import android.text.format.DateFormat;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.google.android.material.datepicker.CalendarConstraints;
-import com.google.android.material.datepicker.DateValidatorPointForward;
+import com.bumptech.glide.Glide;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 
-import java.text.ParseException;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TimeZone;
-import java.util.UUID;
 
 public class CreateEvent extends AppCompatActivity {
-    private ImageView posterPreview;
-    private Button selectPosterBtn;
-    private Button saveEventButton;
-    @Nullable
-    private Uri posterUri = null; // store selected image
-    private EditText eventNameInput, eventDescriptionInput, eventDateInput, eventTimeInput, capacityInput;
 
+    // UI
+    private ImageView posterPreview;
+    private EditText posterUrlInput;
+    private EditText eventNameInput, eventDescriptionInput, eventDateInput, eventTimeInput, capacityInput;
+    private EditText registrationOpenInput, registrationCloseInput;
     private CheckBox geolocationCheckbox;
 
-    // Add these two date fields from your XML
-    private EditText registrationOpenInput, registrationCloseInput;
-
-    // Formats must match what you display in the EditTexts
+    // Formats
     private final SimpleDateFormat dateFmt   = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-    private final SimpleDateFormat timeFmt12 = new SimpleDateFormat("h:mm a", Locale.getDefault());
-
-    private final ActivityResultLauncher<String[]> openPosterLauncher =
-            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri != null) {
-                    // Persist permission so we can read this later (e.g., after reboot)
-                    final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
-                    try {
-                        getContentResolver().takePersistableUriPermission(uri, takeFlags);
-                    } catch (SecurityException ignored) { /* some providers don’t support persistable */ }
-
-                    posterUri = uri;
-
-                    // preview (use Glide/Picasso if you prefer)
-                    posterPreview.setImageURI(uri);
-                }
-            });
-
+    private final SimpleDateFormat timeFmt12 = new SimpleDateFormat("h:mm a",     Locale.getDefault());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,248 +51,344 @@ public class CreateEvent extends AppCompatActivity {
         androidx.activity.EdgeToEdge.enable(this);
         setContentView(R.layout.activity_create_event);
 
-        posterPreview   = findViewById(R.id.posterPreview);
-        selectPosterBtn = findViewById(R.id.selectPosterBtn);
-        saveEventButton = findViewById(R.id.saveEventButton);
+        bindViews();
+        applyEdgeToEdgeInsets();
+        configureTapOnlyInputs();
+        wirePickers();
+        wireButtons();
+        wireUrlPreview(); // live preview when URL changes
+    }
 
+    private void bindViews() {
+        posterPreview           = findViewById(R.id.posterPreview);
+        posterUrlInput          = findViewById(R.id.posterUrlInput);
+
+        eventNameInput          = findViewById(R.id.eventNameInput);
+        eventDescriptionInput   = findViewById(R.id.eventDescriptionInput);
+        eventDateInput          = findViewById(R.id.eventDateInput);
+        eventTimeInput          = findViewById(R.id.eventTimeInput);
+        capacityInput           = findViewById(R.id.eventCapacityInput);
+        geolocationCheckbox     = findViewById(R.id.geolocationCheckbox);
+        registrationOpenInput   = findViewById(R.id.registrationOpenInput);
+        registrationCloseInput  = findViewById(R.id.registrationCloseInput);
+    }
+
+    private void applyEdgeToEdgeInsets() {
         View root = findViewById(R.id.main);
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
+    }
 
-        // findViewById for your existing fields (if you use them elsewhere)
-        eventNameInput        = findViewById(R.id.eventNameInput);
-        eventDescriptionInput = findViewById(R.id.eventDescriptionInput);
-        eventDateInput        = findViewById(R.id.eventDateInput);
-        eventTimeInput        = findViewById(R.id.eventTimeInput);
-        capacityInput         = findViewById(R.id.eventCapacityInput);
-
-        geolocationCheckbox = findViewById(R.id.geolocationCheckbox);
-        // Hook up the registration date fields
-        registrationOpenInput  = findViewById(R.id.registrationOpenInput);
-        registrationCloseInput = findViewById(R.id.registrationCloseInput);
-
-        // Ensure they are tap-only (no keyboard)
-        makeTapOnly(registrationOpenInput);
-        makeTapOnly(registrationCloseInput);
+    private void configureTapOnlyInputs() {
         makeTapOnly(eventDateInput);
         makeTapOnly(eventTimeInput);
+        makeTapOnly(registrationOpenInput);
+        makeTapOnly(registrationCloseInput);
+    }
 
-        if (savedInstanceState != null) {
-            String saved = savedInstanceState.getString("posterUri");
-            if (saved != null) {
-                posterUri = Uri.parse(saved);
-                posterPreview.setImageURI(posterUri);
+    private void wirePickers() {
+        eventDateInput.setOnClickListener(v -> showDatePicker("Select event date",
+                selectedUtc -> eventDateInput.setText(utcMillisToLocalDateString(selectedUtc))));
+
+        registrationOpenInput.setOnClickListener(v -> showDatePicker("Select registration open date",
+                selectedUtc -> registrationOpenInput.setText(utcMillisToLocalDateString(selectedUtc))));
+
+        registrationCloseInput.setOnClickListener(v -> showDatePicker("Select registration close date",
+                selectedUtc -> registrationCloseInput.setText(utcMillisToLocalDateString(selectedUtc))));
+
+        eventTimeInput.setOnClickListener(v -> showTimePicker("Select event time",
+                (hour24, minute) -> eventTimeInput.setText(formatTime(hour24, minute))));
+    }
+
+    private void wireButtons() {
+        findViewById(R.id.saveEventButton).setOnClickListener(v -> saveEvent());
+    }
+
+    /** Live preview as user types/pastes the URL. */
+    private void wireUrlPreview() {
+        posterUrlInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                String pasted = s.toString().trim();
+                if (pasted.isEmpty()) {
+                    posterPreview.setImageDrawable(null);
+                    return;
+                }
+                String normalized = normalizePosterUrl(pasted); // <-- uses both methods below
+                if (!isLikelyHttp(normalized)) return;
+
+                Glide.with(CreateEvent.this)
+                        .load(normalized)
+                        .into(posterPreview);
             }
-        }
-        eventTimeInput.setOnClickListener(v -> showEventTimePicker());
-        eventDateInput.setOnClickListener(v -> showEventDatePicker());
-        registrationOpenInput.setOnClickListener(v -> showOpenPicker());
-        registrationCloseInput.setOnClickListener(v -> showClosePicker());
-
-
-        View.OnClickListener pick = v -> openPosterLauncher.launch(new String[]{"image/*"});
-        selectPosterBtn.setOnClickListener(pick);
-        posterPreview.setOnClickListener(pick); // make preview tappable too
-        saveEventButton.setOnClickListener(v -> saveEvent());
+        });
     }
 
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        if (posterUri != null) outState.putString("posterUri", posterUri.toString());
-    }
-
-    // Call this when you press “Save Event”
+    // --------------------- Save flow (URL only) ---------------------
     private void saveEvent() {
-        // 1) Read text
-        String name        = text(eventNameInput);
-        String desc        = text(eventDescriptionInput);
-        String dateStr     = text(eventDateInput);          // "yyyy-MM-dd"
-        String timeStr     = text(eventTimeInput);          // "h:mm AM/PM"
-        String regOpenStr  = text(registrationOpenInput);   // "yyyy-MM-dd" or empty
-        String regCloseStr = text(registrationCloseInput);  // "yyyy-MM-dd" or empty
-        String capStr      = text(capacityInput);
-        String geoStr      = String.valueOf(geolocationCheckbox != null && geolocationCheckbox.isChecked());
-        String poster      = (posterUri == null) ? "" : posterUri.toString();
+        final String name        = text(eventNameInput);
+        final String desc        = text(eventDescriptionInput);
+        final String dateStr     = text(eventDateInput);
+        final String timeStr     = text(eventTimeInput);
+        final String regOpenStr  = text(registrationOpenInput);
+        final String regCloseStr = text(registrationCloseInput);
+        final String capStr      = text(capacityInput);
+        final boolean geoEnabled = geolocationCheckbox != null && geolocationCheckbox.isChecked();
 
-        // 2) Light validation
-        if (name.isEmpty()) { eventNameInput.setError("Required"); eventNameInput.requestFocus(); return; }
-        if (dateStr.isEmpty()) { eventDateInput.setError("Required"); eventDateInput.requestFocus(); return; }
-        if (timeStr.isEmpty()) { eventTimeInput.setError("Required"); eventTimeInput.requestFocus(); return; }
-        if (capStr.isEmpty()) { capacityInput.setError("Required"); capacityInput.requestFocus(); return; }
+        if (!require(name, eventNameInput)) return;
+        if (!require(dateStr, eventDateInput)) return;
+        if (!require(timeStr, eventTimeInput)) return;
+        if (!require(capStr, capacityInput)) return;
 
-        // 3) Convert to the String millis your Database.addEventDatabase expects
-        Long eventDateMillis      = parseDayUtc(dateStr);                // UTC midnight of that date
-        Long eventTimeOfDayMillis = parseTimeMsFromMidnight(timeStr);    // ms from midnight
-        Long regOpenMillis        = regOpenStr.isEmpty()  ? null : parseDayUtc(regOpenStr);
-        Long regCloseMillis       = regCloseStr.isEmpty() ? null : parseDayUtc(regCloseStr);
+        final Long eventDateMillis      = parseDayUtc(dateStr);
+        final Long eventTimeOfDayMillis = parseTimeMsFromMidnight(timeStr);
+        final Long regOpenMillis        = regOpenStr.isEmpty()  ? null : parseDayUtc(regOpenStr);
+        final Long regCloseMillis       = regCloseStr.isEmpty() ? null : parseDayUtc(regCloseStr);
 
-        if (eventDateMillis == null) { eventDateInput.setError("Invalid date"); return; }
+        if (eventDateMillis == null)      { eventDateInput.setError("Invalid date"); return; }
         if (eventTimeOfDayMillis == null) { eventTimeInput.setError("Invalid time"); return; }
 
-        String id = UUID.randomUUID().toString();
+        final String id    = java.util.UUID.randomUUID().toString();
+        final String qrUrl = QRUrlCreator.buildDeepLink(id);
 
-        Database.get().addEventDatabase(
-                id,
-                name,
-                desc,
-                String.valueOf(eventDateMillis),
-                String.valueOf(eventTimeOfDayMillis),
-                regOpenMillis == null ? "" : String.valueOf(regOpenMillis),
-                regCloseMillis == null ? "" : String.valueOf(regCloseMillis),
-                capStr,
-                String.valueOf(geolocationCheckbox.isChecked()),
-                poster,
-                new Database.Callback() {
-                    @Override public void onSuccess() {
-                        Toast.makeText(CreateEvent.this, "Event saved to Firestore", Toast.LENGTH_SHORT).show();
+        // URL-only: read from field, normalize (Google Images + Google Drive)
+        String pasted = text(posterUrlInput).trim();
+        String posterUrl = pasted.isEmpty() ? "" : normalizePosterUrl(pasted);
+
+        if (!posterUrl.isEmpty() && !isLikelyHttp(posterUrl)) {
+            Toast.makeText(this, "Poster URL must start with http or https.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("id", id);
+        data.put("name", name);
+        data.put("description", desc);
+        data.put("eventDateUtc", String.valueOf(eventDateMillis));
+        data.put("eventTimeOfDayMs", String.valueOf(eventTimeOfDayMillis));
+        data.put("registrationOpenUtc", regOpenMillis == null ? "" : String.valueOf(regOpenMillis));
+        data.put("registrationCloseUtc", regCloseMillis == null ? "" : String.valueOf(regCloseMillis));
+        data.put("capacity", capStr);
+        data.put("geolocationEnabled", String.valueOf(geoEnabled));
+        data.put("qrUrl", qrUrl);
+        data.put("createdAt", System.currentTimeMillis());
+        data.put("posterUrl", posterUrl);
+
+        saveEventToFirestore(id, data, qrUrl);
+    }
+
+    private void saveEventToFirestore(String id, java.util.Map<String, Object> data, String qrUrl) {
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(id)
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(unused -> {
+                    showQrDialog(qrUrl, () -> {
+                        Toast.makeText(CreateEvent.this, "Event saved", Toast.LENGTH_SHORT).show();
                         setResult(RESULT_OK);
                         finish();
-                    }
-                    @Override public void onError(Exception e) {
-                        Toast.makeText(CreateEvent.this, "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                }
+                    });
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(CreateEvent.this, "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
                 );
     }
-// ---------- helpers ----------
 
-    private String text(EditText et) { return et == null ? "" : et.getText().toString().trim(); }
+    // --------------------- Pickers ---------------------
+    private interface DatePicked { void onPicked(long utcMidnightMillis); }
+    private interface TimePicked { void onPicked(int hour24, int minute); }
 
-    @Nullable
-    private Integer tryParseInt(String s) {
-        try { return Integer.parseInt(s.trim()); } catch (Exception e) { return null; }
+    private void showDatePicker(String title, DatePicked callback) {
+        MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
+                .setTitleText(title)
+                .build();
+        picker.addOnPositiveButtonClickListener(callback::onPicked);
+        picker.show(getSupportFragmentManager(), "mdp:" + title);
     }
 
-    /** Parse "yyyy-MM-dd" (local) as a UTC day epoch millis (00:00 UTC of that day). */
+    private void showTimePicker(String title, TimePicked callback) {
+        MaterialTimePicker picker = new MaterialTimePicker.Builder()
+                .setTimeFormat(TimeFormat.CLOCK_12H)
+                .setHour(9).setMinute(0)
+                .setTitleText(title)
+                .build();
+        picker.addOnPositiveButtonClickListener(v -> callback.onPicked(picker.getHour(), picker.getMinute()));
+        picker.show(getSupportFragmentManager(), "mtp:" + title);
+    }
+
+    // --------------------- QR dialog (unchanged) ---------------------
+    private void showQrDialog(String qrUrl, @Nullable Runnable onClose) {
+        Bitmap bmp = QRImage.bitmapFromUrl(qrUrl, 512);
+        showQrDialog(qrUrl, bmp, onClose);
+    }
+    private void showQrDialog(String qrUrl, @Nullable Bitmap bmp, @Nullable Runnable onClose) {
+        if (bmp == null) {
+            Toast.makeText(this, "Couldn't generate QR", Toast.LENGTH_SHORT).show();
+            if (onClose != null) onClose.run();
+            return;
+        }
+        View view = getLayoutInflater().inflate(R.layout.dialog_qr, null);
+        ImageView qr = view.findViewById(R.id.qrImage);
+        qr.setImageBitmap(bmp);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Event QR Code")
+                .setView(view)
+                .setPositiveButton("Done", (d, w) -> {
+                    d.dismiss();
+                    if (onClose != null) onClose.run();
+                })
+                .setNeutralButton("Share", (d, w) -> shareQrPng(qrUrl))
+                .show();
+    }
+
+    private void shareQrPng(String qrUrl) {
+        byte[] png = QRImage.pngFromUrl(qrUrl, 1024);
+        if (png == null) {
+            Toast.makeText(this, "Share failed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            File out = new File(getCacheDir(), "event_qr.png");
+            try (FileOutputStream fos = new FileOutputStream(out)) { fos.write(png); }
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                    this, getPackageName() + ".fileprovider", out);
+
+            Intent share = new Intent(Intent.ACTION_SEND);
+            share.setType("image/png");
+            share.putExtra(Intent.EXTRA_STREAM, uri);
+            share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(share, "Share QR"));
+        } catch (Exception e) {
+            Toast.makeText(this, "Share failed", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // --------------------- Date/time parsing ---------------------
     @Nullable
     private Long parseDayUtc(String ymd) {
         try {
             dateFmt.setLenient(false);
-            Date local = dateFmt.parse(ymd);
-            Calendar cLocal = Calendar.getInstance();    // local tz
-            cLocal.setTime(local);
-            // Normalize to that calendar day (local)
-            cLocal.set(Calendar.HOUR_OF_DAY, 0);
-            cLocal.set(Calendar.MINUTE, 0);
-            cLocal.set(Calendar.SECOND, 0);
-            cLocal.set(Calendar.MILLISECOND, 0);
-            // Create a UTC calendar at same Y-M-D
-            Calendar cUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-            cUtc.clear();
-            cUtc.set(cLocal.get(Calendar.YEAR), cLocal.get(Calendar.MONTH), cLocal.get(Calendar.DAY_OF_MONTH));
-            return cUtc.getTimeInMillis();
+            Calendar local = Calendar.getInstance();
+            local.setTime(dateFmt.parse(ymd));
+            local.set(Calendar.HOUR_OF_DAY, 0);
+            local.set(Calendar.MINUTE, 0);
+            local.set(Calendar.SECOND, 0);
+            local.set(Calendar.MILLISECOND, 0);
+
+            Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+            utc.clear();
+            utc.set(local.get(Calendar.YEAR), local.get(Calendar.MONTH), local.get(Calendar.DAY_OF_MONTH));
+            return utc.getTimeInMillis();
         } catch (Exception e) {
             return null;
         }
     }
 
-    /** Parse "h:mm a" into milliseconds from midnight (0..86_399_999). */
     @Nullable
     private Long parseTimeMsFromMidnight(String time12) {
         try {
             timeFmt12.setLenient(false);
-            Date d = timeFmt12.parse(time12);
             Calendar c = Calendar.getInstance();
-            c.setTime(d);
+            c.setTime(timeFmt12.parse(time12));
             int h = c.get(Calendar.HOUR_OF_DAY);
             int m = c.get(Calendar.MINUTE);
             int s = c.get(Calendar.SECOND);
-            return (long) ((h * 60 * 60 + m * 60 + s) * 1000);
+            return (long) ((h * 3600 + m * 60 + s) * 1000);
         } catch (Exception e) {
             return null;
         }
     }
 
-    /** Combine a UTC day (00:00 UTC) and a ms-from-midnight time into a single UTC timestamp. */
-    private long combineDayAndTimeUtc(long dayUtcMillis, long timeOfDayMs) {
-        return dayUtcMillis + timeOfDayMs;
+    private String utcMillisToLocalDateString(long utcMidnight) {
+        Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        utc.setTimeInMillis(utcMidnight);
+
+        Calendar local = Calendar.getInstance();
+        local.clear();
+        local.set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH));
+        return dateFmt.format(local.getTime());
     }
 
+    private String formatTime(int hour24, int minute) {
+        int hr12 = (hour24 % 12 == 0) ? 12 : (hour24 % 12);
+        String ampm = hour24 < 12 ? "AM" : "PM";
+        return String.format(Locale.getDefault(), "%d:%02d %s", hr12, minute, ampm);
+    }
 
-    private void makeTapOnly(EditText et) {
+    // --------------------- Small utils ---------------------
+    private static String text(@Nullable EditText et) {
+        return (et == null) ? "" : et.getText().toString().trim();
+    }
+    private static void makeTapOnly(EditText et) {
         et.setFocusable(false);
         et.setFocusableInTouchMode(false);
         et.setClickable(true);
         et.setLongClickable(false);
     }
+    private static boolean require(String value, EditText field) {
+        if (!value.isEmpty()) return true;
+        field.setError("Required");
+        field.requestFocus();
+        return false;
+    }
 
-    private void showEventTimePicker() {
-        MaterialTimePicker picker = new MaterialTimePicker.Builder()
-                .setTimeFormat(TimeFormat.CLOCK_12H)
-                .setHour(9)        // optional default
-                .setMinute(0)
-                .setTitleText("Select event time")
-                .build();
+    // --------------------- BOTH NORMALIZER METHODS + wrapper ---------------------
 
-        // Use View.OnClickListener form to avoid lambda signature mismatch
-        picker.addOnPositiveButtonClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                int h = picker.getHour();
-                int m = picker.getMinute();
-                eventTimeInput.setText(formatTime(h, m));
+    /** Wrapper that runs both normalizers in a sensible order. */
+    private String normalizePosterUrl(String raw) {
+        String s = raw.trim();
+        s = normalizeImageUrlFromGoogleSearch(s); // extract ?imgurl=... from Google Images
+        s = normalizeGoogleDriveUrl(s);           // turn Drive share into direct uc?export=download
+        return s;
+    }
+
+    /** Method 1: Accept Google Images wrapper links and extract the real image URL. */
+    private String normalizeImageUrlFromGoogleSearch(String raw) {
+        try {
+            Uri uri = Uri.parse(raw);
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.US);
+
+            // e.g., https://www.google.com/imgres?imgurl=<direct>&imgrefurl=...
+            if (host.contains("google.") && uri.getPath() != null && uri.getPath().contains("/imgres")) {
+                String direct = uri.getQueryParameter("imgurl");
+                if (direct != null && !direct.isEmpty()) return direct;
             }
-        });
-
-        picker.show(getSupportFragmentManager(), "eventTimePicker");
+            return raw;
+        } catch (Exception e) {
+            return raw;
+        }
     }
 
-    private String formatTime(int hour24, int minute) {
-        int hr12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
-        String ampm = hour24 < 12 ? "AM" : "PM";
-        // If you want leading zero on hour, use "%02d" instead of "%d"
-        return String.format(Locale.getDefault(), "%d:%02d %s", hr12, minute, ampm);
+    /** Method 2: Convert common Google Drive share links into a direct content URL. */
+    private String normalizeGoogleDriveUrl(String url) {
+        // Case 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("https?://drive\\.google\\.com/file/d/([a-zA-Z0-9_-]+)")
+                .matcher(url);
+        if (m.find()) {
+            String id = m.group(1);
+            return "https://drive.google.com/uc?export=download&id=" + id;
+        }
+
+        // Case 2: https://drive.google.com/open?id=FILE_ID  or any ?id=FILE_ID
+        m = java.util.regex.Pattern
+                .compile("[?&]id=([a-zA-Z0-9_-]+)")
+                .matcher(url);
+        if (m.find()) {
+            String id = m.group(1);
+            return "https://drive.google.com/uc?export=download&id=" + id;
+        }
+
+        return url; // unchanged
     }
 
-    private void showEventDatePicker() {
-        MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select event date")
-                .build();
-
-        picker.addOnPositiveButtonClickListener(selectionUtc -> {
-            eventDateInput.setText(utcMillisToLocalDateString(selectionUtc)); // e.g., 2025-01-15
-        });
-
-        picker.show(getSupportFragmentManager(), "eventDatePicker");
+    private boolean isLikelyHttp(String url) {
+        String u = url.toLowerCase(Locale.US);
+        return u.startsWith("http://") || u.startsWith("https://");
     }
-    private void showOpenPicker() {
-        MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select registration open date")
-                .build();
-
-        picker.addOnPositiveButtonClickListener(selectionUtc -> {
-            registrationOpenInput.setText(utcMillisToLocalDateString(selectionUtc));
-            // clear/adjust close if needed...
-        });
-
-        picker.show(getSupportFragmentManager(), "openDatePicker");
-    }
-
-    private void showClosePicker() {
-        MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
-                .setTitleText("Select registration close date")
-                .build();
-
-        picker.addOnPositiveButtonClickListener(selectionUtc ->
-                registrationCloseInput.setText(utcMillisToLocalDateString(selectionUtc)));
-
-        picker.show(getSupportFragmentManager(), "closeDatePicker");
-    }
-
-    /** Convert MaterialDatePicker's UTC midnight millis to a local yyyy-MM-dd string. */
-    private String utcMillisToLocalDateString(long utcMidnight) {
-        Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-        utc.setTimeInMillis(utcMidnight);
-        int y = utc.get(Calendar.YEAR), m = utc.get(Calendar.MONTH), d = utc.get(Calendar.DAY_OF_MONTH);
-
-        Calendar local = Calendar.getInstance();
-        local.clear();
-        local.set(y, m, d);
-        return dateFmt.format(local.getTime());  // <-- DATE format, not time
-    }
-
 }
