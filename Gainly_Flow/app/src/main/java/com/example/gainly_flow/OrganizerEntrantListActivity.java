@@ -43,6 +43,10 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
     private final List<EntrantRow> data = new ArrayList<>();
     private EntrantAdapter adapter;
     private FirebaseFirestore db;
+    private String currentMode = "waiting";
+    private boolean loadingWaiting = false;
+    private boolean loadingSelected = false;
+
 
     public static class EntrantRow {
         public String id, name, email, status;
@@ -84,8 +88,12 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         btnWaiting.setChecked(true);
         toggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
             if (!isChecked) return;
-            loadEntrants(checkedId == R.id.btnSelected ? "selected" : "waiting");
+            String mode = (checkedId == R.id.btnSelected) ? "selected" : "waiting";
+            if (mode.equals(currentMode)) return;   // don't reload same tab
+            currentMode = mode;
+            loadEntrants(mode);
         });
+
 
         btnRefresh.setOnClickListener(v -> {
             int checked = toggle.getCheckedButtonId();
@@ -97,81 +105,87 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
     }
 
     private void loadEntrants(String mode) {
-        final String TAG = "OrganizerEntrantList";
+        boolean isSelected = "selected".equals(mode);
+
+        if (isSelected) {
+            if (loadingSelected) return;
+            loadingSelected = true;
+        } else {
+            if (loadingWaiting) return;
+            loadingWaiting = true;
+        }
+
         progress.setVisibility(View.VISIBLE);
         showEmpty(false);
 
-        if ("selected".equals(mode)) {
+        // --- waiting branch (unchanged) ---
+        if (!isSelected) {
             db.collection("waiting_lists").document(eventId).get()
                     .addOnSuccessListener(doc -> {
-                        List<String> ids = (List<String>) doc.get("selectedIds");
-                        if (ids == null) ids = new ArrayList<>();
+                        List<String> ids = (List<String>) doc.get("entrantIds");
+                        ids = sanitizeIds(ids);
+                        if (ids.isEmpty()) {
+                            data.clear(); adapter.notifyDataSetChanged();
+                            showEmpty(true); progress.setVisibility(View.GONE);
+                            loadingWaiting = false;    // <-- release
+                            return;
+                        }
                         fetchProfilesByIds(ids, profiles -> {
                             data.clear();
-                            for (DocumentSnapshot p : profiles) {
-                                String id = p.getId();
-                                String name = firstNonEmpty(
-                                        getStringField(p, "displayName"),
-                                        getStringField(p, "name"),
-                                        getStringField(p, "username"),
-                                        id
-                                );
-                                String email = firstNonEmpty(getStringField(p, "email"), "");
-                                data.add(new EntrantRow(id, name, email, "selected"));
-                            }
+                            for (DocumentSnapshot p : profiles) addRowFromProfile(p, "waiting");
                             adapter.notifyDataSetChanged();
-                            showEmpty(data.isEmpty());
-                            progress.setVisibility(View.GONE);
+                            showEmpty(data.isEmpty()); progress.setVisibility(View.GONE);
+                            loadingWaiting = false;    // <-- release
                         });
                     })
                     .addOnFailureListener(e -> {
                         progress.setVisibility(View.GONE);
                         showEmpty(true);
-                        Toast.makeText(this, "Load selected failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        loadingWaiting = false;        // <-- release
+                        Toast.makeText(this, "Load waiting failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     });
             return;
         }
 
-
-        // 1) Try original subcollection path (kept for compatibility)
-        db.collection("events").document(eventId).collection(mode)
-                .orderBy("joinedAt", Query.Direction.DESCENDING)
-                .get()
-                .addOnSuccessListener(snap -> {
-                    if (!snap.isEmpty()) {
-                        data.clear();
-                        for (DocumentSnapshot doc : snap) {
-                            String id = doc.getId();
-                            String name = getStringField(doc, "name");
-                            String email = getStringField(doc, "email");
-                            data.add(new EntrantRow(id, name, email, mode));
-                        }
-                        data.clear();
-                        adapter.notifyDataSetChanged();
-                        showEmpty(true);
-                        progress.setVisibility(View.GONE);
-                        showEmpty(data.isEmpty());
-                        android.util.Log.d(TAG, "Loaded from events/" + eventId + "/" + mode + ": " + data.size());
+        // --- selected branch ---
+        db.collection("waiting_lists").document(eventId).get()
+                .addOnSuccessListener(doc -> {
+                    List<String> ids = (List<String>) doc.get("selectedIds");
+                    ids = sanitizeIds(ids);
+                    if (ids.isEmpty()) {
+                        data.clear(); adapter.notifyDataSetChanged();
+                        showEmpty(true); progress.setVisibility(View.GONE);
+                        loadingSelected = false;       // <-- release
                         return;
                     }
-
-                    // 2) Fallback to your actual schema
-                    if ("waiting".equals(mode)) {
-                        loadWaitingFromArray(TAG);
-                    } else {
-                        // If you later store selectedIds, mirror the waiting loader with that field.
-                        progress.setVisibility(View.GONE);
-                        showEmpty(true);
-                        android.util.Log.d(TAG, "No 'selected' data source found for event " + eventId);
-                    }
+                    fetchProfilesByIds(ids, profiles -> {
+                        data.clear();
+                        for (DocumentSnapshot p : profiles) addRowFromProfile(p, "selected");
+                        adapter.notifyDataSetChanged();
+                        showEmpty(data.isEmpty()); progress.setVisibility(View.GONE);
+                        loadingSelected = false;       // <-- release
+                    });
                 })
                 .addOnFailureListener(e -> {
                     progress.setVisibility(View.GONE);
                     showEmpty(true);
-                    android.util.Log.e(TAG, "Primary load failed: " + e.getMessage(), e);
-                    Toast.makeText(this, "Load failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    loadingSelected = false;           // <-- release
+                    Toast.makeText(this, "Load selected failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
+
+    private void addRowFromProfile(DocumentSnapshot p, String status) {
+        String id = p.getId();
+        String name = firstNonEmpty(
+                getStringField(p, "displayName"),
+                getStringField(p, "name"),
+                getStringField(p, "username"),
+                id
+        );
+        String email = firstNonEmpty(getStringField(p, "email"), "");
+        data.add(new EntrantRow(id, name, email, status));
+    }
+
 
     private void loadWaitingFromArray(String TAG) {
         db.collection("waiting_lists").document(eventId).get()
@@ -264,6 +278,20 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         }
         return o != null ? String.valueOf(o) : "";
     }
+    private static List<String> sanitizeIds(List<String> in) {
+        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        if (in != null) {
+            for (String s : in) {
+                if (s != null) {
+                    String t = s.trim();
+                    if (!t.isEmpty()) set.add(t);
+                }
+            }
+        }
+        return new java.util.ArrayList<>(set);
+    }
+
+
 
     static class EntrantAdapter extends RecyclerView.Adapter<EntrantAdapter.VH> {
         private final List<EntrantRow> items;
