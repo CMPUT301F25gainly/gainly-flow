@@ -28,7 +28,6 @@ public class EventDetailActivity extends AppCompatActivity {
     private LinearLayout qrSection;
     private Button btnJoin, btnLeave, btnShareQr, btnViewWaitingList;
 
-
     private SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
     private SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
 
