@@ -36,14 +36,35 @@ public class WaitingList {
             listener.onSuccess(this);
             return;
         }
+
+        // First try docId == eventId (your current convention)
         Database.get("waiting_lists", eventId, document -> {
-            if (document.exists()) {
-                java.util.List<String> list = (java.util.List<String>) document.get("entrants");
-                entrantList = (list != null) ? new java.util.ArrayList<>(list) : new java.util.ArrayList<>();
+            if (document != null && document.exists()) {
+                applyFromDocument(document);
+                listener.onSuccess(this);
+                return;
             }
-            listener.onSuccess(this);
+
+            // Fallback: random docId with eventId as a FIELD (your dummy doc shape)
+            Database.findOne("waiting_lists", "eventId", eventId, altDoc -> {
+                if (altDoc != null && altDoc.exists()) {
+                    applyFromDocument(altDoc);
+                } else {
+                    android.util.Log.d(TAG, "No waiting_list found for eventId=" + eventId);
+                    this.entrantList = new java.util.ArrayList<>();
+                }
+                listener.onSuccess(this);
+            });
         });
     }
+
+    // Keep this small parsing helper private to avoid API churn
+    private void applyFromDocument(@androidx.annotation.NonNull com.google.firebase.firestore.DocumentSnapshot doc) {
+        java.util.List<String> ids = (java.util.List<String>) doc.get("entrantIds");
+        if (ids == null) ids = new java.util.ArrayList<>();
+        this.entrantList = new java.util.ArrayList<>(ids);
+    }
+
 
 
     /**
@@ -95,9 +116,13 @@ public class WaitingList {
     /**
      * Persist the waiting list to Firestore.
      */
+    // WaitingList.java -> save()
     private void save() {
         Map<String, Object> data = new HashMap<>();
-        data.put("entrants", entrantList);
+        data.put("entrantIds", entrantList);     // <-- match your Firestore docs
+        data.put("size", entrantList.size());    // optional but consistent with your docs
         Database.save("waiting_lists", eventId, data);
     }
+
+
 }

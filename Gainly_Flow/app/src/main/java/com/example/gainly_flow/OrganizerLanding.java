@@ -7,6 +7,9 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.content.Intent;
+import androidx.activity.OnBackPressedCallback;
+
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
@@ -33,11 +36,51 @@ public class OrganizerLanding extends AppCompatActivity {
     private FirebaseFirestore db;
     private LinearLayout eventListContainer;
 
+    private @Nullable Long getLongFlexible(DocumentSnapshot d, String key) {
+        Object v = d.get(key);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).longValue();
+        if (v instanceof String) {
+            try {
+                String s = ((String) v).trim();
+                if (s.isEmpty()) return null;
+                return Long.parseLong(s);
+            } catch (NumberFormatException ignore) { return null; }
+        }
+        return null;
+    }
+    private void goHome() {
+        Intent i = new Intent(this, MainActivity.class);
+        // Clear anything above MainActivity if it already exists in the stack
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(i);
+        finish();
+    }
+    @Override
+    public boolean onSupportNavigateUp() {
+        goHome();
+        return true;
+    }
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_organizer_landing);
+        // Show the action bar back arrow (Up)
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle(""); // optional
+        }
+
+// Make the physical/gesture back go to MainActivity
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() { goHome(); }
+        });
+
+        findViewById(R.id.btn_home).setOnClickListener(v -> goHome());
+
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -75,7 +118,8 @@ public class OrganizerLanding extends AppCompatActivity {
                         TextView status  = card.findViewById(R.id.eventStatus);
 
                         String name = doc.getString("name");
-                        Long capacity = doc.getLong("capacity");
+                        Long capacity = getLongFlexible(doc, "capacity"); // instead of document.getLong("capacity")
+                        long capValue = capacity != null ? capacity : 0L;      // choose a sensible default
                         String eventId = doc.getString("id");
 
                         Long dtMs = getMillis(doc, "eventDateTimeUtc");
