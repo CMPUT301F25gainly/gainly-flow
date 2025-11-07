@@ -200,8 +200,14 @@ public class CreateEvent extends AppCompatActivity {
         final String timeStr     = text(eventTimeInput);
         final String regOpenStr  = text(registrationOpenInput);
         final String regCloseStr = text(registrationCloseInput);
-        final String capStr      = text(capacityInput);
+        String capStr        = text(capacityInput);
         final boolean geoEnabled = geolocationCheckbox != null && geolocationCheckbox.isChecked();
+
+        if (capStr.isEmpty()){
+            capStr = "1000000000";
+        } else {
+            capStr = text(capacityInput);
+        }
 
         if (!require(name, eventNameInput)) return;
         if (!require(dateStr, eventDateInput)) return;
