@@ -59,19 +59,9 @@
             android:layout_marginTop="6dp"
             android:textAlignment="viewStart" />
 
-        <!-- Final decision label (shown when accepted/declined) -->
-        <TextView
-            android:id="@+id/tvDecision"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Accepted"
-            android:textStyle="bold"
-            android:textSize="14sp"
-            android:layout_marginTop="8dp"
-            android:visibility="gone" />
-
         <!-- Button row (only when pending) -->
         <LinearLayout
+            android:id="@+id/layout_actions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -100,6 +90,17 @@
                 android:background="#E34B4B"
                 android:textColor="#FFFFFF"
                 android:layout_marginStart="8dp"
+                android:visibility="gone" />
+
+            <!-- Final decision label (shown when accepted/declined) -->
+            <TextView
+                android:id="@+id/tvDecision"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Accepted"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:layout_marginTop="8dp"
                 android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>

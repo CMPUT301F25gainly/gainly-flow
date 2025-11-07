@@ -68,12 +68,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            tvTitle = itemView.findViewById(R.id.tv_title);
-            tvDescription = itemView.findViewById(R.id.tv_description);
-            tvTime = itemView.findViewById(R.id.tv_time);
+            tvTitle = itemView.findViewById(R.id.tvTitle);
+            tvDescription = itemView.findViewById(R.id.tvMessage);
+            tvTime = itemView.findViewById(R.id.tvTime);
             layoutActions = itemView.findViewById(R.id.layout_actions);
-            btnAccept = itemView.findViewById(R.id.btn_accept);
-            btnDecline = itemView.findViewById(R.id.btn_decline);
+            btnAccept = itemView.findViewById(R.id.btnAccept);
+            btnDecline = itemView.findViewById(R.id.btnDecline);
         }
     }
 }
