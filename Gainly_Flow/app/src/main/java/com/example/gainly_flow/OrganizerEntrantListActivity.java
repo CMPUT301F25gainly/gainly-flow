@@ -24,6 +24,11 @@ import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 
+import android.text.InputType;
+import android.widget.EditText;
+import androidx.appcompat.app.AlertDialog;
+
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +71,11 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         btnSelected = findViewById(R.id.btnSelected);
         btnRefresh = findViewById(R.id.btnRefresh);
 
+        com.google.android.material.floatingactionbutton.FloatingActionButton fab =
+                findViewById(R.id.fabRunLottery);
+        fab.setOnClickListener(v -> promptLotterySizeAndRun());
+
+
         adapter = new EntrantAdapter(data);
         recycler.setLayoutManager(new LinearLayoutManager(this));
         recycler.setAdapter(adapter);
@@ -90,6 +100,38 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         final String TAG = "OrganizerEntrantList";
         progress.setVisibility(View.VISIBLE);
         showEmpty(false);
+
+        if ("selected".equals(mode)) {
+            db.collection("waiting_lists").document(eventId).get()
+                    .addOnSuccessListener(doc -> {
+                        List<String> ids = (List<String>) doc.get("selectedIds");
+                        if (ids == null) ids = new ArrayList<>();
+                        fetchProfilesByIds(ids, profiles -> {
+                            data.clear();
+                            for (DocumentSnapshot p : profiles) {
+                                String id = p.getId();
+                                String name = firstNonEmpty(
+                                        getStringField(p, "displayName"),
+                                        getStringField(p, "name"),
+                                        getStringField(p, "username"),
+                                        id
+                                );
+                                String email = firstNonEmpty(getStringField(p, "email"), "");
+                                data.add(new EntrantRow(id, name, email, "selected"));
+                            }
+                            adapter.notifyDataSetChanged();
+                            showEmpty(data.isEmpty());
+                            progress.setVisibility(View.GONE);
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        progress.setVisibility(View.GONE);
+                        showEmpty(true);
+                        Toast.makeText(this, "Load selected failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+            return;
+        }
+
 
         // 1) Try original subcollection path (kept for compatibility)
         db.collection("events").document(eventId).collection(mode)
@@ -264,5 +306,58 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         empty.setVisibility(show ? View.VISIBLE : View.GONE);
         recycler.setVisibility(show ? View.GONE : View.VISIBLE);
     }
+
+    private void promptLotterySizeAndRun() {
+        // Default to a reasonable guess; LotterySystem will clamp properly anyway.
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setHint("How many to draw?");
+
+        new AlertDialog.Builder(this)
+                .setTitle("Run lottery & notify")
+                .setMessage("Enter how many entrants to randomly select. We'll clamp to capacity and waiting size.")
+                .setView(input)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Run", (d, w) -> {
+                    int requested;
+                    try {
+                        String s = input.getText().toString().trim();
+                        requested = s.isEmpty() ? Integer.MAX_VALUE : Integer.parseInt(s);
+                        if (requested <= 0) throw new NumberFormatException();
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(this, "Enter a positive number", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    runLotteryNow(requested);
+                })
+                .show();
+    }
+
+    private void runLotteryNow(int requested) {
+        progress.setVisibility(View.VISIBLE);
+        findViewById(R.id.fabRunLottery).setEnabled(false);
+
+        LotterySystem.runLottery(eventId, requested, new LotterySystem.DrawCallback() {
+            @Override public void onSuccess(List<String> winners, int before, int after) {
+                progress.setVisibility(View.GONE);
+                findViewById(R.id.fabRunLottery).setEnabled(true);
+                Toast.makeText(OrganizerEntrantListActivity.this,
+                        "Selected " + winners.size() + " entrants. Slots left: " + after,
+                        Toast.LENGTH_LONG).show();
+
+                // Refresh both tabs
+                loadEntrants("waiting");
+                loadEntrants("selected");
+            }
+
+            @Override public void onFailure(Exception e) {
+                progress.setVisibility(View.GONE);
+                findViewById(R.id.fabRunLottery).setEnabled(true);
+                Toast.makeText(OrganizerEntrantListActivity.this,
+                        "Lottery failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
 
 }
