@@ -1,12 +1,6 @@
 package com.example.gainly_flow;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
-
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.firestore.DocumentSnapshot;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,39 +18,53 @@ import java.util.Map;
 public class WaitingList {
     private static final String TAG = "waiting_list";
 
-    /** Unique identifier for the event associated with this waiting list. */
+    // ---- UNIT-TEST SWITCHES ----
+    private static volatile boolean PERSISTENCE_ENABLED = true;
+    private static volatile boolean LOGGING_ENABLED = true;
+
+    /** Call from JVM unit tests to avoid Firebase *and* android.util.Log. */
+    public static void disablePersistenceForUnitTests() { PERSISTENCE_ENABLED = false; }
+    public static void disableLoggingForUnitTests()     { LOGGING_ENABLED = false;   }
+    public static void enablePersistence()              { PERSISTENCE_ENABLED = true; }
+    public static void enableLogging()                  { LOGGING_ENABLED = true;     }
+
     private String eventId;
 
     /** List of entrant IDs currently on the waiting list. */
     private List<String> entrantList = new ArrayList<>();
 
-    /**
+     /**
      * Constructs a {@code WaitingList} instance for the specified event.
      *
      * @param eventId the unique identifier of the event
      */
-    public WaitingList(String eventId) {
-        this.eventId = eventId;
+    public WaitingList(String eventId) { this.eventId = eventId; }
+
+    // ---- SAFE LOG HELPERS (never call android.util.Log directly in tests) ----
+    private static void logD(String tag, String msg) {
+        if (!LOGGING_ENABLED) return;
+        try { android.util.Log.d(tag, msg); } catch (Throwable ignored) { /* JVM tests */ }
+    }
+    private static void logW(String tag, String msg) {
+        if (!LOGGING_ENABLED) return;
+        try { android.util.Log.w(tag, msg); } catch (Throwable ignored) { /* JVM tests */ }
+    }
+    private static void logE(String tag, String msg) {
+        if (!LOGGING_ENABLED) return;
+        try { android.util.Log.e(tag, msg); } catch (Throwable ignored) { /* JVM tests */ }
     }
 
-    /**
-     * Loads the waiting list for the given event asynchronously from Firestore.
-     * <p>
-     * This method first attempts to retrieve the document using the event ID as the document ID.
-     * If not found, it searches for a document where the {@code eventId} field matches.
-     * Once the data is loaded (or determined to be empty), the provided listener is invoked.
-     * </p>
-     *
-     * @param listener callback to receive the loaded {@code WaitingList} instance
-     */
-    public void load(OnSuccessListener<WaitingList> listener) {
+    /** Load from Firestore asynchronously. Do not call in local unit tests. */
+    public void load(com.google.android.gms.tasks.OnSuccessListener<WaitingList> listener) {
         if (eventId == null || eventId.trim().isEmpty()) {
-            Log.e(TAG, "WaitingList.load called with null/empty eventId");
+            logE(TAG, "WaitingList.load called with null/empty eventId");
             listener.onSuccess(this);
             return;
         }
-
-        // Attempt to fetch the document with ID == eventId
+        if (!PERSISTENCE_ENABLED) { // JVM tests: no DB
+            listener.onSuccess(this);
+            return;
+        }
         Database.get("waiting_lists", eventId, document -> {
             if (document != null && document.exists()) {
                 applyFromDocument(document);
@@ -69,7 +77,7 @@ public class WaitingList {
                 if (altDoc != null && altDoc.exists()) {
                     applyFromDocument(altDoc);
                 } else {
-                    Log.d(TAG, "No waiting_list found for eventId=" + eventId);
+                    logD(TAG, "No waiting_list found for eventId=" + eventId);
                     this.entrantList = new ArrayList<>();
                 }
                 listener.onSuccess(this);
@@ -77,12 +85,12 @@ public class WaitingList {
         });
     }
 
-    /**
+     /**
      * Parses Firestore document data and updates the local entrant list accordingly.
      *
      * @param doc the Firestore document containing waiting list data
      */
-    private void applyFromDocument(@NonNull DocumentSnapshot doc) {
+    private void applyFromDocument(@NonNull com.google.firebase.firestore.DocumentSnapshot doc) {
         List<String> ids = (List<String>) doc.get("entrantIds");
         if (ids == null) ids = new ArrayList<>();
         this.entrantList = new ArrayList<>(ids);
@@ -99,19 +107,21 @@ public class WaitingList {
      * @param capacity  the maximum capacity of the waiting list (0 means unlimited)
      */
     public void addEntrant(String entrantId, int capacity) {
+        if (entrantId == null || entrantId.trim().isEmpty()) {
+            logW(TAG, "Ignoring blank/null entrantId");
+            return;
+        }
         if (entrantList.contains(entrantId)) {
-            Log.w(TAG, "Entrant already exists in waiting list: " + entrantId);
+            logW(TAG, "Entrant already exists in waiting list: " + entrantId);
             return;
         }
-
         if (capacity > 0 && entrantList.size() >= capacity) {
-            Log.w(TAG, "Waiting list full for event " + eventId + " (maxCapacity: " + capacity + ")");
+            logW(TAG, "Waiting list full for event " + eventId + " (maxCapacity: " + capacity + ")");
             return;
         }
-
         entrantList.add(entrantId);
         save();
-        Log.d(TAG, "Added entrant " + entrantId + " to waiting list for " + eventId);
+        logD(TAG, "Added entrant " + entrantId + " to waiting list for " + eventId);
     }
 
     /**
@@ -124,12 +134,12 @@ public class WaitingList {
      */
     public void removeEntrant(String entrantId) {
         if (!entrantList.contains(entrantId)) {
-            Log.w(TAG, "Entrant not found in waiting list: " + entrantId);
+            logW(TAG, "Entrant not found in waiting list: " + entrantId);
             return;
         }
         entrantList.remove(entrantId);
         save();
-        Log.d(TAG, "Removed entrant " + entrantId + " from waiting list for " + eventId);
+        logD(TAG, "Removed entrant " + entrantId + " from waiting list for " + eventId);
     }
 
     /**
@@ -161,9 +171,15 @@ public class WaitingList {
      * </p>
      */
     private void save() {
+        if (!PERSISTENCE_ENABLED) return; // JVM unit tests
         Map<String, Object> data = new HashMap<>();
         data.put("entrantIds", entrantList);
         data.put("size", entrantList.size());
-        Database.save("waiting_lists", eventId, data);
+        try {
+            Database.save("waiting_lists", eventId, data);
+        } catch (Throwable t) {
+            // Never crash unit tests because of DB
+            logW(TAG, "Persistence unavailable; skipping save");
+        }
     }
 }
