@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -13,10 +14,12 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -36,17 +39,20 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private ListView list;
     private NotifAdapter adapter;
+    private BottomNavigationView bottomNav;
 
     private FirebaseFirestore fs;
     private ListenerRegistration reg;
 
-    @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         FirebaseApp.initializeApp(this);
         setContentView(R.layout.activity_entrant_notifications);
 
-        toolbar = findViewById(R.id.toolbar);
-        list    = findViewById(R.id.listNotifications);
+        toolbar   = findViewById(R.id.toolbar);
+        list      = findViewById(R.id.listNotifications);
+        bottomNav = findViewById(R.id.bottomNav);
 
         if (toolbar != null) toolbar.setNavigationOnClickListener(v -> finish());
 
@@ -61,13 +67,36 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             fs.collection("notifications").document(n.id).update("read", true);
             adapter.notifyDataSetChanged();
         });
+
+        // Bottom navigation
+        if (bottomNav != null) {
+            bottomNav.setSelectedItemId(R.id.menu_notifications); // highlight current tab
+            bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
+        }
+    }
+
+    private boolean onNavItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.menu_events) {
+            Intent intent = new Intent(this, EntrantViewMain.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(intent);
+            finish();
+            return true;
+        } else if (id == R.id.menu_notifications) {
+            return true;
+        } else if (id == R.id.menu_profile) {
+            Toast.makeText(this, "Profile coming soon", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        return false;
     }
 
     @Override
     protected void onStart() {
         super.onStart();
 
-        // Order all notifications by timestamp (descending)
+        // Get ALL notifications ordered by newest first
         reg = fs.collection("notifications")
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener((snap, err) -> {
@@ -94,8 +123,8 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
                 });
     }
 
-
-    @Override protected void onStop() {
+    @Override
+    protected void onStop() {
         super.onStop();
         if (reg != null) { reg.remove(); reg = null; }
     }
@@ -103,17 +132,18 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
     /* ---------------- small row model ---------------- */
 
     private static class Notif {
-        final String id, title, message, type, eventId;
+        final String id, title, message, type, eventId, recipientId;
         final long timestamp;
         final boolean read;
 
         Notif(String id, String title, String message, String type,
-              String eventId, long timestamp, boolean read) {
+              String eventId, String recipientId, long timestamp, boolean read) {
             this.id = id;
             this.title = nz(title, "Notification");
             this.message = nz(message, "");
-            this.type = nz(type, "CUSTOM");
+            this.type = nz(type, "CUSTOM");           // WIN | LOSE | CUSTOM
             this.eventId = eventId;
+            this.recipientId = recipientId;
             this.timestamp = timestamp;
             this.read = read;
         }
@@ -122,11 +152,12 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             String id   = getStr(d.get("notificationId")); if (id.isEmpty()) id = d.getId();
             String t    = getStr(d.get("title"));
             String msg  = getStr(d.get("message"));
-            String type = getStr(d.get("type"));
+            String type = getStr(d.get("type")); // WIN, LOSE, CUSTOM
             String eid  = getStr(d.get("eventId"));
+            String rid  = getStr(d.get("recipientDeviceId")); // or recipientId in your schema
             Long ts     = getLong(d.get("timestamp"));
             Boolean r   = asBool(d.get("read"));
-            return new Notif(id, t, msg, type, eid, ts == null ? 0L : ts, r != null && r);
+            return new Notif(id, t, msg, type, eid, rid, ts == null ? 0L : ts, r != null && r);
         }
 
         static String nz(String s, String def){ return s==null||s.trim().isEmpty()?def:s; }
@@ -141,6 +172,10 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             if (o instanceof String)  return "true".equalsIgnoreCase((String)o) || "1".equals(o);
             return false;
         }
+
+        boolean isWin(){ return "WIN".equalsIgnoreCase(type); }
+        boolean isLose(){ return "LOSE".equalsIgnoreCase(type); }
+        boolean isCustom(){ return "CUSTOM".equalsIgnoreCase(type); }
     }
 
     /* ---------------- simple ArrayAdapter ---------------- */
@@ -149,39 +184,54 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
         NotifAdapter(Context ctx, List<Notif> data){ super(ctx, 0, data); }
         void replace(List<Notif> data){ clear(); addAll(data); notifyDataSetChanged(); }
 
-        @Override public View getView(int pos, View convertView, ViewGroup parent) {
+        @Override
+        public View getView(int pos, View convertView, ViewGroup parent) {
             View v = (convertView != null) ? convertView :
                     LayoutInflater.from(getContext()).inflate(R.layout.item_notification, parent, false);
 
-            View colorBar       = v.findViewById(R.id.colorBar);
-            TextView tvTime     = v.findViewById(R.id.tvTime);
-            TextView tvTitle    = v.findViewById(R.id.tvTitle);
-            TextView tvMessage  = v.findViewById(R.id.tvMessage);
-            Button btnDetails   = v.findViewById(R.id.btnDetails);
+            View colorBar     = v.findViewById(R.id.colorBar);
+            TextView tvTime   = v.findViewById(R.id.tvTime);
+            TextView tvTitle  = v.findViewById(R.id.tvTitle);
+            TextView tvMsg    = v.findViewById(R.id.tvMessage);
+            Button btnAccept  = v.findViewById(R.id.btnAccept);
+            Button btnDecline = v.findViewById(R.id.btnDecline);
 
             Notif n = getItem(pos);
             if (n == null) return v;
 
             tvTitle.setText(n.title);
-            tvMessage.setText(n.message);
+            tvMsg.setText(n.message);
             tvTime.setText(formatAgo(n.timestamp));
-            colorBar.setBackgroundColor(colorForType(n.type));
 
             // Dim read items a bit
             v.setAlpha(n.read ? 0.75f : 1f);
 
-            // Details: show only if eventId exists
-            if (n.eventId != null && !n.eventId.trim().isEmpty()) {
-                btnDetails.setVisibility(View.VISIBLE);
-                btnDetails.setOnClickListener(view -> {
-                    Intent i = new Intent(getContext(), EventDetailActivity.class);
-                    i.putExtra(EventDetailActivity.EXTRA_EVENT_ID, n.eventId);
-                    getContext().startActivity(i);
-                });
+            // --- Color bar by type ---
+            if (n.isWin()) {
+                colorBar.setBackgroundColor(0xFF1FBF75); // green
+            } else if (n.isLose()) {
+                colorBar.setBackgroundColor(0xFFE34B4B); // red
             } else {
-                btnDetails.setVisibility(View.GONE);
-                btnDetails.setOnClickListener(null);
+                colorBar.setBackgroundColor(0xFF2C6FFF); // blue (CUSTOM)
             }
+
+            // --- Show Accept/Decline only if WIN ---
+            if (n.isWin()) {
+                btnAccept.setVisibility(View.VISIBLE);
+                btnDecline.setVisibility(View.VISIBLE);
+
+                btnAccept.setOnClickListener(view ->
+                        Toast.makeText(getContext(), "Accept tapped (eventId=" + n.eventId + ")", Toast.LENGTH_SHORT).show());
+
+                btnDecline.setOnClickListener(view ->
+                        Toast.makeText(getContext(), "Decline tapped (eventId=" + n.eventId + ")", Toast.LENGTH_SHORT).show());
+            } else {
+                btnAccept.setVisibility(View.GONE);
+                btnDecline.setVisibility(View.GONE);
+                btnAccept.setOnClickListener(null);
+                btnDecline.setOnClickListener(null);
+            }
+
             return v;
         }
 
@@ -191,13 +241,6 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
                     ts, System.currentTimeMillis(),
                     DateUtils.MINUTE_IN_MILLIS,
                     DateUtils.FORMAT_ABBREV_RELATIVE).toString();
-        }
-
-        private int colorForType(String type){
-            if ("SELECTED".equalsIgnoreCase(type) || "INVITE".equalsIgnoreCase(type)) return 0xFF1FBF75; // green
-            if ("NOT_SELECTED".equalsIgnoreCase(type) || "DECLINED".equalsIgnoreCase(type)) return 0xFFE34B4B; // red
-            if ("CLOSING_SOON".equalsIgnoreCase(type)) return 0xFF2C6FFF; // blue
-            return 0xFF2C6FFF; // default/custom/info
         }
     }
 }
