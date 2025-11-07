@@ -1,6 +1,7 @@
 package com.example.gainly_flow;
 
 import android.os.Bundle;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -19,6 +20,7 @@ public class NotificationsActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private NotificationAdapter adapter;
     private List<NotificationItem> notificationList = new ArrayList<>();
+    private ImageButton backButton;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -27,20 +29,50 @@ public class NotificationsActivity extends AppCompatActivity {
 
         recyclerView = findViewById(R.id.recyclerViewNotifications);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        backButton = findViewById(R.id.backButton_notification);
+
+        backButton.setOnClickListener(v -> {
+            onBackPressed();
+        });
 
         adapter = new NotificationAdapter(notificationList, new NotificationAdapter.OnActionClickListener() {
             @Override
             public void onAcceptClicked(NotificationItem item) {
                 Toast.makeText(NotificationsActivity.this, "Accepted: " + item.getTitle(), Toast.LENGTH_SHORT).show();
-                // TODO: Update Firestore status
+
+                // 🔹 Optionally update Firestore (e.g., mark delivered or accepted)
+                FirebaseFirestore db = FirebaseFirestore.getInstance();
+                db.collection("notifications")
+                        .document(item.getId())
+                        .update("delivered", true)  // or any field you want
+                        .addOnSuccessListener(aVoid -> {
+                            // 🔹 Hide buttons locally
+                            item.setActionRequired(false);
+                            adapter.notifyDataSetChanged();
+                        })
+                        .addOnFailureListener(e ->
+                                Toast.makeText(NotificationsActivity.this, "Failed to update: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                        );
             }
 
             @Override
             public void onDeclineClicked(NotificationItem item) {
                 Toast.makeText(NotificationsActivity.this, "Declined: " + item.getTitle(), Toast.LENGTH_SHORT).show();
-                // TODO: Update Firestore status
+
+                FirebaseFirestore db = FirebaseFirestore.getInstance();
+                db.collection("notifications")
+                        .document(item.getId())
+                        .update("delivered", true) // same logic as above
+                        .addOnSuccessListener(aVoid -> {
+                            item.setActionRequired(false);
+                            adapter.notifyDataSetChanged();
+                        })
+                        .addOnFailureListener(e ->
+                                Toast.makeText(NotificationsActivity.this, "Failed to update: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                        );
             }
         });
+
 
         recyclerView.setAdapter(adapter);
 
