@@ -1,10 +1,15 @@
 package com.example.gainly_flow;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.List;
 
@@ -19,73 +24,34 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_organizer_entrantlist);
 
-        entrantListView = findViewById(R.id.entrantList);   // <- must match XML id
-        findViewById(R.id.waiting);
-        findViewById(R.id.Selected);
-        findViewById(R.id.sendMsg);
-        // Get eventId from intent; fallback for manual testing
         String eventId = getIntent().getStringExtra("eventId");
-        if (eventId == null || eventId.isEmpty()) {
-            eventId = "event123";
+        String eventName = getIntent().getStringExtra("eventName");
+
+        TextView header = findViewById(R.id.txtEventName);
+        if (eventName != null) header.setText(eventName);
+
+        if (eventId != null) {
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            db.collection("waiting_lists").document(eventId).get()
+                    .addOnSuccessListener(doc -> {
+                        @SuppressWarnings("unchecked")
+                        List<String> entrants = (List<String>) doc.get("entrants");
+                        if (entrants != null) {
+                            LinearLayout container = findViewById(R.id.entrantListContainer); // (line ~40)
+                            container.removeAllViews();
+                            for (String entrant : entrants) {
+                                TextView tv = new TextView(this);
+                                tv.setText(entrant);
+                                tv.setTextSize(16);
+                                tv.setPadding(16, 8, 16, 8);
+                                container.addView(tv);
+                            }
+                        }
+                    })
+                    .addOnFailureListener(e -> Log.e("EntrantList", "Failed to load waiting list", e));
         }
-
-        currentEvent = new Event();                         // <- no-arg constructor
-        currentEvent.load(eventId, event -> {
-            // event is the loaded Event (same as currentEvent after load)
-            waitingList = new WaitingList(event.getEventId());
-
-            // Initial load of waiting list
-            waitingList.load(list -> updateListView(list.getEntrants()));
-
-            // Wire buttons AFTER we have an event id
-            findViewById(R.id.waiting).setOnClickListener(v ->
-                    waitingList.load(list -> updateListView(list.getEntrants()))
-            );
-
-            findViewById(R.id.Selected).setOnClickListener(v ->
-                    LotterySystem.loadSelected(event.getEventId(), this::updateListView)
-            );
-
-            findViewById(R.id.sendMsg).setOnClickListener(v ->
-                    LotterySystem.loadSelected(event.getEventId(), selected -> {
-                        NotificationManager nm = new NotificationManager();
-                        nm.notifySelected(selected, event.getEventId());
-                    })
-            );
-        });
-
-        // inside onCreate, after you resolved eventId from the Intent
-        final String requestedEventId = eventId;
-
-        currentEvent = new Event();
-        currentEvent.load(requestedEventId, evt -> {
-            // Use loaded id if present; otherwise fall back to the requested id
-            String eid = (evt != null && evt.getEventId() != null && !evt.getEventId().isEmpty())
-                    ? evt.getEventId()
-                    : requestedEventId;
-
-            waitingList = new WaitingList(eid);
-
-            // Initial load
-            waitingList.load(list -> updateListView(list.getEntrants()));
-
-            // Buttons
-            findViewById(R.id.waiting).setOnClickListener(v ->
-                    waitingList.load(l -> updateListView(l.getEntrants()))
-            );
-
-            findViewById(R.id.Selected).setOnClickListener(v ->
-                    LotterySystem.loadSelected(eid, this::updateListView)
-            );
-
-            findViewById(R.id.sendMsg).setOnClickListener(v ->
-                    LotterySystem.loadSelected(eid, selected -> {
-                        NotificationManager nm = new NotificationManager();
-                        nm.notifySelected(selected, eid);
-                    })
-            );
-        });
     }
+
     //kk
     private void updateListView(List<String> entrantIds) {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(

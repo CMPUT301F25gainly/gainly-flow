@@ -11,7 +11,7 @@ public class Administrator extends User {
     public static Administrator get() {
         if (instance == null) {
             // fallback placeholder instance
-            instance = new Administrator("admin_id", new Profile("admin_id", "Admin", "admin@example.com"));
+            instance = new Administrator("admin_id", new Profile("admin_id", "Admin", "admin@example.com", "Administrator"));
         }
         return instance;
     }
