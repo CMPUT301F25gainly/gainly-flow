@@ -57,6 +57,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")// you use MaterialButton
 
     implementation("com.google.firebase:firebase-auth:22.3.0")
+    testImplementation("org.robolectric:robolectric:4.12.2")
 
 
 
