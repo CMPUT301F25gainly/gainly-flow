@@ -59,7 +59,18 @@
             android:layout_marginTop="6dp"
             android:textAlignment="viewStart" />
 
-        <!-- Button row -->
+        <!-- Final decision label (shown when accepted/declined) -->
+        <TextView
+            android:id="@+id/tvDecision"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Accepted"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone" />
+
+        <!-- Button row (only when pending) -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -68,22 +79,28 @@
 
             <Button
                 android:id="@+id/btnAccept"
-                android:layout_width="100dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:text="Accept"
                 android:textAllCaps="false"
-                android:background="#EEEEEE"
-                android:textColor="#FFFFFF" />
+                android:background="#2C6FFF"
+                android:textColor="#FFFFFF"
+                android:visibility="gone" />
 
             <Button
                 android:id="@+id/btnDecline"
-                android:layout_width="100dp"
+                android:layout_width="wrap_content"
                 android:layout_height="36dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:text="Decline"
                 android:textAllCaps="false"
-                android:background="#EEEEEE"
+                android:background="#E34B4B"
                 android:textColor="#FFFFFF"
-                android:layout_marginStart="8dp" />
+                android:layout_marginStart="8dp"
+                android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

@@ -36,6 +36,10 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
     private static final String CURRENT_USER_ID = "22ae419f5bed11cd";
     // ------------------------------------------------
 
+    private static final int STATUS_PENDING  = 0;
+    private static final int STATUS_ACCEPTED = 1;
+    private static final int STATUS_DECLINED = 2;
+
     private MaterialToolbar toolbar;
     private ListView list;
     private NotifAdapter adapter;
@@ -65,6 +69,7 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             Notif n = adapter.getItem(pos);
             if (n == null || n.id == null) return;
             fs.collection("notifications").document(n.id).update("read", true);
+            n.read = true;
             adapter.notifyDataSetChanged();
         });
 
@@ -96,8 +101,9 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
-        // Get ALL notifications ordered by newest first
+        // If you want to scope to the current user, uncomment the whereEqualTo line.
         reg = fs.collection("notifications")
+                //.whereEqualTo("recipientDeviceId", CURRENT_USER_ID)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .addSnapshotListener((snap, err) -> {
                     if (err != null) {
@@ -134,10 +140,11 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
     private static class Notif {
         final String id, title, message, type, eventId, recipientId;
         final long timestamp;
-        final boolean read;
+        boolean read;
+        int acceptStatus; // 0: pending, 1: accepted, 2: declined
 
         Notif(String id, String title, String message, String type,
-              String eventId, String recipientId, long timestamp, boolean read) {
+              String eventId, String recipientId, long timestamp, boolean read, int acceptStatus) {
             this.id = id;
             this.title = nz(title, "Notification");
             this.message = nz(message, "");
@@ -146,6 +153,7 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             this.recipientId = recipientId;
             this.timestamp = timestamp;
             this.read = read;
+            this.acceptStatus = acceptStatus;
         }
 
         static Notif from(DocumentSnapshot d) {
@@ -157,7 +165,13 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             String rid  = getStr(d.get("recipientDeviceId")); // or recipientId in your schema
             Long ts     = getLong(d.get("timestamp"));
             Boolean r   = asBool(d.get("read"));
-            return new Notif(id, t, msg, type, eid, rid, ts == null ? 0L : ts, r != null && r);
+            Integer acc = getInt(d.get("acceptStatus"));
+            return new Notif(
+                    id, t, msg, type, eid, rid,
+                    ts == null ? 0L : ts,
+                    r != null && r,
+                    acc == null ? STATUS_PENDING : acc
+            );
         }
 
         static String nz(String s, String def){ return s==null||s.trim().isEmpty()?def:s; }
@@ -165,6 +179,11 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
         static Long getLong(Object o){
             if (o instanceof Number) return ((Number)o).longValue();
             if (o instanceof String) try { return Long.parseLong((String)o);} catch(Exception ignored){}
+            return null;
+        }
+        static Integer getInt(Object o){
+            if (o instanceof Number) return ((Number)o).intValue();
+            if (o instanceof String) try { return Integer.parseInt((String)o);} catch(Exception ignored){}
             return null;
         }
         static Boolean asBool(Object o){
@@ -176,6 +195,7 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
         boolean isWin(){ return "WIN".equalsIgnoreCase(type); }
         boolean isLose(){ return "LOSE".equalsIgnoreCase(type); }
         boolean isCustom(){ return "CUSTOM".equalsIgnoreCase(type); }
+        boolean isPendingDecision(){ return acceptStatus == STATUS_PENDING; }
     }
 
     /* ---------------- simple ArrayAdapter ---------------- */
@@ -189,12 +209,13 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
             View v = (convertView != null) ? convertView :
                     LayoutInflater.from(getContext()).inflate(R.layout.item_notification, parent, false);
 
-            View colorBar     = v.findViewById(R.id.colorBar);
-            TextView tvTime   = v.findViewById(R.id.tvTime);
-            TextView tvTitle  = v.findViewById(R.id.tvTitle);
-            TextView tvMsg    = v.findViewById(R.id.tvMessage);
-            Button btnAccept  = v.findViewById(R.id.btnAccept);
-            Button btnDecline = v.findViewById(R.id.btnDecline);
+            View colorBar      = v.findViewById(R.id.colorBar);
+            TextView tvTime    = v.findViewById(R.id.tvTime);
+            TextView tvTitle   = v.findViewById(R.id.tvTitle);
+            TextView tvMsg     = v.findViewById(R.id.tvMessage);
+            TextView tvDecision= v.findViewById(R.id.tvDecision);
+            Button btnAccept   = v.findViewById(R.id.btnAccept);
+            Button btnDecline  = v.findViewById(R.id.btnDecline);
 
             Notif n = getItem(pos);
             if (n == null) return v;
@@ -215,21 +236,52 @@ public class EntrantNotificationsActivity extends AppCompatActivity {
                 colorBar.setBackgroundColor(0xFF2C6FFF); // blue (CUSTOM)
             }
 
-            // --- Show Accept/Decline only if WIN ---
+            // Reset visibility for reused rows
+            tvDecision.setVisibility(View.GONE);
+            btnAccept.setVisibility(View.GONE);
+            btnDecline.setVisibility(View.GONE);
+            btnAccept.setOnClickListener(null);
+            btnDecline.setOnClickListener(null);
+
+            // --- Decision UI only for WIN type ---
             if (n.isWin()) {
-                btnAccept.setVisibility(View.VISIBLE);
-                btnDecline.setVisibility(View.VISIBLE);
+                if (n.isPendingDecision()) {
+                    // Show buttons
+                    btnAccept.setVisibility(View.VISIBLE);
+                    btnDecline.setVisibility(View.VISIBLE);
 
-                btnAccept.setOnClickListener(view ->
-                        Toast.makeText(getContext(), "Accept tapped (eventId=" + n.eventId + ")", Toast.LENGTH_SHORT).show());
+                    btnAccept.setOnClickListener(view -> {
+                        fs.collection("notifications")
+                                .document(n.id)
+                                .update("acceptStatus", STATUS_ACCEPTED, "read", true)
+                                .addOnFailureListener(e ->
+                                        Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                        n.acceptStatus = STATUS_ACCEPTED;
+                        n.read = true;
+                        notifyDataSetChanged();
+                    });
 
-                btnDecline.setOnClickListener(view ->
-                        Toast.makeText(getContext(), "Decline tapped (eventId=" + n.eventId + ")", Toast.LENGTH_SHORT).show());
-            } else {
-                btnAccept.setVisibility(View.GONE);
-                btnDecline.setVisibility(View.GONE);
-                btnAccept.setOnClickListener(null);
-                btnDecline.setOnClickListener(null);
+                    btnDecline.setOnClickListener(view -> {
+                        fs.collection("notifications")
+                                .document(n.id)
+                                .update("acceptStatus", STATUS_DECLINED, "read", true)
+                                .addOnFailureListener(e ->
+                                        Toast.makeText(getContext(), "Update failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                        n.acceptStatus = STATUS_DECLINED;
+                        n.read = true;
+                        notifyDataSetChanged();
+                    });
+                } else {
+                    // Show final state label
+                    tvDecision.setVisibility(View.VISIBLE);
+                    if (n.acceptStatus == STATUS_ACCEPTED) {
+                        tvDecision.setText("Accepted");
+                        tvDecision.setTextColor(0xFF1FBF75); // green
+                    } else { // DECLINED
+                        tvDecision.setText("Declined");
+                        tvDecision.setTextColor(0xFFE34B4B); // red
+                    }
+                }
             }
 
             return v;
