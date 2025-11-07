@@ -146,8 +146,8 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
             String mode = (checked == R.id.btnSelected) ? "selected" : "waiting";
             loadEntrants(mode);
         });
-
-        loadEntrants("waiting");
+        addTestData();
+        //loadEntrants("waiting");
     }
 
     /*!
@@ -458,6 +458,26 @@ public class OrganizerEntrantListActivity extends AppCompatActivity {
         empty.setVisibility(show ? View.VISIBLE : View.GONE);
         recycler.setVisibility(show ? View.GONE : View.VISIBLE);
     }
+
+    /**
+     * Adds sample data for testing the waiting and selected tabs.
+     */
+    private void addTestData() {
+        data.clear();
+
+        if ("waiting".equals(currentMode)) {
+            data.add(new EntrantRow("u1", "Alice Johnson", "alice@example.com", "waiting"));
+            data.add(new EntrantRow("u2", "Bob Smith", "bob@example.com", "waiting"));
+            data.add(new EntrantRow("u3", "Charlie Lee", "charlie@example.com", "waiting"));
+        } else if ("selected".equals(currentMode)) {
+            data.add(new EntrantRow("u4", "Diana Prince", "diana@example.com", "selected"));
+            data.add(new EntrantRow("u5", "Ethan Hunt", "ethan@example.com", "selected"));
+        }
+
+        adapter.notifyDataSetChanged();
+        showEmpty(data.isEmpty());
+    }
+
 
     /**
      * Prompts the organizer for a draw size and, if valid, runs the lottery.
