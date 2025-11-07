@@ -1,5 +1,18 @@
 package com.example.gainly_flow;
 
+import android.util.Log;
+
+import com.google.android.gms.tasks.OnSuccessListener;
+import android.util.Log;
+
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.DocumentSnapshot;
+import android.util.Log;
+import androidx.annotation.NonNull;
+import com.google.firebase.firestore.DocumentSnapshot;
+import java.util.HashMap;
+import java.util.Map;
+
 import java.sql.Time;
 import java.util.Date;
 
@@ -16,6 +29,9 @@ public class Event {
     private String posterImageId;
     private String organizerId;
     private String qrUrl;
+
+//     public Event(String id) { this.id = id; }
+//     public Event() {}
 
     // New fields for better compatibility
     private String location;
@@ -236,6 +252,39 @@ public class Event {
         } else {
             return "CLOSED";
         }
+    }
+
+    // Event.java
+    public String getEventId() {
+        return id;
+    }
+
+    private static final String TAG = "Event";
+
+    public void fromDocument(@NonNull DocumentSnapshot document) {
+        // Minimal, safe mapping so it compiles and runs
+        // (add more fields if you have them)
+        this.id = document.getId();  // keep Firestore doc id as eventId
+        // If you have fields in Firestore, you can optionally copy them:
+        Event e = document.toObject(Event.class);
+        if (e != null) {
+            // copy whatever fields your model defines
+            // e.g., this.title = e.title; this.description = e.description; ...
+        }
+    }
+
+
+    public void load(String eventId, OnSuccessListener<Event> listener) {
+        Database.get("events", eventId, document -> {
+            if (document.exists()) {
+                fromDocument(document);
+                Log.d(TAG, "Loaded event " + eventId);
+            } else {
+                Log.w(TAG, "Event not found: " + eventId);
+                this.id = eventId;   // <-- keep requested id to avoid nulls
+            }
+            listener.onSuccess(this);
+        });
     }
 
     @Override
