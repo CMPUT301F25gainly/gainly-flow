@@ -188,9 +188,8 @@ public class EntrantViewMain extends AppCompatActivity {
             Intent toNotification = new Intent(EntrantViewMain.this, NotificationsActivity.class);
             startActivity(toNotification);
         } else if (id == R.id.menu_profile) {
-            // US 01.02.01 & US 01.02.02 - Open Profile Activity
-            Intent intent = new Intent(EntrantViewMain.this, ProfileActivity.class);
-            startActivity(intent);
+            Intent toProfile = new Intent(EntrantViewMain.this, ProfileActivity.class);
+            startActivity(toProfile);
         }
         return true;
     }

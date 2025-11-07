@@ -2,6 +2,16 @@ package com.example.gainly_flow;
 
 import android.os.Bundle;
 import android.provider.Settings;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.switchmaterial.SwitchMaterial;
+import com.google.android.material.textfield.TextInputEditText;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -18,22 +28,27 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-/**
- * Activity for creating and updating entrant profile
- * Implements US 01.02.01 and US 01.02.02
- */
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class ProfileActivity extends AppCompatActivity {
 
-    private EditText editTextName;
-    private EditText editTextEmail;
-    private EditText editTextPhone;
-    private Button btnSaveProfile;
-    private ProgressBar progressBar;
+    // --- UI Elements ---
+    private TextView textUserName, textDeviceId;
+    private TextInputEditText editFullName, editEmail, editPhoneNumber;
+    private SwitchMaterial switchNotifications, switchLocation;
+    private MaterialButton buttonUpdateProfile, buttonDeleteAccount;
+    private ImageButton backButton;
+    private ImageView profileIcon;
 
+    // --- Firebase ---
     private FirebaseFirestore db;
+    private String profileId = "114514"; // Replace this dynamically later
+    private DocumentReference profileRef;
+
+    // --- Device ID ---
     private String deviceId;
-    private ProfileEntrant currentProfile;
-    private boolean isEditMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,190 +57,137 @@ public class ProfileActivity extends AppCompatActivity {
 
         // Initialize Firestore
         db = FirebaseFirestore.getInstance();
+        profileRef = db.collection("profiles").document(profileId);
 
-        // Get device ID
-        deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        // --- Generate unique device ID ---
+        deviceId = generateDeviceId();
 
-        // Initialize views
-        initializeViews();
+        // --- Bind UI ---
+        textUserName = findViewById(R.id.text_user_name);
+        textDeviceId = findViewById(R.id.text_device_id);
+        editFullName = findViewById(R.id.edit_full_name);
+        editEmail = findViewById(R.id.edit_email);
+        editPhoneNumber = findViewById(R.id.edit_phone_number);
+        switchNotifications = findViewById(R.id.switch_notifications);
+        switchLocation = findViewById(R.id.switch_location);
+        buttonUpdateProfile = findViewById(R.id.button_update_profile);
+        buttonDeleteAccount = findViewById(R.id.button_delete_account);
+        backButton = findViewById(R.id.back_button_profile);
+        profileIcon = findViewById(R.id.profile_icon);
 
-        // Load existing profile if available
-        loadProfile();
+        // --- Load or create profile ---
+        loadOrCreateProfile();
 
-        // Set up save button
-        btnSaveProfile.setOnClickListener(v -> saveProfile());
+        // --- Button Listeners ---
+        buttonUpdateProfile.setOnClickListener(v -> updateProfile());
+        buttonDeleteAccount.setOnClickListener(v -> deleteAccount());
+        backButton.setOnClickListener(v -> onBackPressed());
     }
 
     /**
-     * Initialize all UI components
+     * Generates a unique device ID.
      */
-    private void initializeViews() {
-        editTextName = findViewById(R.id.editTextName);
-        editTextEmail = findViewById(R.id.editTextEmail);
-        editTextPhone = findViewById(R.id.editTextPhone);
-        btnSaveProfile = findViewById(R.id.btnSaveProfile);
-        progressBar = findViewById(R.id.progressBar);
-
-        // Back button
-        ImageButton btnBack = findViewById(R.id.btnBack);
-        btnBack.setOnClickListener(v -> finish());
-
-        // Cancel button
-        Button btnCancel = findViewById(R.id.btnCancel);
-        btnCancel.setOnClickListener(v -> finish());
-
-        progressBar.setVisibility(View.GONE);
+    private String generateDeviceId() {
+        String androidId = Settings.Secure.getString(getContentResolver(),
+                Settings.Secure.ANDROID_ID
+        );
+        if (androidId == null || androidId.isEmpty()) {
+            return UUID.randomUUID().toString();
+        }
+        return androidId;
     }
 
-    /**
-     * Load existing profile from Firestore
-     * Part of US 01.02.02 - Update profile
-     */
-    private void loadProfile() {
-        progressBar.setVisibility(View.VISIBLE);
-
-        DocumentReference docRef = db.collection("profiles").document(deviceId);
-        docRef.get().addOnCompleteListener(task -> {
-            progressBar.setVisibility(View.GONE);
-
-            if (task.isSuccessful()) {
-                DocumentSnapshot document = task.getResult();
-                if (document.exists()) {
-                    // Profile exists - load data for editing
-                    currentProfile = document.toObject(ProfileEntrant.class);
-                    if (currentProfile != null) {
-                        populateFields(currentProfile);
-                        isEditMode = true;
-                        btnSaveProfile.setText(R.string.update_profile);
-                        setTitle(R.string.edit_profile_title);
-                    }
-                } else {
-                    // New profile
-                    isEditMode = false;
-                    btnSaveProfile.setText(R.string.create_profile);
-                    setTitle(R.string.create_profile_title);
-                }
-            } else {
-                String errorMessage = task.getException() != null ?
-                        task.getException().getMessage() : "Unknown error";
-                Toast.makeText(ProfileActivity.this,
-                        getString(R.string.error_loading_profile) + errorMessage,
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
 
     /**
-     * Populate form fields with existing profile data
-     * @param profile ProfileEntrant object with profile data
+     * Loads existing profile or creates a new one if missing.
      */
-    private void populateFields(ProfileEntrant profile) {
-        editTextName.setText(profile.getDisplayName());
-        editTextEmail.setText(profile.getEmail());
-
-        // Phone number is optional
-        if (profile.getPhoneNumber() != null && !profile.getPhoneNumber().isEmpty()) {
-            editTextPhone.setText(profile.getPhoneNumber());
-        }
-    }
-
-    /**
-     * Save or update profile to Firestore
-     * Implements US 01.02.01 (Create) and US 01.02.02 (Update)
-     */
-    private void saveProfile() {
-        // Get input values
-        String name = editTextName.getText().toString().trim();
-        String email = editTextEmail.getText().toString().trim();
-        String phone = editTextPhone.getText().toString().trim();
-
-        // Validate required fields
-        if (name.isEmpty()) {
-            editTextName.setError(getString(R.string.error_name_required));
-            editTextName.requestFocus();
-            return;
-        }
-
-        if (email.isEmpty()) {
-            editTextEmail.setError(getString(R.string.error_email_required));
-            editTextEmail.requestFocus();
-            return;
-        }
-
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            editTextEmail.setError(getString(R.string.error_email_invalid));
-            editTextEmail.requestFocus();
-            return;
-        }
-
-        // Phone is optional, but validate format if provided
-        if (!phone.isEmpty() && !isValidPhoneNumber(phone)) {
-            editTextPhone.setError(getString(R.string.error_phone_invalid));
-            editTextPhone.requestFocus();
-            return;
-        }
-
-        progressBar.setVisibility(View.VISIBLE);
-        btnSaveProfile.setEnabled(false);
-
-        // Create or update ProfileEntrant object
-        ProfileEntrant profile;
-        if (isEditMode && currentProfile != null) {
-            // Update existing profile
-            profile = currentProfile;
-            profile.setDisplayName(name);
-            profile.setEmail(email);
-            profile.setPhoneNumber(phone.isEmpty() ? null : phone);
-        } else {
-            // Create new profile
-            profile = new ProfileEntrant(deviceId, name, email, phone.isEmpty() ? null : phone);
-        }
-
-        // Save to Firestore
-        db.collection("profiles")
-                .document(deviceId)
-                .set(profile)
-                .addOnCompleteListener(task -> {
-                    progressBar.setVisibility(View.GONE);
-                    btnSaveProfile.setEnabled(true);
-
-                    if (task.isSuccessful()) {
-                        String message = isEditMode ?
-                                getString(R.string.profile_updated_success) :
-                                getString(R.string.profile_created_success);
-                        Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show();
-
-                        // Update mode for subsequent saves
-                        if (!isEditMode) {
-                            isEditMode = true;
-                            currentProfile = profile;
-                            btnSaveProfile.setText(R.string.update_profile);
-                            setTitle(R.string.edit_profile_title);
-                        }
+    private void loadOrCreateProfile() {
+        profileRef.get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot.exists()) {
+                        loadProfile(snapshot);
                     } else {
-                        String errorMessage = task.getException() != null ?
-                                task.getException().getMessage() : "Unknown error";
-                        Toast.makeText(ProfileActivity.this,
-                                getString(R.string.error_saving_profile) + errorMessage,
-                                Toast.LENGTH_LONG).show();
+                        createNewProfile();
                     }
-                });
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to load profile: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     /**
-     * Validate phone number format
-     * @param phone Phone number to validate
-     * @return true if valid
+     * Populates UI with Firestore data.
      */
-    private boolean isValidPhoneNumber(String phone) {
-        // Basic validation - at least 10 digits
-        String cleanPhone = phone.replaceAll("[^0-9]", "");
-        return cleanPhone.length() >= 10;
+    private void loadProfile(DocumentSnapshot snapshot) {
+        String name = snapshot.getString("name");
+        String email = snapshot.getString("email");
+        String phone = snapshot.getString("phoneNumber");
+        String device = snapshot.getString("deviceId");
+        Boolean notifications = snapshot.getBoolean("notificationsEnabled");
+
+        textUserName.setText(name != null ? name : "Unknown User");
+        textDeviceId.setText("Device ID: " + (device != null ? device : deviceId));
+        editFullName.setText(name);
+        editEmail.setText(email);
+        editPhoneNumber.setText(phone);
+        switchNotifications.setChecked(notifications != null && notifications);
     }
 
-    @Override
-    public boolean onSupportNavigateUp() {
-        finish();
-        return true;
+    /**
+     * Creates a new profile if none exists.
+     */
+    private void createNewProfile() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("profileId", profileId);
+        data.put("name", "New User");
+        data.put("email", "");
+        data.put("phoneNumber", "");
+        data.put("notificationsEnabled", true);
+        data.put("valid", true);
+        data.put("deviceId", deviceId);
+
+        profileRef.set(data)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, "New profile created!", Toast.LENGTH_SHORT).show();
+                    textUserName.setText("New User");
+                    textDeviceId.setText("Device ID: " + deviceId);
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to create profile: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    /**
+     * Updates profile data in Firestore (creates if missing).
+     */
+    private void updateProfile() {
+        String name = editFullName.getText().toString().trim();
+        String email = editEmail.getText().toString().trim();
+        String phone = editPhoneNumber.getText().toString().trim();
+        boolean notificationsEnabled = switchNotifications.isChecked();
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("name", name);
+        updates.put("email", email);
+        updates.put("phoneNumber", phone);
+        updates.put("notificationsEnabled", notificationsEnabled);
+        updates.put("deviceId", deviceId);
+        updates.put("valid", true);
+
+        // Use set() with merge = true to update or create if missing
+        profileRef.set(updates)
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(this, "Profile updated successfully!", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(), Toast.LENGTH_LONG).show());
+    }
+
+    /**
+     * Deletes the profile document from Firestore.
+     */
+    private void deleteAccount() {
+        profileRef.delete()
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(this, "Account deleted.", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to delete: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 }
