@@ -32,6 +32,28 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
 
+/**
+ * Activity for creating a new event.
+ * <p>
+ * This screen collects event metadata (name, description, date, time, capacity, registration window,
+ * geolocation flag and an optional poster image URL), validates the inputs, writes a normalized
+ * record to Firestore, and displays a QR code for the generated deep link.
+ * </p>
+ *
+ * <h3>Key features</h3>
+ * <ul>
+ *   <li>Tap-only date/time inputs using Material pickers</li>
+ *   <li>Live poster preview with URL normalization (Google Images / Google Drive)</li>
+ *   <li>Edge-to-edge layout insets handling</li>
+ *   <li>QR code generation and sharing stub</li>
+ * </ul>
+ *
+ * <p><b>Firestore schema (fields written)</b>:
+ * <code>id, name, description, eventDateUtc, eventTimeOfDayMs, registrationOpenUtc,
+ * registrationCloseUtc, capacity, geolocationEnabled, qrUrl, createdAt, posterUrl</code></p>
+ *
+ * <p><b>Threading</b>: Firestore calls are asynchronous and display user feedback via Toasts.</p>
+ */
 public class CreateEvent extends AppCompatActivity {
 
     // UI
@@ -45,14 +67,18 @@ public class CreateEvent extends AppCompatActivity {
     private final SimpleDateFormat dateFmt   = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
     private final SimpleDateFormat timeFmt12 = new SimpleDateFormat("h:mm a",     Locale.getDefault());
 
-    /** Constructor for the view */
+    /**
+     * Lifecycle entry point. Wires up views, edge-to-edge behavior, pickers, and listeners.
+     *
+     * @param savedInstanceState previously saved instance state, or {@code null}.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         androidx.activity.EdgeToEdge.enable(this);
         setContentView(R.layout.activity_create_event);
 
-        bindViews(); // bind views to the xml components
+        bindViews();
         applyEdgeToEdgeInsets();
         configureTapOnlyInputs();
         wirePickers();
@@ -61,7 +87,8 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Initializes and binds all view components from layout to  corresponding variables.
+     * Binds all view components from the layout to corresponding fields.
+     * <p>Assumes IDs are present in {@code activity_create_event.xml}.</p>
      */
     private void bindViews() {
         posterPreview           = findViewById(R.id.posterPreview);
@@ -78,7 +105,8 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Applies edge-to-edge window insets to root view so layout adjusts for status bar and nav bar areas.
+     * Applies edge-to-edge window insets so the layout avoids status/navigation bars.
+     * <p>Pads the root view with system bar insets.</p>
      */
     private void applyEdgeToEdgeInsets() {
         View root = findViewById(R.id.main);
@@ -90,7 +118,8 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * make certain edit texts tap only - for date and time inputs to create a fragment.
+     * Makes date/time and registration fields "tap-only" so soft keyboard does not appear.
+     * <p>Clicking the fields opens the appropriate picker.</p>
      */
     private void configureTapOnlyInputs() {
         makeTapOnly(eventDateInput);
@@ -100,7 +129,11 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * set up listeners for date and time fields.
+     * Attaches Material pickers to the date/time inputs.
+     * <ul>
+     *   <li>Event date, registration open/close use {@link MaterialDatePicker}</li>
+     *   <li>Event time uses {@link MaterialTimePicker}</li>
+     * </ul>
      */
     private void wirePickers() {
         eventDateInput.setOnClickListener(v -> showDatePicker("Select event date",
@@ -117,14 +150,19 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * on click listener for buttons - currently only for save event button.
+     * Wires primary button listeners (e.g., Save).
+     * <p>Invokes {@link #saveEvent()} on click.</p>
      */
     private void wireButtons() {
         findViewById(R.id.saveEventButton).setOnClickListener(v -> saveEvent());
     }
 
     /**
-     * Live preview of inserted image url.
+     * Sets up a live preview for the poster URL.
+     * <p>
+     * Normalizes Google Images/Drive links and loads with Glide when the text changes.
+     * If the field is empty, clears the preview.
+     * </p>
      */
     private void wireUrlPreview() {
         posterUrlInput.addTextChangedListener(new TextWatcher() {
@@ -136,7 +174,7 @@ public class CreateEvent extends AppCompatActivity {
                     posterPreview.setImageDrawable(null);
                     return;
                 }
-                String normalized = normalizePosterUrl(pasted); // <-- uses both methods below
+                String normalized = normalizePosterUrl(pasted);
                 if (!isLikelyHttp(normalized)) return;
 
                 Glide.with(CreateEvent.this)
@@ -149,9 +187,11 @@ public class CreateEvent extends AppCompatActivity {
     // --------------------- Save Event ---------------------
 
     /**
-     * Validates form inputs, normalizes img url, assembles what to send, and initiates saving to firestore.
-     *
-     * inline  field errors or toast confirmation for valid and invalid inputs.
+     * Validates inputs, parses/normalizes values, creates an event payload, and writes to Firestore.
+     * <p>
+     * On success, shows the QR dialog and finishes the activity; on failure, shows a Toast.
+     * Field-level errors are set for missing/invalid values.
+     * </p>
      */
     private void saveEvent() {
         final String name        = text(eventNameInput);
@@ -206,12 +246,12 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Writes event details to the events document in Firestore.
-     * and, on success, shows QR dialog before finishing the activity.
+     * Persists the event document in Firestore and, upon success, shows the QR dialog.
      *
-     * @param id    Unique uuid generated for event.
-     * @param data  Event details like date, time, name, etc.
-     * @param qrUrl from the qrimage decoded to a qrurl to store in database for retrieval when scanning similar qr code.
+     * @param id    unique event UUID.
+     * @param data  event payload to store under {@code events/{id}}.
+     * @param qrUrl deep link used for the QR code.
+     * @see FirebaseFirestore
      */
     private void saveEventToFirestore(String id, java.util.Map<String, Object> data, String qrUrl) {
         FirebaseFirestore.getInstance()
@@ -231,14 +271,18 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     // --------------------- Pickers ---------------------
+
+    /** Callback for a picked date represented as UTC midnight epoch millis. */
     private interface DatePicked { void onPicked(long utcMidnightMillis); }
+
+    /** Callback for a picked time represented in 24h format and minutes. */
     private interface TimePicked { void onPicked(int hour24, int minute); }
 
     /**
-     * Date picker for Date Fields.
+     * Shows a {@link MaterialDatePicker} and returns the selected day in UTC midnight millis.
      *
-     * @param title    Title  of pop up window when picking date.
-     * @param callback  Event fields to persist; merged into the existing document if present.
+     * @param title    dialog title.
+     * @param callback invoked with {@code utcMidnightMillis} on positive selection.
      */
     private void showDatePicker(String title, DatePicked callback) {
         MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
@@ -249,10 +293,10 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Time picker for Event Time.
+     * Shows a {@link MaterialTimePicker} and returns the selected time as 24h hour/minute.
      *
-     * @param title    Title  of pop up window when picking Time.
-     * @param callback  Event fields to persist; merged into the existing document if present.
+     * @param title    dialog title.
+     * @param callback invoked with selected {@code hour24} and {@code minute}.
      */
     private void showTimePicker(String title, TimePicked callback) {
         MaterialTimePicker picker = new MaterialTimePicker.Builder()
@@ -266,12 +310,12 @@ public class CreateEvent extends AppCompatActivity {
 
     // --------------------- QR dialog (unchanged) ---------------------
 
-
     /**
-     * Builds QR bitmap from provided deep link and calls another function to get the QR code.
+     * Builds a QR bitmap for {@code qrUrl} and then displays it in a dialog.
      *
-     * @param qrUrl   The deep link URL to encode in the QR image.
-     * @param onClose Optional callback invoked after the dialog is dismissed via the positive button.
+     * @param qrUrl   deep link to encode.
+     * @param onClose optional callback after dialog dismissal.
+     * @see #showQrDialog(String, Bitmap, Runnable)
      */
     private void showQrDialog(String qrUrl, @Nullable Runnable onClose) {
         Bitmap bmp = QRImage.bitmapFromUrl(qrUrl, 512);
@@ -279,11 +323,11 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Displays a dialog containing a QR Code for given deep link URL and bitmap.
+     * Displays a dialog with a QR image representing {@code qrUrl}.
      *
-     * @param qrUrl   The deep link URL represented by the QR code.
-     * @param bmp     The pre-rendered QR bitmap to display.
-     * @param onClose Optional callback invoked after the user taps "Done".
+     * @param qrUrl   the deep link embedded in the QR code.
+     * @param bmp     pre-rendered QR bitmap; if {@code null}, shows a failure toast and returns.
+     * @param onClose optional callback invoked after "Done".
      */
     private void showQrDialog(String qrUrl, @Nullable Bitmap bmp, @Nullable Runnable onClose) {
         if (bmp == null) {
@@ -307,7 +351,14 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Functioanlity not yet implemented, will do in project part 4.
+     * Shares the QR code as a PNG image via Android Sharesheet (stub not yet enabled).
+     * <p>
+     * The implementation is intentionally commented out for a later project stage.
+     * To enable, generate PNG bytes, write to a cache file, wrap with a FileProvider URI,
+     * and send an {@link Intent#ACTION_SEND} with {@code image/png} MIME type.
+     * </p>
+     *
+     * @param qrUrl the deep link to encode in the shared QR.
      */
     private void shareQrPng(String qrUrl) {
 //        byte[] png = QRImage.pngFromUrl(qrUrl, 1024);
@@ -334,10 +385,10 @@ public class CreateEvent extends AppCompatActivity {
     // --------------------- Date/time parsing ---------------------
 
     /**
-     * Parses a yyyy-MM-dd local-date string and returns the corresponding UTC midnight epoch millis.
+     * Parses a local date string {@code yyyy-MM-dd} and returns the corresponding UTC midnight epoch millis.
      *
-     * @param ymd Local date string in the format yyyy-MM-dd.
-     * @return UTC midnight of that calendar day in milliseconds or null on failure.
+     * @param ymd local date string (e.g., {@code 2025-03-14}).
+     * @return UTC midnight timestamp for that day, or {@code null} if parsing fails.
      */
     @Nullable
     private Long parseDayUtc(String ymd) {
@@ -360,10 +411,10 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Parses a 12-hour time string of format 'h:mm a' into a milliseconds from midnight.
+     * Parses a 12-hour time string {@code h:mm a} into milliseconds since midnight.
      *
-     * @param time12 Time string in the format 'h:mm a'.
-     * @return Milliseconds since midnight (0..86,399,999), or null on failure.
+     * @param time12 time string like {@code 9:05 AM} or {@code 12:30 PM}.
+     * @return milliseconds from midnight in the range {@code [0, 86_399_999]}, or {@code null} on failure.
      */
     @Nullable
     private Long parseTimeMsFromMidnight(String time12) {
@@ -381,10 +432,10 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Converts a UTC midnight epoch millis value into a local date string of format yyyy-MM-dd.
+     * Converts a UTC midnight epoch millis value into a local {@code yyyy-MM-dd} string.
      *
-     * @param utcMidnight UTC midnight timestamp in milliseconds.
-     * @return Local date string formatted as yyyy-MM-dd.
+     * @param utcMidnight UTC midnight in milliseconds.
+     * @return formatted local date string (e.g., {@code 2025-03-14}).
      */
     private String utcMillisToLocalDateString(long utcMidnight) {
         Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
@@ -397,11 +448,11 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Formats a 24-hour time into a 12-hour time string.
+     * Formats a 24-hour time into a {@code h:mm a} 12-hour string.
      *
-     * @param hour24 Hour of day in 24-hour format.
-     * @param minute Minute of hour.
-     * @return A formatted time string such as 9:05 AM or 12:30 PM.
+     * @param hour24 hour in 24-hour format ({@code 0..23}).
+     * @param minute minute ({@code 0..59}).
+     * @return formatted string such as {@code 9:05 AM} or {@code 12:30 PM}.
      */
     private String formatTime(int hour24, int minute) {
         int hr12 = (hour24 % 12 == 0) ? 12 : (hour24 % 12);
@@ -410,20 +461,21 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     // --------------------- Small utils ---------------------
+
     /**
-     * Returns the trimmed text content of an EditText or an empty string if it is null.
+     * Returns the trimmed text content of an {@link EditText}, or an empty string if {@code null}.
      *
-     * @param et The EditText to read.
-     * @return Trimmed text value, never null.
+     * @param et input to read.
+     * @return trimmed value; never {@code null}.
      */
     private static String text(@Nullable EditText et) {
         return (et == null) ? "" : et.getText().toString().trim();
     }
 
     /**
-     * Configures an EditText to be tap-only
+     * Configures an {@link EditText} to be "tap-only" (non-focusable) so it opens a picker instead of a keyboard.
      *
-     * @param et The input field to adjust.
+     * @param et input field to adjust (must be non-null).
      */
     private static void makeTapOnly(EditText et) {
         et.setFocusable(false);
@@ -433,11 +485,11 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Ensures a required field is non-empty; if empty, sets an error and focuses the field.
+     * Ensures a required field is non-empty; otherwise sets an error and focuses the field.
      *
-     * @param value The current string value to validate.
-     * @param field The corresponding EditText to mark with an error if invalid.
-     * @return true if value is non-empty; otherwise false.
+     * @param value current string value.
+     * @param field input field to mark with an error if invalid.
+     * @return {@code true} if {@code value} is non-empty; {@code false} otherwise.
      */
     private static boolean require(String value, EditText field) {
         if (!value.isEmpty()) return true;
@@ -446,29 +498,33 @@ public class CreateEvent extends AppCompatActivity {
         return false;
     }
 
-    // --------------------- BOTH NORMALIZER METHODS + wrapper ---------------------
+    // --------------------- URL normalization ---------------------
 
     /**
-     * Normalizes a user-supplied URL in the format of an imgurl or google drive url link
+     * Normalizes a user-supplied poster URL by:
+     * <ol>
+     *     <li>Extracting a direct image link from Google Images wrappers</li>
+     *     <li>Converting Google Drive share links to a direct {@code uc?export=download} URL</li>
+     * </ol>
      *
-     * @param raw The raw URL pasted by the user.
-     * @return A normalized, more-direct URL suitable for image loading.
+     * @param raw raw URL pasted by the user.
+     * @return normalized URL suitable for image loading; original {@code raw} if no transformation applies.
+     * @see #normalizeImageUrlFromGoogleSearch(String)
+     * @see #normalizeGoogleDriveUrl(String)
      */
     private String normalizePosterUrl(String raw) {
         String s = raw.trim();
-        s = normalizeImageUrlFromGoogleSearch(s); // extract ?imgurl=... from Google Images
-        s = normalizeGoogleDriveUrl(s);           // turn Drive share into direct uc?export=download
+        s = normalizeImageUrlFromGoogleSearch(s);
+        s = normalizeGoogleDriveUrl(s);
         return s;
     }
 
     /**
-     * Extracts the direct image URL from a Google Images wrapper link, if applicable.
+     * Extracts the direct image URL from a Google Images result wrapper if applicable.
+     * <p>Handles URLs like {@code https://www.google.com/imgres?imgurl=...}.</p>
      *
-     * <p>Handles URLs like https://www.google.com/imgres?imgurl=...
-     * If the input is not a Google Images wrapper, the original string is returned unchanged.
-     *
-     * @param raw The potentially wrapped Google Images URL.
-     * @return The direct image URL if found; otherwise the original input.
+     * @param raw potentially wrapped Google Images URL.
+     * @return direct image URL if found; otherwise original {@code raw}.
      */
     private String normalizeImageUrlFromGoogleSearch(String raw) {
         try {
@@ -487,15 +543,14 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Converts common Google Drive share links into a direct file URL usable by image loaders.
+     * Converts supported Google Drive sharing URLs to a direct content URL.
+     * <ul>
+     *   <li>{@code https://drive.google.com/file/d/<FILE_ID>/view?...}</li>
+     *   <li>{@code https://drive.google.com/open?id=<FILE_ID>} (or any {@code ?id=<FILE_ID>})</li>
+     * </ul>
      *
-     * Supported patterns include:
-     *  https://drive.google.com/file/d/<FILE_ID>/view?...
-     *  https://drive.google.com/open?id=<FILE_ID>.
-     * These are transformed into https://drive.google.com/uc?export=download&id=<FILE_ID>.
-     *
-     * @param url The original Google Drive URL.
-     * @return A direct content URL if recognized; otherwise the original input.
+     * @param url original Google Drive URL.
+     * @return direct content URL if recognized; otherwise original input.
      */
     private String normalizeGoogleDriveUrl(String url) {
         // Case 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
@@ -520,10 +575,10 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     /**
-     * Checks whether a URL appears to be an HTTP(S) link.
+     * Checks whether a string looks like an HTTP(S) URL.
      *
-     * @param url The URL string to test.
-     * @return true if the URL starts with http:// or https:// otherwise false.
+     * @param url candidate URL.
+     * @return {@code true} if it starts with {@code http://} or {@code https://}; otherwise {@code false}.
      */
     private boolean isLikelyHttp(String url) {
         String u = url.toLowerCase(Locale.US);
