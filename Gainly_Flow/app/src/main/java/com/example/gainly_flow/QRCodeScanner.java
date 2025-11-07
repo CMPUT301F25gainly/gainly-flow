@@ -1,50 +1,37 @@
 package com.example.gainly_flow;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
-import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.chip.Chip;
-import com.google.zxing.*;
-import com.google.zxing.common.HybridBinarizer;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.journeyapps.barcodescanner.BarcodeCallback;
 import com.journeyapps.barcodescanner.BarcodeResult;
 import com.journeyapps.barcodescanner.DecoratedBarcodeView;
 
 public class QRCodeScanner extends AppCompatActivity {
 
-    private DecoratedBarcodeView barcodeView;
-    private TextView tvInstruction, tvSubtitle;
-    private MaterialButton btnUploadQR;
-    private Chip chipCameraStatus;
+    private DecoratedBarcodeView cameraPreview;
+    private FirebaseFirestore db;
+    private boolean isScanning = false;
 
-    private final ActivityResultLauncher<Intent> imagePickerLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    Uri selectedImageUri = result.getData().getData();
-                    try {
-                        Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), selectedImageUri);
-                        String decoded = decodeFromBitmap(bitmap);
-                        tvSubtitle.setText(decoded != null ? "QR Result: " + decoded : "No QR found in image.");
-                    } catch (Exception e) {
-                        tvSubtitle.setText("Error decoding image.");
-                    }
+    // Handle camera permission request
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    cameraPreview.resume();
+                } else {
+                    Toast.makeText(this, "Camera permission denied", Toast.LENGTH_LONG).show();
+                    finish();
                 }
             });
 
@@ -53,83 +40,134 @@ public class QRCodeScanner extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_qr_scanner);
 
-        // Toolbar back button setup
-        MaterialToolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setNavigationOnClickListener(v -> onBackPressed());
+        // 🔹 Initialize Firestore
+        db = FirebaseFirestore.getInstance();
 
-        barcodeView = findViewById(R.id.cameraPreview);
-        tvInstruction = findViewById(R.id.tvInstruction);
-        tvSubtitle = findViewById(R.id.tvSubtitle);
-        btnUploadQR = findViewById(R.id.btnUploadQR);
-        chipCameraStatus = findViewById(R.id.chipCameraStatus);
+        // 🔹 Setup Toolbar
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setNavigationOnClickListener(v -> finish());
+
+        // 🔹 Setup Barcode Scanner
+        cameraPreview = findViewById(R.id.cameraPreview);
+        cameraPreview.decodeContinuous(callback);
 
         checkCameraPermission();
-
-        barcodeView.decodeContinuous(new BarcodeCallback() {
-            @Override
-            public void barcodeResult(BarcodeResult result) {
-                if (result != null) {
-                    tvSubtitle.setText("✅ QR Detected: " + result.getText());
-                    chipCameraStatus.setText("Scanning...");
-                }
-            }
-        });
-
-        btnUploadQR.setOnClickListener(v -> openImagePicker());
-    }
-
-    private void openImagePicker() {
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        imagePickerLauncher.launch(intent);
     }
 
     private void checkCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA}, 100);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            cameraPreview.resume();
         } else {
-            barcodeView.resume();
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA);
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 100 && grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            barcodeView.resume();
-        } else {
-            Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show();
+    // 🔹 Handle scanned QR result
+    private final BarcodeCallback callback = new BarcodeCallback() {
+        @Override
+        public void barcodeResult(BarcodeResult result) {
+            if (result.getText() == null || isScanning) return;
+
+            isScanning = true; // Prevent double scans
+            String qrContent = result.getText().trim();
+
+            Toast.makeText(QRCodeScanner.this, "QR Scanned!", Toast.LENGTH_SHORT).show();
+
+            // Example QR: gainlyflow://event/b276fd55-41c4-4373-aefd-b017aeebcf5d
+            if (qrContent.startsWith("gainlyflow://event/")) {
+                String eventId = qrContent.substring("gainlyflow://event/".length());
+                fetchEventFromFirebase(eventId);
+            } else {
+                Toast.makeText(QRCodeScanner.this, "Invalid QR Code format", Toast.LENGTH_SHORT).show();
+                isScanning = false;
+            }
         }
+    };
+
+    private void fetchEventFromFirebase(String eventId) {
+        db.collection("events").document(eventId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        launchEventDetail(documentSnapshot);
+                    } else {
+                        Toast.makeText(this, "Event not found in Firebase", Toast.LENGTH_SHORT).show();
+                        isScanning = false;
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Error fetching event: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    isScanning = false;
+                });
     }
 
-    private String decodeFromBitmap(Bitmap bitmap) {
-        int[] intArray = new int[bitmap.getWidth() * bitmap.getHeight()];
-        bitmap.getPixels(intArray, 0, bitmap.getWidth(), 0, 0,
-                bitmap.getWidth(), bitmap.getHeight());
-        LuminanceSource source = new RGBLuminanceSource(bitmap.getWidth(),
-                bitmap.getHeight(), intArray);
-        BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(source));
+    private void launchEventDetail(DocumentSnapshot doc) {
         try {
-            Result result = new MultiFormatReader().decode(binaryBitmap);
-            return result.getText();
-        } catch (NotFoundException e) {
-            return null;
+            Intent intent = new Intent(this, EventDetailActivity.class);
+
+            // Extract fields safely
+            intent.putExtra("event_id", doc.getString("id"));
+            intent.putExtra("event_name", doc.getString("name"));
+            intent.putExtra("event_description", doc.getString("description"));
+            intent.putExtra("event_capacity", parseIntSafely(doc.getString("capacity")));
+            intent.putExtra("event_date", parseLongSafely(doc.getString("eventDateUtc")));
+            intent.putExtra("registration_open", parseLongSafely(doc.getString("registrationOpenUtc")));
+            intent.putExtra("registration_close", parseLongSafely(doc.getString("registrationCloseUtc")));
+            intent.putExtra("geo_required", Boolean.parseBoolean(doc.getString("geolocationEnabled")));
+            intent.putExtra("event_location", "Unknown");
+            intent.putExtra("event_time_string", convertMsToTime(doc.getString("eventTimeOfDayMs")));
+
+            startActivity(intent);
+            finish();
+
+        } catch (Exception e) {
+            Toast.makeText(this, "Error launching event: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            isScanning = false;
         }
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        barcodeView.pause();
+    private int parseIntSafely(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private long parseLongSafely(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    private String convertMsToTime(String msString) {
+        try {
+            long ms = Long.parseLong(msString);
+            long hours = (ms / (1000 * 60 * 60)) % 24;
+            long minutes = (ms / (1000 * 60)) % 60;
+            return String.format("%02d:%02d", hours, minutes);
+        } catch (Exception e) {
+            return "Not specified";
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        barcodeView.resume();
+        cameraPreview.resume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        cameraPreview.pause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        cameraPreview.pause();
+        super.onDestroy();
     }
 }
