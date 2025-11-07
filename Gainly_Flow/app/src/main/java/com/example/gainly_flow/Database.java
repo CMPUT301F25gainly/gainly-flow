@@ -22,6 +22,7 @@ import java.util.*;
 import javax.security.auth.callback.Callback;
 
 public class Database {
+    private static final FirebaseFirestore fs = FirebaseFirestore.getInstance();
     private static final Database INSTANCE = new Database();
     public static Database get() { return INSTANCE; }
     public static void get(String collection, String id,
@@ -35,7 +36,6 @@ public class Database {
     }
 
     private static final String TAG = "Database";
-    private static final FirebaseFirestore fs = FirebaseFirestore.getInstance();
     private final Map<String, Event> events = new LinkedHashMap<>();
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
 
@@ -111,6 +111,23 @@ public class Database {
                 })
                 .addOnFailureListener(err -> { if (cb != null) cb.onError(err); });
     }
+    // Add near other static helpers
+    public static void findOne(String collection, String field, Object value,
+                               com.google.android.gms.tasks.OnSuccessListener<DocumentSnapshot> onSuccess) {
+        fs.collection(collection)
+                .whereEqualTo(field, value)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(qs -> {
+                    DocumentSnapshot doc = qs.isEmpty() ? null : qs.getDocuments().get(0);
+                    onSuccess.onSuccess(doc);
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("Database", "findOne failed: " + collection + " " + field + "=" + value, e);
+                    onSuccess.onSuccess(null); // keep the callback contract simple
+                });
+    }
+
     public static void save(String collection, String id, Object data) {
         fs.collection(collection)
                 .document(id)
