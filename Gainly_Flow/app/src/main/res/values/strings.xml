@@ -1,4 +1,31 @@
 <resources>
     <string name="app_name">Gainly_Flow</string>
     <string name="title_activity_geolocation">GeolocationActivity</string>
+    <!-- Profile Activity Strings -->
+    <string name="profile_info_title">Profile Information</string>
+    <string name="profile_info_subtitle">Please provide your personal information</string>
+    <string name="hint_full_name">Full Name *</string>
+    <string name="hint_email">Email Address *</string>
+    <string name="hint_phone">Phone Number (Optional)</string>
+    <string name="required_fields_note">* Required fields</string>
+    <string name="save_profile_button">Save Profile</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="back_button">Back</string>
+
+    <string name="create_profile">Create Profile</string>
+    <string name="update_profile">Update Profile</string>
+    <string name="create_profile_title">Create Profile</string>
+    <string name="edit_profile_title">Edit Profile</string>
+
+    <!-- Error Messages -->
+    <string name="error_loading_profile">Error loading profile: </string>
+    <string name="error_name_required">Name is required</string>
+    <string name="error_email_required">Email is required</string>
+    <string name="error_email_invalid">Please enter a valid email</string>
+    <string name="error_phone_invalid">Please enter a valid phone number</string>
+    <string name="error_saving_profile">Error saving profile: </string>
+
+    <!-- Success Messages -->
+    <string name="profile_created_success">Profile created successfully!</string>
+    <string name="profile_updated_success">Profile updated successfully!</string>
 </resources>
