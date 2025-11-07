@@ -84,6 +84,8 @@ public class EventDetailActivity extends AppCompatActivity {
         long regOpenMillis = extras.getLong("registration_open", 0);
         long regCloseMillis = extras.getLong("registration_close", 0);
         boolean geoRequired = extras.getBoolean("geo_required", false);
+        String eventLocation = extras.getString("event_location");
+        String eventTimeString = extras.getString("event_time_string");
 
         // Set basic event info
         titleEvent.setText(eventName != null ? eventName : "Event Name");
@@ -94,13 +96,19 @@ public class EventDetailActivity extends AppCompatActivity {
             eventDescription.setText(eventDesc);
         }
 
-        // Set location (you might want to add this to your Event class)
-        locationEvent.setText("Community Recreation Center");
-        eventLocationDetail.setText("🏊 Indoor Pool, Community Rec Center");
+        // Set location
+        if (eventLocation != null && !eventLocation.isEmpty()) {
+            locationEvent.setText(eventLocation);
+            eventLocationDetail.setText(eventLocation);
+        } else {
+            locationEvent.setText("Location not specified");
+            eventLocationDetail.setText("Location not specified");
+        }
 
         // Set geolocation info
         if (geoRequired) {
             geolocationInfo.setVisibility(View.VISIBLE);
+            geolocationInfo.setText("📍 Geolocation required for check-in");
         } else {
             geolocationInfo.setVisibility(View.GONE);
         }
@@ -109,7 +117,7 @@ public class EventDetailActivity extends AppCompatActivity {
         updateRegistrationStatus(regOpenMillis, regCloseMillis);
 
         // Update schedule section
-        updateScheduleSection(eventDateMillis, regOpenMillis, regCloseMillis);
+        updateScheduleSection(eventDateMillis, regOpenMillis, regCloseMillis, eventTimeString);
 
         // Update QR code if available
         updateQrCode(eventId);
@@ -138,7 +146,7 @@ public class EventDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void updateScheduleSection(long eventDateMillis, long regOpenMillis, long regCloseMillis) {
+    private void updateScheduleSection(long eventDateMillis, long regOpenMillis, long regCloseMillis, String eventTimeString) {
         // Event date
         if (eventDateMillis > 0) {
             String eventDate = dateFormat.format(new Date(eventDateMillis));
@@ -150,7 +158,8 @@ public class EventDetailActivity extends AppCompatActivity {
         // Registration open
         if (regOpenMillis > 0) {
             String openDate = dateFormat.format(new Date(regOpenMillis));
-            registrationOpen.setText("Registration Opens: " + openDate);
+            String openTime = timeFormat.format(new Date(regOpenMillis));
+            registrationOpen.setText("Registration Opens: " + openDate + " at " + openTime);
         } else {
             registrationOpen.setText("Registration Opens: Not specified");
         }
@@ -158,20 +167,24 @@ public class EventDetailActivity extends AppCompatActivity {
         // Registration close
         if (regCloseMillis > 0) {
             String closeDate = dateFormat.format(new Date(regCloseMillis));
-            registrationClose.setText("Registration Closes: " + closeDate);
+            String closeTime = timeFormat.format(new Date(regCloseMillis));
+            registrationClose.setText("Registration Closes: " + closeDate + " at " + closeTime);
         } else {
             registrationClose.setText("Registration Closes: Not specified");
         }
 
-        // Event time (you might want to add this to your Event class)
-        eventTime.setText("Event Time: 6:00 PM - 7:00 PM");
+        // Event time
+        if (eventTimeString != null && !eventTimeString.isEmpty()) {
+            eventTime.setText("Event Time: " + eventTimeString);
+        } else {
+            eventTime.setText("Event Time: Not specified");
+        }
     }
 
     private void updateQrCode(String eventId) {
         if (eventId != null && !eventId.isEmpty()) {
-            // Show QR section if you have QR codes
+            // You can generate or load QR code here if needed
             // qrSection.setVisibility(View.VISIBLE);
-            // Load QR code image here
         }
     }
 
