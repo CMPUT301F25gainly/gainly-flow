@@ -1,97 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-             android:layout_height="match_parent">
+    android:layout_height="match_parent">
+
+    <!-- Title  -->
 
     <TextView
         android:id="@+id/textView5"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Entrant List:"
+        android:text="Waiting List:"
         android:textSize="20sp"
-        tools:layout_editor_absoluteX="16dp"
-        tools:layout_editor_absoluteY="34dp" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp" />
 
+    <!-- Event name -->
     <TextView
-        android:id="@+id/textView6"
-        android:layout_width="wrap_content"
+        android:id="@+id/txtEventName"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Sample Event Name"
-        tools:layout_editor_absoluteX="16dp"
-        tools:layout_editor_absoluteY="71dp" />
+        app:layout_constraintTop_toBottomOf="@id/textView5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp" />
 
+    <!-- (kept) generic button, hidden but constrained so no warnings -->
     <Button
         android:id="@+id/button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Button"
-        tools:layout_editor_absoluteX="12dp"
-        tools:layout_editor_absoluteY="109dp" />
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/txtEventName"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp" />
+
+    <!-- First row: Selected | Enrolled | Cancelled | Waiting  -->
+
+    <Button
+        android:id="@+id/Selected"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="8dp"
+        android:text="Selected"
+        android:textSize="10sp"
+        app:layout_constraintEnd_toStartOf="@id/enrolled"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtEventName" />
 
     <Button
         android:id="@+id/enrolled"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Enrolled"
         android:textSize="12sp"
-        tools:layout_editor_absoluteX="118dp"
-        tools:layout_editor_absoluteY="109dp" />
+        app:layout_constraintTop_toTopOf="@id/Selected"
+        app:layout_constraintStart_toEndOf="@id/Selected"
+        app:layout_constraintEnd_toStartOf="@id/cancelled"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp" />
 
     <Button
         android:id="@+id/cancelled"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Cancelled"
         android:textSize="12sp"
-        tools:layout_editor_absoluteX="206dp"
-        tools:layout_editor_absoluteY="109dp" />
+        app:layout_constraintTop_toTopOf="@id/Selected"
+        app:layout_constraintStart_toEndOf="@id/enrolled"
+        app:layout_constraintEnd_toStartOf="@id/waiting"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp" />
 
     <Button
         android:id="@+id/waiting"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Waiting"
         android:textSize="12sp"
-        tools:layout_editor_absoluteX="308dp"
-        tools:layout_editor_absoluteY="109dp" />
+        app:layout_constraintTop_toTopOf="@id/Selected"
+        app:layout_constraintStart_toEndOf="@id/cancelled"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="16dp" />
 
+    <!-- Second row: CSV | Send Message -->
+    <Button
+        android:id="@+id/csv"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:text="Export As CSV"
+        app:layout_constraintTop_toBottomOf="@id/Selected"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/sendMsg"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="16dp" />
+
+    <Button
+        android:id="@+id/sendMsg"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:text="Send Message"
+        app:layout_constraintTop_toTopOf="@id/csv"
+        app:layout_constraintStart_toEndOf="@id/csv"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="16dp" />
+
+    <!-- (kept) second generic button, hidden but constrained -->
     <Button
         android:id="@+id/button3"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Button"
-        tools:layout_editor_absoluteX="12dp"
-        tools:layout_editor_absoluteY="109dp" />
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/csv"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp" />
 
-    <Button
-        android:id="@+id/Selected"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Selected"
-        android:textSize="12sp"
-        tools:layout_editor_absoluteX="12dp"
-        tools:layout_editor_absoluteY="109dp" />
+    <!-- List of entrants fills remaining space -->
+    <!-- Replace the current ListView block -->
+    <ScrollView
+        android:id="@+id/scrollEntrants"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/txtEventName"
+        app:layout_constraintBottom_toTopOf="@id/Selected"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:paddingHorizontal="16dp">
 
-    <Button
-        android:id="@+id/csv"
-        android:layout_width="155dp"
-        android:layout_height="48dp"
-        android:text="Export As CSV"
-        tools:layout_editor_absoluteX="14dp"
-        tools:layout_editor_absoluteY="169dp" />
+        <!-- ✅ This matches your Java code -->
+        <LinearLayout
+            android:id="@+id/entrantListContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingVertical="8dp" />
+    </ScrollView>
 
-    <Button
-        android:id="@+id/sendMsg"
-        android:layout_width="155dp"
-        android:layout_height="48dp"
-        android:text="Send Message"
-        tools:layout_editor_absoluteX="192dp"
-        tools:layout_editor_absoluteY="169dp" />
 
-    <ListView
-        android:layout_width="409dp"
-        android:layout_height="512dp"
-        tools:layout_editor_absoluteX="1dp"
-        tools:layout_editor_absoluteY="218dp" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Gainly_Flow</string>
+    <string name="title_activity_geolocation">GeolocationActivity</string>
 </resources>

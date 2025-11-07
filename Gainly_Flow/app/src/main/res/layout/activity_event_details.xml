@@ -18,12 +18,17 @@
             android:background="@drawable/blue_gradient_bg"
             android:padding="16dp">
 
+            <!-- Back Button -->
             <ImageView
-                android:id="@+id/icon_swim"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_centerInParent="true"
-                android:contentDescription="Swimmer Icon" />
+                android:id="@+id/back_button_event_detail"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_alignParentStart="true"
+                android:layout_marginTop="8dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_arrow_back_24"
+                android:contentDescription="Back"
+                app:tint="@android:color/white" />
 
             <ImageView
                 android:id="@+id/qr_icon"
@@ -36,7 +41,6 @@
                 android:contentDescription="QR Code Icon" />
 
         </RelativeLayout>
-
 
         <!-- Title and Subtitle -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -79,7 +83,6 @@
                 app:layout_constraintTop_toBottomOf="@id/title_event" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
 
         <!-- Waiting List Section -->
         <LinearLayout
@@ -148,6 +151,7 @@
             android:layout_marginTop="20dp" />
 
         <LinearLayout
+            android:id="@+id/schedule_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -156,19 +160,35 @@
             android:layout_marginTop="8dp">
 
             <TextView
+                android:id="@+id/event_duration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Event Duration: Jan 15 - Mar 15, 2025" />
+                android:text="Event Date: "
+                android:textSize="14sp" />
 
             <TextView
+                android:id="@+id/registration_open"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Registration Opens: Jan 1, 2025" />
+                android:text="Registration Opens: "
+                android:textSize="14sp"
+                android:layout_marginTop="4dp" />
 
             <TextView
+                android:id="@+id/registration_close"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Registration Closes: Jan 10, 2025" />
+                android:text="Registration Closes: "
+                android:textSize="14sp"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/event_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Event Time: "
+                android:textSize="14sp"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
         <!-- About Section -->
@@ -189,21 +209,36 @@
             android:layout_marginTop="8dp">
 
             <TextView
+                android:id="@+id/event_description"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Learn essential swimming skills in our beginner-friendly classes. Perfect for adults looking to build water confidence. Classes run every Monday and Wednesday from 6–7 PM." />
+                android:text="Learn essential swimming skills in our beginner-friendly classes. Perfect for adults looking to build water confidence. Classes run every Monday and Wednesday from 6–7 PM."
+                android:textSize="14sp" />
 
             <TextView
+                android:id="@+id/event_location_detail"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🏊 Indoor Pool, Community Rec Center"
+                android:textSize="14sp"
                 android:layout_marginTop="8dp" />
 
             <TextView
+                android:id="@+id/event_price"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Price: $60 for full session"
                 android:textStyle="bold"
+                android:textSize="14sp"
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:id="@+id/geolocation_info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍 Geolocation required for check-in"
+                android:textSize="12sp"
+                android:textColor="#666666"
                 android:layout_marginTop="8dp" />
         </LinearLayout>
 
@@ -222,7 +257,9 @@
                 android:layout_weight="1"
                 android:text="Join Waiting List"
                 android:backgroundTint="#0047FF"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:padding="12dp" />
 
             <Space
                 android:layout_width="8dp"
@@ -235,7 +272,43 @@
                 android:layout_weight="1"
                 android:text="Leave List"
                 android:backgroundTint="#E0E0E0"
-                android:textColor="#000000" />
+                android:textColor="#000000"
+                android:textSize="16sp"
+                android:padding="12dp" />
+        </LinearLayout>
+
+        <!-- QR Code Section (Optional) -->
+        <LinearLayout
+            android:id="@+id/qr_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="20dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Event QR Code"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_marginBottom="12dp" />
+
+            <ImageView
+                android:id="@+id/qr_code_image"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:background="@android:color/white"
+                android:padding="8dp" />
+
+            <Button
+                android:id="@+id/btn_share_qr"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Share QR Code"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#666666" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

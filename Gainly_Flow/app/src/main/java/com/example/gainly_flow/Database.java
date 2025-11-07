@@ -2,6 +2,8 @@ package com.example.gainly_flow;
 
 import static java.lang.Long.getLong;
 
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -9,6 +11,8 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.*;
 
 import java.util.Map;
@@ -20,8 +24,18 @@ import javax.security.auth.callback.Callback;
 public class Database {
     private static final Database INSTANCE = new Database();
     public static Database get() { return INSTANCE; }
+    public static void get(String collection, String id,
+                           OnSuccessListener<DocumentSnapshot> onSuccess) {
+        fs.collection(collection)
+                .document(id)
+                .get()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error getting " + collection + "/" + id + ": " + e.getMessage(), e));
+    }
 
-    private final FirebaseFirestore fs = FirebaseFirestore.getInstance();
+    private static final String TAG = "Database";
+    private static final FirebaseFirestore fs = FirebaseFirestore.getInstance();
     private final Map<String, Event> events = new LinkedHashMap<>();
     private final Map<String, Profile> profiles = new LinkedHashMap<>();
 
@@ -37,9 +51,9 @@ public class Database {
 //        addEvent(new Event("e2", "Interpretive Dance Class", "Jan 1–Mar 1, 2025", "Studio B"));
 //        addEvent(new Event("e3", "Piano for Beginners", "Feb 1–Apr 1, 2025", "Room 203"));
 
-        addProfile(new Profile("u1", "Alex Johnson", "alex@demo.com"));
-        addProfile(new Profile("u2", "Sam Rivera", "sam@demo.com"));
-        addProfile(new Profile("u3", "Taylor Kim", "taylor@demo.com"));
+       // addProfile(new Profile("u1", "Alex Johnson", "alex@demo.com"));
+        //addProfile(new Profile("u2", "Sam Rivera", "sam@demo.com"));
+        //addProfile(new Profile("u3", "Taylor Kim", "taylor@demo.com"));
         startEventsListener();
     }
     public void addEventDatabase(
@@ -97,6 +111,15 @@ public class Database {
                 })
                 .addOnFailureListener(err -> { if (cb != null) cb.onError(err); });
     }
+    public static void save(String collection, String id, Object data) {
+        fs.collection(collection)
+                .document(id)
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(aVoid ->
+                        Log.d(TAG, "Document saved in " + collection + "/" + id))
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error saving document: " + e.getMessage(), e));
+    }
     private void startEventsListener() {
         if (eventsListener != null) return;
         eventsListener = fs.collection("events")
@@ -146,7 +169,6 @@ public class Database {
         try { return (s == null || s.trim().isEmpty()) ? null : Long.parseLong(s.trim()); }
         catch (Exception ignore) { return null; }
     }
-
     private static Integer tryParseInt(String s) {
         try { return (s == null || s.trim().isEmpty()) ? null : Integer.parseInt(s.trim()); }
         catch (Exception ignore) { return null; }
