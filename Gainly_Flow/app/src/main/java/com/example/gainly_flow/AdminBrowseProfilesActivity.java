@@ -22,13 +22,52 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * {@code AdminBrowseProfilesActivity} is an activity that allows administrators to
+ * view, search, and delete user profiles from the Firebase Firestore database.
+ * <p>
+ * The activity displays all profiles as cards in a scrollable list and includes
+ * a search box for dynamic filtering. Administrators can delete a profile by
+ * clicking the delete button on each profile card.
+ * </p>
+ *
+ * <p><b>Features:</b></p>
+ * <ul>
+ *     <li>Retrieves all profiles from the Firestore "profiles" collection.</li>
+ *     <li>Dynamically filters profiles by name or email.</li>
+ *     <li>Displays profile information in card views.</li>
+ *     <li>Allows administrators to delete profiles.</li>
+ *     <li>Includes a back button to return to the previous screen.</li>
+ * </ul>
+ *
+ * <p><b>Associated Layouts:</b></p>
+ * <ul>
+ *     <li>{@code activity_admin_browse_profiles.xml} — Defines the layout for this activity.</li>
+ *     <li>{@code item_profile_admin.xml} — Defines the layout for each profile card.</li>
+ * </ul>
+ *
+ * @author
+ * @version 1.0
+ */
 public class AdminBrowseProfilesActivity extends AppCompatActivity {
 
+    /** Container that holds all dynamically generated profile cards. */
     private LinearLayout profileListContainer;
+
+    /** Search box for filtering profiles by name or email. */
     private EditText searchBox;
+
+    /** Back button to return to the previous screen. */
     private ImageButton backButton;
+
+    /** List of all profiles loaded from Firebase. */
     private List<Profile> allProfiles = new ArrayList<>();
 
+    /**
+     * Initializes the activity, sets up event listeners, and loads profiles from Firestore.
+     *
+     * @param savedInstanceState the previously saved instance state, if available
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,18 +77,26 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
         searchBox = findViewById(R.id.etSearchProfiles);
         backButton = findViewById(R.id.btnBack);
 
+        // Return to the previous screen when the back button is clicked
         backButton.setOnClickListener(v -> finish());
 
+        // Load profiles from Firestore
         loadProfilesFromFirebase();
 
-        // Filter dynamically
+        // Set up dynamic filtering based on text input
         searchBox.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filterProfiles(s.toString()); }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                filterProfiles(s.toString());
+            }
             @Override public void afterTextChanged(Editable s) { }
         });
     }
 
+    /**
+     * Loads all user profiles from the Firestore "profiles" collection and populates the UI.
+     * If no profiles are found, displays a message to the administrator.
+     */
     private void loadProfilesFromFirebase() {
         FirebaseFirestore.getInstance()
                 .collection("profiles")
@@ -58,6 +105,7 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
                     allProfiles.clear();
                     profileListContainer.removeAllViews();
 
+                    // Display message if no profiles exist
                     if (querySnapshot.isEmpty()) {
                         TextView emptyText = new TextView(this);
                         emptyText.setText("No profiles available");
@@ -67,13 +115,14 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
                         return;
                     }
 
+                    // Create Profile objects and add cards for each
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String id = doc.getId();
                         String name = doc.getString("name");
                         String email = doc.getString("email");
                         String role = doc.getString("role");
 
-                        Profile p = new Profile(id,null,null);
+                        Profile p = new Profile(id, null, null);
                         p.setDisplayName(name);
                         p.setEmail(email);
                         p.setRole(role);
@@ -82,9 +131,17 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
                         addProfileCard(p);
                     }
                 })
-                .addOnFailureListener(e -> Toast.makeText(this, "Failed to load profiles: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to load profiles: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show());
     }
 
+    /**
+     * Creates and adds a profile card to the list container.
+     * Each card displays a user's name, email, and role, and includes a delete button.
+     *
+     * @param profile the {@link Profile} object containing user data
+     */
     private void addProfileCard(Profile profile) {
         CardView card = (CardView) LayoutInflater.from(this)
                 .inflate(R.layout.item_profile_admin, profileListContainer, false);
@@ -98,12 +155,13 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
         emailView.setText(profile.getEmail() != null ? profile.getEmail() : "No email");
         roleView.setText(profile.getRole() != null ? profile.getRole() : "User");
 
-        // Delete button
+        // Set up deletion confirmation dialog
         deleteButton.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setTitle("Delete Profile")
                 .setMessage("Remove \"" + profile.getDisplayName() + "\"?")
                 .setPositiveButton("Delete", (dialog, which) -> {
-                    FirebaseFirestore.getInstance().collection("profiles")
+                    FirebaseFirestore.getInstance()
+                            .collection("profiles")
                             .document(profile.getId())
                             .delete()
                             .addOnSuccessListener(unused -> {
@@ -111,7 +169,8 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
                                 loadProfilesFromFirebase();
                             })
                             .addOnFailureListener(e ->
-                                    Toast.makeText(this, "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                                    Toast.makeText(this, "Failed: " + e.getMessage(),
+                                            Toast.LENGTH_LONG).show());
                 })
                 .setNegativeButton("Cancel", null)
                 .show());
@@ -119,6 +178,12 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
         profileListContainer.addView(card);
     }
 
+    /**
+     * Filters the list of profiles based on the provided query string.
+     * Matches are case-insensitive and checked against both name and email fields.
+     *
+     * @param query the search string entered by the administrator
+     */
     private void filterProfiles(String query) {
         profileListContainer.removeAllViews();
         if (query == null) query = "";
@@ -132,6 +197,7 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
             }
         }
 
+        // Display message if no results found
         if (filtered.isEmpty()) {
             TextView none = new TextView(this);
             none.setText("No matching profiles");

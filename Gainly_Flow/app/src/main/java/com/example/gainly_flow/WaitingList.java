@@ -13,31 +13,50 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Represents the waiting list for a specific event.
- * Each waiting list is stored in Firestore under collection "waiting_lists"
- * with document ID equal to the eventId.
+ * Represents and manages a waiting list for a specific event in the Gainly Flow application.
+ * <p>
+ * Each waiting list corresponds to an event and is stored in the Firestore database
+ * under the collection {@code "waiting_lists"} with a document ID matching the event's ID.
+ * The waiting list maintains a list of entrant IDs that represent users
+ * currently waiting to participate in the event.
+ * </p>
  */
 public class WaitingList {
     private static final String TAG = "waiting_list";
 
+    /** Unique identifier for the event associated with this waiting list. */
     private String eventId;
+
+    /** List of entrant IDs currently on the waiting list. */
     private List<String> entrantList = new ArrayList<>();
 
+    /**
+     * Constructs a {@code WaitingList} instance for the specified event.
+     *
+     * @param eventId the unique identifier of the event
+     */
     public WaitingList(String eventId) {
         this.eventId = eventId;
     }
- //add
+
     /**
-     * Load the waiting list for an event from Firestore asynchronously.
+     * Loads the waiting list for the given event asynchronously from Firestore.
+     * <p>
+     * This method first attempts to retrieve the document using the event ID as the document ID.
+     * If not found, it searches for a document where the {@code eventId} field matches.
+     * Once the data is loaded (or determined to be empty), the provided listener is invoked.
+     * </p>
+     *
+     * @param listener callback to receive the loaded {@code WaitingList} instance
      */
-    public void load(com.google.android.gms.tasks.OnSuccessListener<WaitingList> listener) {
+    public void load(OnSuccessListener<WaitingList> listener) {
         if (eventId == null || eventId.trim().isEmpty()) {
-            android.util.Log.e(TAG, "WaitingList.load called with null/empty eventId");
+            Log.e(TAG, "WaitingList.load called with null/empty eventId");
             listener.onSuccess(this);
             return;
         }
 
-        // First try docId == eventId (your current convention)
+        // Attempt to fetch the document with ID == eventId
         Database.get("waiting_lists", eventId, document -> {
             if (document != null && document.exists()) {
                 applyFromDocument(document);
@@ -45,30 +64,39 @@ public class WaitingList {
                 return;
             }
 
-            // Fallback: random docId with eventId as a FIELD (your dummy doc shape)
+            // Fallback: search for a document with matching eventId field
             Database.findOne("waiting_lists", "eventId", eventId, altDoc -> {
                 if (altDoc != null && altDoc.exists()) {
                     applyFromDocument(altDoc);
                 } else {
-                    android.util.Log.d(TAG, "No waiting_list found for eventId=" + eventId);
-                    this.entrantList = new java.util.ArrayList<>();
+                    Log.d(TAG, "No waiting_list found for eventId=" + eventId);
+                    this.entrantList = new ArrayList<>();
                 }
                 listener.onSuccess(this);
             });
         });
     }
 
-    // Keep this small parsing helper private to avoid API churn
-    private void applyFromDocument(@androidx.annotation.NonNull com.google.firebase.firestore.DocumentSnapshot doc) {
-        java.util.List<String> ids = (java.util.List<String>) doc.get("entrantIds");
-        if (ids == null) ids = new java.util.ArrayList<>();
-        this.entrantList = new java.util.ArrayList<>(ids);
+    /**
+     * Parses Firestore document data and updates the local entrant list accordingly.
+     *
+     * @param doc the Firestore document containing waiting list data
+     */
+    private void applyFromDocument(@NonNull DocumentSnapshot doc) {
+        List<String> ids = (List<String>) doc.get("entrantIds");
+        if (ids == null) ids = new ArrayList<>();
+        this.entrantList = new ArrayList<>(ids);
     }
 
-
-
     /**
-     * Add a new entrant to the waiting list.
+     * Adds a new entrant to the waiting list and persists the change to Firestore.
+     * <p>
+     * If the entrant already exists in the list or the capacity is full, the method logs a warning
+     * and does not modify the list.
+     * </p>
+     *
+     * @param entrantId the ID of the entrant to be added
+     * @param capacity  the maximum capacity of the waiting list (0 means unlimited)
      */
     public void addEntrant(String entrantId, int capacity) {
         if (entrantList.contains(entrantId)) {
@@ -87,7 +115,12 @@ public class WaitingList {
     }
 
     /**
-     * Remove an entrant from the waiting list.
+     * Removes an entrant from the waiting list and updates Firestore accordingly.
+     * <p>
+     * If the entrant is not found, no changes are made and a warning is logged.
+     * </p>
+     *
+     * @param entrantId the ID of the entrant to be removed
      */
     public void removeEntrant(String entrantId) {
         if (!entrantList.contains(entrantId)) {
@@ -100,29 +133,37 @@ public class WaitingList {
     }
 
     /**
-     * Get the list of entrant IDs.
+     * Retrieves a copy of the list of entrant IDs currently on the waiting list.
+     *
+     * @return a new {@link List} containing all entrant IDs
      */
     public List<String> getEntrants() {
         return new ArrayList<>(entrantList);
     }
 
     /**
-     * Get count of entrants.
+     * Returns the number of entrants currently in the waiting list.
+     *
+     * @return the count of entrants
      */
     public int getCount() {
         return entrantList.size();
     }
 
     /**
-     * Persist the waiting list to Firestore.
+     * Persists the current waiting list state to Firestore.
+     * <p>
+     * The document fields include:
+     * <ul>
+     *   <li>{@code entrantIds} — list of entrant IDs</li>
+     *   <li>{@code size} — number of entrants</li>
+     * </ul>
+     * </p>
      */
-    // WaitingList.java -> save()
     private void save() {
         Map<String, Object> data = new HashMap<>();
-        data.put("entrantIds", entrantList);     // <-- match your Firestore docs
-        data.put("size", entrantList.size());    // optional but consistent with your docs
+        data.put("entrantIds", entrantList);
+        data.put("size", entrantList.size());
         Database.save("waiting_lists", eventId, data);
     }
-
-
 }

@@ -10,7 +10,6 @@ import android.widget.TextView;
 import android.content.Intent;
 import androidx.activity.OnBackPressedCallback;
 
-
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -30,12 +29,55 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
+/**
+ * OrganizerLanding
+ * <p>
+ * Landing screen for organizers. Displays a reverse-chronological list of events pulled from the
+ * {@code events} collection in Firestore, with per-card status (open/closed), capacity, date/time,
+ * and waiting list size. Each card is clickable and navigates to
+ * {@link OrganizerEntrantListActivity} for detailed waiting list management.
+ * </p>
+ *
+ * <h3>Key behaviors</h3>
+ * <ul>
+ *   <li>Enables edge-to-edge UI and applies system bar insets.</li>
+ *   <li>Provides both an up-button and physical back gesture that return to {@link MainActivity}.</li>
+ *   <li>Supports heterogeneous Firestore schemas for numeric and timestamp-like fields via
+ *       {@link #getLongFlexible(DocumentSnapshot, String)} and {@link #getMillis(DocumentSnapshot, String)}.</li>
+ *   <li>Shows a "Create Event" button that opens {@link CreateEvent}.</li>
+ * </ul>
+ *
+ * <h3>Firestore schema expectations</h3>
+ * <ul>
+ *   <li>{@code events}: documents with fields such as {@code id}, {@code name}, {@code capacity},
+ *       {@code eventDateTimeUtc} (preferred) or {@code eventDate}, {@code registrationOpen},
+ *       {@code registrationClose}, and {@code createdAt} (for ordering).</li>
+ *   <li>{@code waiting_lists/{eventId}}: document containing an array field {@code entrants}
+ *       whose size is used to display "X waiting".</li>
+ * </ul>
+ */
 public class OrganizerLanding extends AppCompatActivity {
 
+    /** Tag used for logcat messages originating from this class. */
     private static final String TAG = "OrganizerLanding";
+
+    /** Shared Firestore instance for loading events and waiting list sizes. */
     private FirebaseFirestore db;
+
+    /** Container into which event "card" views (inflated from {@code R.layout.item_event}) are added. */
     private LinearLayout eventListContainer;
 
+    /**
+     * Parses a Firestore field as a {@link Long} in a schema-tolerant manner.
+     * <p>
+     * Accepts {@link Number} (returns {@code longValue()}), numeric {@link String}, or {@code null}.
+     * Any other type or unparsable value returns {@code null}.
+     * </p>
+     *
+     * @param d   The Firestore document snapshot to read from.
+     * @param key The field name to parse.
+     * @return A {@link Long} value if present and parsable; otherwise {@code null}.
+     */
     private @Nullable Long getLongFlexible(DocumentSnapshot d, String key) {
         Object v = d.get(key);
         if (v == null) return null;
@@ -49,6 +91,14 @@ public class OrganizerLanding extends AppCompatActivity {
         }
         return null;
     }
+
+    /**
+     * Navigates back to {@link MainActivity} and clears intermediate activities if present.
+     * <p>
+     * Uses {@link Intent#FLAG_ACTIVITY_CLEAR_TOP} and {@link Intent#FLAG_ACTIVITY_SINGLE_TOP}
+     * so that an existing {@code MainActivity} is reused instead of creating a new instance.
+     * </p>
+     */
     private void goHome() {
         Intent i = new Intent(this, MainActivity.class);
         // Clear anything above MainActivity if it already exists in the stack
@@ -56,32 +106,44 @@ public class OrganizerLanding extends AppCompatActivity {
         startActivity(i);
         finish();
     }
+
+    /**
+     * Handles toolbar "up" navigation by routing to {@link #goHome()}.
+     *
+     * @return {@code true} after performing navigation.
+     */
     @Override
     public boolean onSupportNavigateUp() {
         goHome();
         return true;
     }
 
-
+    /**
+     * Initializes the UI: edge-to-edge layout, action bar "up" button, back-press callback,
+     * insets handling, Firestore instance, and click listeners. Triggers the initial load of events.
+     *
+     * @param savedInstanceState Previously saved state, or {@code null}.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_organizer_landing);
+
         // Show the action bar back arrow (Up)
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle(""); // optional
         }
 
-// Make the physical/gesture back go to MainActivity
+        // Make the physical/gesture back go to MainActivity
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { goHome(); }
         });
 
         findViewById(R.id.btn_home).setOnClickListener(v -> goHome());
 
-
+        // Apply system bar insets to the root container
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -100,6 +162,23 @@ public class OrganizerLanding extends AppCompatActivity {
         loadEvents();
     }
 
+    /**
+     * Loads events from Firestore and renders one card per document inside {@link #eventListContainer}.
+     * <p>
+     * Query: {@code events} ordered by {@code createdAt} descending. For each event:
+     * </p>
+     * <ul>
+     *   <li>Title from {@code name} (fallback "Untitled Event").</li>
+     *   <li>Capacity from {@code capacity} via {@link #getLongFlexible(DocumentSnapshot, String)}.</li>
+     *   <li>Date/time from {@code eventDateTimeUtc} or {@code eventDate} via {@link #getMillis(DocumentSnapshot, String)}.</li>
+     *   <li>Status derived from {@code registrationOpen}/{@code registrationClose} vs current time.</li>
+     *   <li>Waiting count fetched from {@code waiting_lists/{eventId}} (size of {@code entrants}).</li>
+     *   <li>Clicking a card opens {@link OrganizerEntrantListActivity} with {@code eventId} and {@code eventName} extras.</li>
+     * </ul>
+     * <p>
+     * Any read failure is logged and leaves the current contents unchanged.
+     * </p>
+     */
     private void loadEvents() {
         db.collection("events")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -161,7 +240,22 @@ public class OrganizerLanding extends AppCompatActivity {
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to load events", e));
     }
 
-    // Handles multiple possible Firestore types
+    /**
+     * Retrieves a millisecond timestamp for a field that may be stored in multiple Firestore types.
+     * <p>
+     * Supported types:
+     * </p>
+     * <ul>
+     *   <li>{@link Number}: returns {@code longValue()}.</li>
+     *   <li>{@link Timestamp}: returns {@code toDate().getTime()}.</li>
+     *   <li>{@link String}: parsed via {@link Long#parseLong(String)}.</li>
+     * </ul>
+     * Unrecognized or unparsable values return {@code null}.
+     *
+     * @param doc   The document snapshot.
+     * @param field The field name to read.
+     * @return Milliseconds since epoch if present and parsable; otherwise {@code null}.
+     */
     @Nullable
     private Long getMillis(DocumentSnapshot doc, String field) {
         Object v = doc.get(field);
@@ -174,6 +268,13 @@ public class OrganizerLanding extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * Formats a UTC millisecond instant into a human-readable date/time string in the
+     * {@code America/Edmonton} time zone, using pattern {@code "MMM d, yyyy h:mm a"}.
+     *
+     * @param millis Epoch time in milliseconds.
+     * @return A formatted date/time string (e.g., {@code "Nov 7, 2025 3:30 PM"}).
+     */
     private String formatDate(long millis) {
         SimpleDateFormat f = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault());
         f.setTimeZone(TimeZone.getTimeZone("America/Edmonton"));
