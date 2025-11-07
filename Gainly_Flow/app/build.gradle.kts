@@ -59,6 +59,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-auth:22.3.0")
+    testImplementation("org.robolectric:robolectric:4.12.2")
 
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
