@@ -8,6 +8,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -98,10 +99,11 @@ public class QRCodeScanner extends AppCompatActivity {
         tvSubtitle.setText("✅ QR Detected: " + scannedText);
         chipCameraStatus.setText("Processing...");
 
-        // Decode the QR content to get event ID using your QRUrlDecoder
-        String eventId = decodeEventIdFromQR(scannedText);
+        // Extract event ID from QR code content using direct parsing
+        String eventId = extractEventIdFromQR(scannedText);
 
         if (eventId != null && !eventId.isEmpty()) {
+            Log.d("QRCodeScanner", "Extracted event ID: " + eventId);
             // Fetch event details from Firebase
             fetchEventFromFirebase(eventId);
         } else {
@@ -112,58 +114,73 @@ public class QRCodeScanner extends AppCompatActivity {
         }
     }
 
-    private String decodeEventIdFromQR(String scannedText) {
-        try {
-            // Use your existing QRUrlDecoder class
-            Object decodedResult = QRUrlDecoder.decode(scannedText);
-
-            // Since we can't access the Result class directly, let's use reflection or alternative approach
-            // Alternative approach: Check if the scanned text contains event patterns
-            if (scannedText != null) {
-                // Check for gainlyflow://event/{id} pattern
-                if (scannedText.startsWith("gainlyflow://event/")) {
-                    return scannedText.substring("gainlyflow://event/".length());
-                }
-                // Check for https://gainlyflow.app/e/{id} pattern
-                else if (scannedText.startsWith("https://gainlyflow.app/e/")) {
-                    return scannedText.substring("https://gainlyflow.app/e/".length());
-                }
-                // Check for legacy event:{id} pattern
-                else if (scannedText.startsWith("event:")) {
-                    return scannedText.substring("event:".length());
-                }
-                // If it's just a plain event ID, use it directly
-                else if (scannedText.matches("[a-zA-Z0-9]{20,}")) { // Simple pattern for Firestore IDs
-                    return scannedText;
-                }
-            }
-            return null;
-        } catch (Exception e) {
-            e.printStackTrace();
+    private String extractEventIdFromQR(String scannedText) {
+        if (scannedText == null || scannedText.trim().isEmpty()) {
             return null;
         }
+
+        Log.d("QRCodeScanner", "Parsing QR content: " + scannedText);
+
+        // Direct parsing - no dependency on QRUrlDecoder
+        // Check for gainlyflow://event/{id} pattern
+        if (scannedText.startsWith("gainlyflow://event/")) {
+            String eventId = scannedText.substring("gainlyflow://event/".length());
+            Log.d("QRCodeScanner", "Found gainlyflow pattern, eventId: " + eventId);
+            return eventId;
+        }
+        // Check for https://gainlyflow.app/e/{id} pattern
+        else if (scannedText.startsWith("https://gainlyflow.app/e/")) {
+            String eventId = scannedText.substring("https://gainlyflow.app/e/".length());
+            Log.d("QRCodeScanner", "Found https pattern, eventId: " + eventId);
+            return eventId;
+        }
+        // Check for legacy event:{id} pattern
+        else if (scannedText.startsWith("event:")) {
+            String eventId = scannedText.substring("event:".length());
+            Log.d("QRCodeScanner", "Found event: pattern, eventId: " + eventId);
+            return eventId;
+        }
+        // If it's just a plain event ID (Firestore document ID pattern)
+        else if (scannedText.matches("[a-zA-Z0-9]{1,}")) {
+            Log.d("QRCodeScanner", "Found plain event ID: " + scannedText);
+            return scannedText;
+        }
+
+        Log.d("QRCodeScanner", "No valid event ID pattern found");
+        return null;
     }
 
     private void fetchEventFromFirebase(String eventId) {
+        Log.d("QRCodeScanner", "Fetching event with ID: " + eventId);
+
         db.collection("events")
                 .document(eventId)
                 .get()
                 .addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
-                        // Convert Firestore document to your Event object
+                    if (task.isSuccessful()) {
                         DocumentSnapshot document = task.getResult();
-                        Event event = documentToEvent(document);
-                        if (event != null) {
-                            navigateToEventDetail(event);
+                        if (document != null && document.exists()) {
+                            Log.d("QRCodeScanner", "Document exists, converting to event...");
+                            // Convert Firestore document to your Event object
+                            Event event = documentToEvent(document);
+                            if (event != null) {
+                                Log.d("QRCodeScanner", "Event created successfully: " + event.getName());
+                                navigateToEventDetail(event);
+                            } else {
+                                Log.e("QRCodeScanner", "Failed to convert document to event");
+                                showError("Failed to parse event data");
+                            }
                         } else {
-                            showError("Failed to parse event data");
+                            Log.e("QRCodeScanner", "Document does not exist for ID: " + eventId);
+                            showError("Event not found or has been removed");
                         }
                     } else {
-                        // Event not found or error
-                        showError("Event not found or has been removed");
+                        Log.e("QRCodeScanner", "Firestore error: " + task.getException());
+                        showError("Error fetching event: " + task.getException().getMessage());
                     }
                 })
                 .addOnFailureListener(e -> {
+                    Log.e("QRCodeScanner", "Firestore failure: " + e.getMessage());
                     showError("Error fetching event: " + e.getMessage());
                 });
     }
@@ -172,72 +189,98 @@ public class QRCodeScanner extends AppCompatActivity {
         try {
             Event event = new Event(document.getId());
 
-            // Set basic event info
+            Log.d("QRCodeScanner", "Document fields: " + document.getData());
+
+            // Set basic event info - using your actual Firebase field names
             if (document.contains("name")) {
                 event.setName(document.getString("name"));
+                Log.d("QRCodeScanner", "Set name: " + document.getString("name"));
             }
             if (document.contains("description")) {
                 event.setDescription(document.getString("description"));
+                Log.d("QRCodeScanner", "Set description");
             }
             if (document.contains("eventDate")) {
                 Date eventDate = document.getDate("eventDate");
                 event.setEventDate(eventDate);
+                Log.d("QRCodeScanner", "Set event date: " + eventDate);
             }
-            if (document.contains("eventTime")) {
-                // Handle time - you might need to adjust based on how you store time in Firestore
-                String timeString = document.getString("eventTime");
-                if (timeString != null) {
-                    // Try to parse as SQL Time or store as string
+            if (document.contains("eventTimeUtc")) {
+                // Handle UTC time
+                String timeUtc = document.getString("eventTimeUtc");
+                if (timeUtc != null) {
                     try {
-                        Time eventTime = Time.valueOf(timeString);
+                        Time eventTime = Time.valueOf(timeUtc);
                         event.setEventTime(eventTime);
+                        Log.d("QRCodeScanner", "Set event time from UTC: " + timeUtc);
                     } catch (Exception e) {
-                        // If it's not in SQL Time format, store as string
-                        event.setTimeString(timeString);
+                        Log.d("QRCodeScanner", "Could not parse UTC time: " + timeUtc);
                     }
                 }
             }
-            if (document.contains("registrationOpen") && document.contains("registrationClose")) {
+            if (document.contains("eventTimeofDayMs")) {
+                // Handle milliseconds time of day
+                Long timeMs = document.getLong("eventTimeofDayMs");
+                if (timeMs != null) {
+                    Time eventTime = new Time(timeMs);
+                    event.setEventTime(eventTime);
+                    Log.d("QRCodeScanner", "Set event time from ms: " + timeMs);
+                }
+            }
+            if (document.contains("registrationOpen")) {
                 Date regOpen = document.getDate("registrationOpen");
                 Date regClose = document.getDate("registrationClose");
                 event.setRegistrationPeriod(regOpen, regClose);
+                Log.d("QRCodeScanner", "Set registration period");
             }
             if (document.contains("capacity")) {
                 Long capacity = document.getLong("capacity");
                 if (capacity != null) {
                     event.setCapacity(capacity.intValue());
+                    Log.d("QRCodeScanner", "Set capacity: " + capacity);
                 }
             }
-            if (document.contains("geolocationRequired")) {
-                Boolean geoRequired = document.getBoolean("geolocationRequired");
+            if (document.contains("geolactionRequired")) { // Note: your field name has typo "geolaction"
+                Boolean geoRequired = document.getBoolean("geolactionRequired");
                 if (geoRequired != null) {
                     event.setGeolocationRequired(geoRequired);
+                    Log.d("QRCodeScanner", "Set geolocation required: " + geoRequired);
                 }
             }
-            if (document.contains("posterImageId")) {
-                event.setPosterImage(document.getString("posterImageId"));
+            if (document.contains("posterUrl")) {
+                event.setPosterImage(document.getString("posterUrl"));
+                Log.d("QRCodeScanner", "Set poster URL");
             }
             if (document.contains("organizerId")) {
                 event.setOrganizerId(document.getString("organizerId"));
+                Log.d("QRCodeScanner", "Set organizer ID");
             }
             if (document.contains("qrUrl")) {
                 event.setQrUrl(document.getString("qrUrl"));
-            }
-            if (document.contains("location")) {
-                event.setLocation(document.getString("location"));
+                Log.d("QRCodeScanner", "Set QR URL");
             }
 
+            Log.d("QRCodeScanner", "Event created: " + event.getName());
             return event;
+
         } catch (Exception e) {
+            Log.e("QRCodeScanner", "Error converting document to event: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
     }
 
     private void navigateToEventDetail(Event event) {
+        if (event == null) {
+            showError("Event data is null");
+            return;
+        }
+
+        Log.d("QRCodeScanner", "Navigating to event detail: " + event.getName());
+
         Intent intent = new Intent(this, EventDetailActivity.class);
 
-        // Pass event data as individual extras (matching your current EventDetailActivity)
+        // Pass event data as individual extras
         intent.putExtra("event_id", event.getId());
         intent.putExtra("event_name", event.getName());
         intent.putExtra("event_description", event.getDescription());
@@ -255,13 +298,17 @@ public class QRCodeScanner extends AppCompatActivity {
             intent.putExtra("registration_close", event.getRegistrationClose().getTime());
         }
 
-        // Pass location if available
-        if (event.getLocation() != null) {
-            intent.putExtra("event_location", event.getLocation());
+        // Pass poster URL if available
+        if (event.getPosterImageId() != null) {
+            intent.putExtra("poster_url", event.getPosterImageId());
         }
 
-        // Pass time information
-        intent.putExtra("event_time_string", event.getEventTimeString());
+        // Pass time information - handle without getEventTimeString method
+        String eventTimeString = "Time not specified";
+        if (event.getEventTime() != null) {
+            eventTimeString = event.getEventTime().toString();
+        }
+        intent.putExtra("event_time_string", eventTimeString);
 
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
@@ -270,12 +317,14 @@ public class QRCodeScanner extends AppCompatActivity {
     }
 
     private void showError(String message) {
-        new MaterialAlertDialogBuilder(this)
-                .setTitle("Scan Error")
-                .setMessage(message)
-                .setPositiveButton("Try Again", (dialog, which) -> resetScanner())
-                .setCancelable(false)
-                .show();
+        runOnUiThread(() -> {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Scan Error")
+                    .setMessage(message)
+                    .setPositiveButton("Try Again", (dialog, which) -> resetScanner())
+                    .setCancelable(false)
+                    .show();
+        });
     }
 
     private void resetScanner() {
