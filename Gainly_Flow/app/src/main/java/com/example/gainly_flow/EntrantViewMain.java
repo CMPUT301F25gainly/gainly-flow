@@ -188,7 +188,8 @@ public class EntrantViewMain extends AppCompatActivity {
             Intent toNotification = new Intent(EntrantViewMain.this, NotificationsActivity.class);
             startActivity(toNotification);
         } else if (id == R.id.menu_profile) {
-            Toast.makeText(this, "Profile", Toast.LENGTH_SHORT).show();
+            Intent toProfile = new Intent(EntrantViewMain.this, ProfileActivity.class);
+            startActivity(toProfile);
         }
         return true;
     }
