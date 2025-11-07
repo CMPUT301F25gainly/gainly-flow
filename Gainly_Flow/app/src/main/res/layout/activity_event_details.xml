@@ -13,10 +13,18 @@
 
         <!-- Top Banner -->
         <RelativeLayout
+            android:id="@+id/topBanner"
             android:layout_width="match_parent"
             android:layout_height="180dp"
-            android:background="@drawable/blue_gradient_bg"
             android:padding="16dp">
+
+            <!-- Poster image goes behind everything -->
+            <ImageView
+                android:id="@+id/posterImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/blue_gradient_bg" />
 
             <!-- Back button -->
             <ImageButton
@@ -141,6 +149,7 @@
             </LinearLayout>
 
         </LinearLayout>
+
         <!-- Lottery info bar -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -151,7 +160,6 @@
             android:padding="10dp"
             android:background="#EEF4FF"
             android:layout_marginBottom="4dp"
-            android:backgroundTintMode="src_in"
             android:clipToOutline="true">
 
             <TextView
