@@ -1,5 +1,6 @@
 package com.example.gainly_flow;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -29,6 +30,7 @@ public class EntrantViewMain extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private LinearLayout eventListContainer;
     private ImageButton backButton;
+    private MaterialButton lotteryGuidelinesButton;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
 
     @Override
@@ -40,6 +42,7 @@ public class EntrantViewMain extends AppCompatActivity {
         bottomNav = findViewById(R.id.bottomNav);
         eventListContainer = findViewById(R.id.eventListContainer);
         backButton = findViewById(R.id.backButton);
+        lotteryGuidelinesButton = findViewById(R.id.lotteryGuidelinesButton);
 
         // Clear existing static events
         eventListContainer.removeAllViews();
@@ -49,6 +52,8 @@ public class EntrantViewMain extends AppCompatActivity {
             Intent toQR = new Intent(EntrantViewMain.this, QRCodeScanner.class);
             startActivity(toQR);
         });
+
+        lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelines());
 
         backButton.setOnClickListener(v -> {
             onBackPressed();
@@ -192,5 +197,22 @@ public class EntrantViewMain extends AppCompatActivity {
             startActivity(toProfile);
         }
         return true;
+    }
+
+    // Method to show the popup dialog
+    private void showLotteryGuidelines() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Lottery Selection Process");
+
+        builder.setMessage("Here are the guidelines for the lottery selection process:\n\n" +
+                "1. All entrants must register before the deadline.\n" +
+                "2. Lottery is random and fair.\n" +
+                "3. Only registered entrants are eligible.\n" +
+                "4. Winners will be notified via email or app notification.\n" +
+                "5. Each entrant can only win one spot per event.\n" +
+                "\nFor more details, please contact support.");
+
+        builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+        builder.show();
     }
 }
