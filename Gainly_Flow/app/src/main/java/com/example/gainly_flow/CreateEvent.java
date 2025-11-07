@@ -4,31 +4,26 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.bumptech.glide.Glide;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.timepicker.MaterialTimePicker;
 import com.google.android.material.timepicker.TimeFormat;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
-import com.google.android.gms.tasks.Task;
-
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -36,45 +31,20 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
-import java.util.UUID;
 
 public class CreateEvent extends AppCompatActivity {
 
-    // ---------------------------------------
     // UI
-    // ---------------------------------------
     private ImageView posterPreview;
-    private ImageView qrPreview; // reserved if you want inline QR preview in the future
+    private EditText posterUrlInput;
     private EditText eventNameInput, eventDescriptionInput, eventDateInput, eventTimeInput, capacityInput;
     private EditText registrationOpenInput, registrationCloseInput;
     private CheckBox geolocationCheckbox;
 
-    // Image selection
-    @Nullable private Uri posterUri = null;
-
-    // ---------------------------------------
-    // Formats (Activity scope – SimpleDateFormat not thread-safe)
-    // ---------------------------------------
+    // Formats
     private final SimpleDateFormat dateFmt   = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
     private final SimpleDateFormat timeFmt12 = new SimpleDateFormat("h:mm a",     Locale.getDefault());
 
-    // ---------------------------------------
-    // Document picker
-    // ---------------------------------------
-    private final ActivityResultLauncher<String[]> openPosterLauncher =
-            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri == null) return;
-                try {
-                    // persist read permission (some providers don't support it—ignore on failure)
-                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                } catch (SecurityException ignored) {}
-                posterUri = uri;
-                posterPreview.setImageURI(uri);
-            });
-
-    // ---------------------------------------
-    // Lifecycle
-    // ---------------------------------------
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -86,21 +56,13 @@ public class CreateEvent extends AppCompatActivity {
         configureTapOnlyInputs();
         wirePickers();
         wireButtons();
-
-        restorePoster(savedInstanceState);
+        wireUrlPreview(); // live preview when URL changes
     }
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        if (posterUri != null) outState.putString("posterUri", posterUri.toString());
-    }
-
-    // ---------------------------------------
-    // Wiring
-    // ---------------------------------------
     private void bindViews() {
         posterPreview           = findViewById(R.id.posterPreview);
+        posterUrlInput          = findViewById(R.id.posterUrlInput);
+
         eventNameInput          = findViewById(R.id.eventNameInput);
         eventDescriptionInput   = findViewById(R.id.eventDescriptionInput);
         eventDateInput          = findViewById(R.id.eventDateInput);
@@ -128,47 +90,52 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     private void wirePickers() {
-        eventDateInput.setOnClickListener(v -> showDatePicker("Select event date", selectedUtc ->
-                eventDateInput.setText(utcMillisToLocalDateString(selectedUtc))));
+        eventDateInput.setOnClickListener(v -> showDatePicker("Select event date",
+                selectedUtc -> eventDateInput.setText(utcMillisToLocalDateString(selectedUtc))));
 
-        registrationOpenInput.setOnClickListener(v -> showDatePicker("Select registration open date", selectedUtc ->
-                registrationOpenInput.setText(utcMillisToLocalDateString(selectedUtc))));
+        registrationOpenInput.setOnClickListener(v -> showDatePicker("Select registration open date",
+                selectedUtc -> registrationOpenInput.setText(utcMillisToLocalDateString(selectedUtc))));
 
-        registrationCloseInput.setOnClickListener(v -> showDatePicker("Select registration close date", selectedUtc ->
-                registrationCloseInput.setText(utcMillisToLocalDateString(selectedUtc))));
+        registrationCloseInput.setOnClickListener(v -> showDatePicker("Select registration close date",
+                selectedUtc -> registrationCloseInput.setText(utcMillisToLocalDateString(selectedUtc))));
 
-        eventTimeInput.setOnClickListener(v -> showTimePicker("Select event time", (hour24, minute) ->
-                eventTimeInput.setText(formatTime(hour24, minute))));
+        eventTimeInput.setOnClickListener(v -> showTimePicker("Select event time",
+                (hour24, minute) -> eventTimeInput.setText(formatTime(hour24, minute))));
     }
 
     private void wireButtons() {
-        View.OnClickListener pickPoster = v -> openPosterLauncher.launch(new String[]{"image/*"});
-        findViewById(R.id.selectPosterBtn).setOnClickListener(pickPoster);
-        posterPreview.setOnClickListener(pickPoster);
-
         findViewById(R.id.saveEventButton).setOnClickListener(v -> saveEvent());
     }
 
-    private void restorePoster(@Nullable Bundle savedInstanceState) {
-        if (savedInstanceState == null) return;
-        String saved = savedInstanceState.getString("posterUri");
-        if (saved != null) {
-            posterUri = Uri.parse(saved);
-            posterPreview.setImageURI(posterUri);
-        }
+    /** Live preview as user types/pastes the URL. */
+    private void wireUrlPreview() {
+        posterUrlInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                String pasted = s.toString().trim();
+                if (pasted.isEmpty()) {
+                    posterPreview.setImageDrawable(null);
+                    return;
+                }
+                String normalized = normalizePosterUrl(pasted); // <-- uses both methods below
+                if (!isLikelyHttp(normalized)) return;
+
+                Glide.with(CreateEvent.this)
+                        .load(normalized)
+                        .into(posterPreview);
+            }
+        });
     }
 
-    // ---------------------------------------
-    // Save flow
-    // ---------------------------------------
+    // --------------------- Save flow (URL only) ---------------------
     private void saveEvent() {
-        // 1) Read inputs (same style you had)
         final String name        = text(eventNameInput);
         final String desc        = text(eventDescriptionInput);
-        final String dateStr     = text(eventDateInput);          // yyyy-MM-dd
-        final String timeStr     = text(eventTimeInput);          // h:mm AM/PM
-        final String regOpenStr  = text(registrationOpenInput);   // yyyy-MM-dd
-        final String regCloseStr = text(registrationCloseInput);  // yyyy-MM-dd
+        final String dateStr     = text(eventDateInput);
+        final String timeStr     = text(eventTimeInput);
+        final String regOpenStr  = text(registrationOpenInput);
+        final String regCloseStr = text(registrationCloseInput);
         final String capStr      = text(capacityInput);
         final boolean geoEnabled = geolocationCheckbox != null && geolocationCheckbox.isChecked();
 
@@ -182,19 +149,26 @@ public class CreateEvent extends AppCompatActivity {
         final Long regOpenMillis        = regOpenStr.isEmpty()  ? null : parseDayUtc(regOpenStr);
         final Long regCloseMillis       = regCloseStr.isEmpty() ? null : parseDayUtc(regCloseStr);
 
-        if (eventDateMillis == null)  { eventDateInput.setError("Invalid date"); return; }
+        if (eventDateMillis == null)      { eventDateInput.setError("Invalid date"); return; }
         if (eventTimeOfDayMillis == null) { eventTimeInput.setError("Invalid time"); return; }
 
-        // 2) Build ID, QR URL
         final String id    = java.util.UUID.randomUUID().toString();
         final String qrUrl = QRUrlCreator.buildDeepLink(id);
 
-        // 3) Build event map ready for Firestore
+        // URL-only: read from field, normalize (Google Images + Google Drive)
+        String pasted = text(posterUrlInput).trim();
+        String posterUrl = pasted.isEmpty() ? "" : normalizePosterUrl(pasted);
+
+        if (!posterUrl.isEmpty() && !isLikelyHttp(posterUrl)) {
+            Toast.makeText(this, "Poster URL must start with http or https.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put("id", id);
         data.put("name", name);
         data.put("description", desc);
-        data.put("eventDateUtc", String.valueOf(eventDateMillis));       // keep your storage style
+        data.put("eventDateUtc", String.valueOf(eventDateMillis));
         data.put("eventTimeOfDayMs", String.valueOf(eventTimeOfDayMillis));
         data.put("registrationOpenUtc", regOpenMillis == null ? "" : String.valueOf(regOpenMillis));
         data.put("registrationCloseUtc", regCloseMillis == null ? "" : String.valueOf(regCloseMillis));
@@ -202,54 +176,17 @@ public class CreateEvent extends AppCompatActivity {
         data.put("geolocationEnabled", String.valueOf(geoEnabled));
         data.put("qrUrl", qrUrl);
         data.put("createdAt", System.currentTimeMillis());
+        data.put("posterUrl", posterUrl);
 
-        // 4) If there’s a poster, upload to Storage first, then save Firestore with posterUrl
-        if (posterUri != null) {
-            Toast.makeText(this, "Uploading poster…", Toast.LENGTH_SHORT).show();
-            uploadPosterAndGetUrl(id, posterUri)
-                    .addOnSuccessListener(posterUrl -> {
-                        data.put("posterUrl", posterUrl);
-                        saveEventToFirestore(id, data, qrUrl);
-                    })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(CreateEvent.this, "Poster upload failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                    );
-        } else {
-            data.put("posterUrl", "");
-            saveEventToFirestore(id, data, qrUrl);
-        }
+        saveEventToFirestore(id, data, qrUrl);
     }
 
-    private Task<String> uploadPosterAndGetUrl(String id, Uri uri) {
-        // (A) Make sure the bucket is correct. If in doubt, hardcode your bucket:
-        // StorageReference root = FirebaseStorage.getInstance("gs://<your-bucket>.appspot.com").getReference();
-        StorageReference root = FirebaseStorage.getInstance().getReference();
-
-        // (B) Make sure the path has NO leading slash
-        StorageReference ref = root.child("events").child(id).child("poster.jpg");
-
-        Log.d("CreateEvent", "Uploading to: " + ref.getPath() + "  bucket=" + ref.getBucket() + "  uri=" + uri);
-
-        return ref.putFile(uri)
-                .addOnSuccessListener(taskSnapshot -> Log.d("CreateEvent", "putFile SUCCESS bytes=" + taskSnapshot.getTotalByteCount()))
-                .addOnFailureListener(e -> Log.e("CreateEvent", "putFile FAILED: " + e.getMessage(), e))
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException();
-                    }
-                    return ref.getDownloadUrl();
-                })
-                .addOnSuccessListener(uri1 -> Log.d("CreateEvent", "getDownloadUrl SUCCESS: " + uri1))
-                .addOnFailureListener(e -> Log.e("CreateEvent", "getDownloadUrl FAILED: " + e.getMessage(), e))
-                .continueWith(t -> t.getResult().toString());
-    }
     private void saveEventToFirestore(String id, java.util.Map<String, Object> data, String qrUrl) {
         FirebaseFirestore.getInstance()
                 .collection("events")
                 .document(id)
                 .set(data, SetOptions.merge())
                 .addOnSuccessListener(unused -> {
-                    // Show QR dialog, then finish
                     showQrDialog(qrUrl, () -> {
                         Toast.makeText(CreateEvent.this, "Event saved", Toast.LENGTH_SHORT).show();
                         setResult(RESULT_OK);
@@ -261,9 +198,7 @@ public class CreateEvent extends AppCompatActivity {
                 );
     }
 
-    // ---------------------------------------
-    // Pickers
-    // ---------------------------------------
+    // --------------------- Pickers ---------------------
     private interface DatePicked { void onPicked(long utcMidnightMillis); }
     private interface TimePicked { void onPicked(int hour24, int minute); }
 
@@ -278,18 +213,14 @@ public class CreateEvent extends AppCompatActivity {
     private void showTimePicker(String title, TimePicked callback) {
         MaterialTimePicker picker = new MaterialTimePicker.Builder()
                 .setTimeFormat(TimeFormat.CLOCK_12H)
-                .setHour(9)
-                .setMinute(0)
+                .setHour(9).setMinute(0)
                 .setTitleText(title)
                 .build();
         picker.addOnPositiveButtonClickListener(v -> callback.onPicked(picker.getHour(), picker.getMinute()));
         picker.show(getSupportFragmentManager(), "mtp:" + title);
     }
 
-    // ---------------------------------------
-    // QR dialog + share
-    // ---------------------------------------
-
+    // --------------------- QR dialog (unchanged) ---------------------
     private void showQrDialog(String qrUrl, @Nullable Runnable onClose) {
         Bitmap bmp = QRImage.bitmapFromUrl(qrUrl, 512);
         showQrDialog(qrUrl, bmp, onClose);
@@ -315,7 +246,6 @@ public class CreateEvent extends AppCompatActivity {
                 .show();
     }
 
-    // has not been implemented fully yet, will be ready for project part 4
     private void shareQrPng(String qrUrl) {
         byte[] png = QRImage.pngFromUrl(qrUrl, 1024);
         if (png == null) {
@@ -338,14 +268,11 @@ public class CreateEvent extends AppCompatActivity {
         }
     }
 
-    // ---------------------------------------
-    // Parsing / formatting
-    // ---------------------------------------
+    // --------------------- Date/time parsing ---------------------
     @Nullable
     private Long parseDayUtc(String ymd) {
         try {
             dateFmt.setLenient(false);
-            // Interpret as local calendar day, then convert that Y-M-D to UTC midnight
             Calendar local = Calendar.getInstance();
             local.setTime(dateFmt.parse(ymd));
             local.set(Calendar.HOUR_OF_DAY, 0);
@@ -362,7 +289,6 @@ public class CreateEvent extends AppCompatActivity {
         }
     }
 
-    /** Parse "h:mm a" into milliseconds from midnight (0..86,399,999). */
     @Nullable
     private Long parseTimeMsFromMidnight(String time12) {
         try {
@@ -378,7 +304,6 @@ public class CreateEvent extends AppCompatActivity {
         }
     }
 
-    /** Convert MaterialDatePicker UTC midnight millis → local yyyy-MM-dd. */
     private String utcMillisToLocalDateString(long utcMidnight) {
         Calendar utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
         utc.setTimeInMillis(utcMidnight);
@@ -395,21 +320,16 @@ public class CreateEvent extends AppCompatActivity {
         return String.format(Locale.getDefault(), "%d:%02d %s", hr12, minute, ampm);
     }
 
-    // ---------------------------------------
-    // Small utilities
-    // ---------------------------------------
+    // --------------------- Small utils ---------------------
     private static String text(@Nullable EditText et) {
         return (et == null) ? "" : et.getText().toString().trim();
     }
-
     private static void makeTapOnly(EditText et) {
         et.setFocusable(false);
         et.setFocusableInTouchMode(false);
         et.setClickable(true);
         et.setLongClickable(false);
-        // If you ever see keyboards pop up via accessibility, also consider: et.setKeyListener(null);
     }
-
     private static boolean require(String value, EditText field) {
         if (!value.isEmpty()) return true;
         field.setError("Required");
@@ -417,8 +337,58 @@ public class CreateEvent extends AppCompatActivity {
         return false;
     }
 
-    @SuppressWarnings("unused")
-    private static long combineDayAndTimeUtc(long dayUtcMillis, long timeOfDayMs) {
-        return dayUtcMillis + timeOfDayMs;
+    // --------------------- BOTH NORMALIZER METHODS + wrapper ---------------------
+
+    /** Wrapper that runs both normalizers in a sensible order. */
+    private String normalizePosterUrl(String raw) {
+        String s = raw.trim();
+        s = normalizeImageUrlFromGoogleSearch(s); // extract ?imgurl=... from Google Images
+        s = normalizeGoogleDriveUrl(s);           // turn Drive share into direct uc?export=download
+        return s;
+    }
+
+    /** Method 1: Accept Google Images wrapper links and extract the real image URL. */
+    private String normalizeImageUrlFromGoogleSearch(String raw) {
+        try {
+            Uri uri = Uri.parse(raw);
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.US);
+
+            // e.g., https://www.google.com/imgres?imgurl=<direct>&imgrefurl=...
+            if (host.contains("google.") && uri.getPath() != null && uri.getPath().contains("/imgres")) {
+                String direct = uri.getQueryParameter("imgurl");
+                if (direct != null && !direct.isEmpty()) return direct;
+            }
+            return raw;
+        } catch (Exception e) {
+            return raw;
+        }
+    }
+
+    /** Method 2: Convert common Google Drive share links into a direct content URL. */
+    private String normalizeGoogleDriveUrl(String url) {
+        // Case 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("https?://drive\\.google\\.com/file/d/([a-zA-Z0-9_-]+)")
+                .matcher(url);
+        if (m.find()) {
+            String id = m.group(1);
+            return "https://drive.google.com/uc?export=download&id=" + id;
+        }
+
+        // Case 2: https://drive.google.com/open?id=FILE_ID  or any ?id=FILE_ID
+        m = java.util.regex.Pattern
+                .compile("[?&]id=([a-zA-Z0-9_-]+)")
+                .matcher(url);
+        if (m.find()) {
+            String id = m.group(1);
+            return "https://drive.google.com/uc?export=download&id=" + id;
+        }
+
+        return url; // unchanged
+    }
+
+    private boolean isLikelyHttp(String url) {
+        String u = url.toLowerCase(Locale.US);
+        return u.startsWith("http://") || u.startsWith("https://");
     }
 }
