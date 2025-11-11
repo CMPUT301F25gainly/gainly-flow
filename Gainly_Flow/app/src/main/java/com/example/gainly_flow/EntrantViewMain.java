@@ -1,5 +1,6 @@
 package com.example.gainly_flow;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -9,11 +10,9 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
-
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -22,6 +21,7 @@ import com.google.firebase.firestore.Query;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -45,9 +45,8 @@ import java.util.Locale;
  */
 public class EntrantViewMain extends AppCompatActivity {
 
-
     /** Button that navigates to the QR code scanner screen. */
-    private MaterialButton browseEventsButton, lotteryGuidelinesButton;
+    private MaterialButton browseEventsButton;
     /** Bottom navigation for switching between main sections. */
     private BottomNavigationView bottomNav;
     /** Container that holds event item views. */
@@ -58,7 +57,6 @@ public class EntrantViewMain extends AppCompatActivity {
     private MaterialButton lotteryGuidelinesButton;
     /** Date formatter for event dates (e.g., "Jan 05, 2025"). */
     private SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
-    private String currentUserId;
 
     /**
      * Initializes the UI, wires click listeners, and loads events from Firestore.
@@ -70,41 +68,31 @@ public class EntrantViewMain extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_entrant_home);
 
-        // Initialize views
         browseEventsButton = findViewById(R.id.browseEventsButton);
-        lotteryGuidelinesButton = findViewById(R.id.lotteryGuidelinesButton);
         bottomNav = findViewById(R.id.bottomNav);
         eventListContainer = findViewById(R.id.eventListContainer);
         backButton = findViewById(R.id.backButton);
+        lotteryGuidelinesButton = findViewById(R.id.lotteryGuidelinesButton);
 
         // Clear existing static events
         eventListContainer.removeAllViews();
 
-        // Current device ID
-        currentUserId = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
-
-        // Browse Events button opens QR scanner
+        // Button to QR Page
         browseEventsButton.setOnClickListener(v -> {
             Intent toQR = new Intent(EntrantViewMain.this, QRCodeScanner.class);
             startActivity(toQR);
         });
 
-        // Lottery Guidelines button
-        lotteryGuidelinesButton.setOnClickListener(v -> {
-            new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("Lottery Guidelines")
-                    .setMessage("1. Entries are selected randomly.\n2. Only one entry per user.\n3. Winners will be notified via notification.\n4. Registration deadlines apply.")
-                    .setPositiveButton("OK", null)
-                    .show();
-        });
+        lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelines());
 
-        // Back button
-        backButton.setOnClickListener(v -> onBackPressed());
+        backButton.setOnClickListener(v -> {
+            onBackPressed();
+        });
 
         // Load events from Firebase
         loadEventsFromFirebase();
 
-        // Bottom navigation
+        // Handle Bottom Navigation
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
     }
 
@@ -159,6 +147,7 @@ public class EntrantViewMain extends AppCompatActivity {
                         e.setGeolocationRequired(Boolean.TRUE.equals(doc.getBoolean("geolocationRequired")));
                         e.setPosterImage(doc.getString("posterUri"));
 
+                        // registration dates
                         Long regOpen = doc.getLong("registrationOpen");
                         Long regClose = doc.getLong("registrationClose");
                         if (regOpen != null || regClose != null) {
@@ -171,7 +160,9 @@ public class EntrantViewMain extends AppCompatActivity {
                         addEventToView(e);
                     }
                 })
-                .addOnFailureListener(e -> Toast.makeText(this, "Failed to load events: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to load events: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
     }
 
     /**
@@ -182,30 +173,38 @@ public class EntrantViewMain extends AppCompatActivity {
      * @param event the event to render
      */
     private void addEventToView(Event event) {
+        // Inflate the event item layout
         CardView eventView = (CardView) LayoutInflater.from(this).inflate(R.layout.item_event, eventListContainer, false);
 
+        // Find views in the event item layout
         TextView eventTitle = eventView.findViewById(R.id.eventTitle);
         TextView eventDate = eventView.findViewById(R.id.eventDate);
         TextView eventSpots = eventView.findViewById(R.id.eventSpots);
         TextView eventWaiting = eventView.findViewById(R.id.eventWaiting);
         TextView eventStatus = eventView.findViewById(R.id.eventStatus);
 
-        // Set static data
-        eventTitle.setText(event.getName());
-        if (eventDate != null && event.getEventDate() != null) {
-            eventDate.setText(dateFormat.format(event.getEventDate()));
+        // Set event data
+        if (eventTitle != null) {
+            eventTitle.setText(event.getName());
         }
-        eventSpots.setText(event.getCapacity() + " spots");
 
-        // Load waiting list dynamically using WaitingList class
-        WaitingList wl = new WaitingList(event.getId());
-        wl.load(loadedList -> {
-            int waitingCount = loadedList.getCount();
-            runOnUiThread(() -> eventWaiting.setText(waitingCount + " waiting"));
-        });
+        if (eventDate != null && event.getEventDate() != null) {
+            String dateString = dateFormat.format(event.getEventDate());
+            eventDate.setText(dateString);
+        }
 
-        // Registration status
+        if (eventSpots != null) {
+            // You might want to add actual spots data to your Event class
+            eventSpots.setText(event.getCapacity() + " spots");
+        }
+
+        if (eventWaiting != null) {
+            // You might want to add waiting list count to your Event class
+            eventWaiting.setText("45 waiting"); // Replace with actual waiting count
+        }
+
         if (eventStatus != null) {
+            // Determine status based on registration period
             if (event.isRegistrationOpen()) {
                 eventStatus.setText("Open");
                 eventStatus.setTextColor(getResources().getColor(R.color.green_500));
@@ -213,21 +212,27 @@ public class EntrantViewMain extends AppCompatActivity {
             } else {
                 eventStatus.setText("Closed");
                 eventStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                eventStatus.setBackgroundResource(R.drawable.status_closed_bg);
+                eventStatus.setBackgroundResource(R.drawable.status_closed_bg); // Create this drawable
             }
         }
 
-        // On click → EventDetailActivity
+        // Set click listener
         eventView.setOnClickListener(v -> {
+            Toast.makeText(EntrantViewMain.this, event.getName() + " clicked!", Toast.LENGTH_SHORT).show();
+
+            // Pass event data to EventDetailActivity
             Intent intent = new Intent(EntrantViewMain.this, EventDetailActivity.class);
             intent.putExtra("event_id", event.getId());
             intent.putExtra("event_name", event.getName());
             intent.putExtra("event_description", event.getDescription());
             intent.putExtra("event_capacity", event.getCapacity());
             intent.putExtra("event_date", event.getEventDate() != null ? event.getEventDate().getTime() : 0);
+            intent.putExtra("registration_open", event.getRegistrationOpen() != null ? event.getRegistrationOpen().getTime() : 0);
+            intent.putExtra("registration_close", event.getRegistrationClose() != null ? event.getRegistrationClose().getTime() : 0);
             startActivity(intent);
         });
 
+        // Add the event view to container
         eventListContainer.addView(eventView);
     }
 
