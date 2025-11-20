@@ -16,6 +16,12 @@
     <color name="blue_500">#2563EB</color> <!-- Header and link blue -->
     <color name="green_600">#16A34A</color> <!-- "Open" status -->
     <color name="red_500">#EF4444</color> <!-- "Closed" status -->
+    <color name="purple_500">#9B51E0</color> <!-- "Cancelled" status -->
+    <color name="yellow_500">#F59E0B</color> <!-- "Full" status -->
+    <color name="orange_500">#F97316</color> <!-- "Selected" -->
+    <color name="pink_500">#EC4899</color> <!-- "Waiting" status -->
+    <color name="grey_500">#9E9E9E</color>
+
 
     <!-- Accent colors -->
     <color name="light_blue">#EFF6FF</color>

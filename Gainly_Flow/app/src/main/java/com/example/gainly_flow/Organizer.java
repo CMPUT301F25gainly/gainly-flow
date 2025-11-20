@@ -1,12 +1,36 @@
 package com.example.gainly_flow;
 
-public class Organizer extends User {
-    public Organizer(String id, Profile profile) { super(id, profile); }
+import java.util.ArrayList;
+import java.util.List;
 
-    @Override public String getRole() { return "Organizer"; }
+/**
+ * Represents an Organizer.
+ * Organizers can create events and manage entrants.
+ */
+public class Organizer extends Profile {
 
-    public String createEvent() { return ""; }
-    public void updateEvent(String eventId) {}
-    public void sendNotificationToWaitingList(String eventId, String message) {}
-    public void setGeolocationRequired(String eventId, boolean required) {}
+    /** List of event IDs created by this organizer. */
+    private List<String> createdEvents;
+
+    /** Required empty constructor for Firebase. */
+    public Organizer() {
+        super();
+        this.setRole("Organizer");
+        this.createdEvents = new ArrayList<>();
+    }
+
+    public Organizer(String id, String name, String email, String phone) {
+        super(id, name, email);
+        this.setPhone(phone);
+        this.setRole("Organizer");
+        this.createdEvents = new ArrayList<>();
+    }
+
+    public List<String> getCreatedEvents() {
+        return createdEvents;
+    }
+
+    public void addCreatedEvent(String eventId) {
+        createdEvents.add(eventId);
+    }
 }

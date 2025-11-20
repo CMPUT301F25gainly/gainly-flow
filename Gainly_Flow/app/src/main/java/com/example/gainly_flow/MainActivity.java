@@ -50,11 +50,13 @@ public class MainActivity extends AppCompatActivity {
         // Initialize the Organizer button and set its navigation behavior.
         Button organizer = findViewById(R.id.organizerButton);
         organizer.setOnClickListener(v ->
-                startActivity(new Intent(this, OrganizerLanding.class)));
+                //startActivity(new Intent(this, OrganizerLanding.class)));
+                startActivity(new Intent(this, OrganizerViewMain.class)));
 
         // Initialize the Administrator button and set its navigation behavior.
         Button adminLogin = findViewById(R.id.btnAdminLogin);
         adminLogin.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminMainActivity.class)));
     }
+
 }

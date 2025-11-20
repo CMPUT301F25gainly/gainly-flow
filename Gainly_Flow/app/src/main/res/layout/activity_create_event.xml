@@ -5,23 +5,21 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/white"
     tools:context=".CreateEvent">
 
-    <!-- Sticky header (outside the scroll) -->
-    <TextView
-        android:id="@+id/header_title"
+    <!-- App Bar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Create Event"
-        android:textStyle="bold"
-        android:textSize="20sp"
-        android:paddingTop="16dp"
-        android:paddingBottom="12dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/purple_500"
         app:layout_constraintEnd_toEndOf="parent"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:navigationIcon="@drawable/ic_arrow_back_24"
+        app:title="Create New Event"
+        app:titleTextColor="?attr/colorOnSurface" />
 
     <!-- Scrollable content -->
     <androidx.core.widget.NestedScrollView
@@ -29,163 +27,671 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:fillViewport="true"
-        android:importantForAutofill="noExcludeDescendants"
-        app:layout_constraintTop_toBottomOf="@id/header_title"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/toolbar">
 
-        <!-- Inner container for form fields -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/createEventContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="24dp">
+            android:padding="24dp">
 
-            <!-- Event Name (top of inner parent) -->
-            <EditText
-                android:id="@+id/eventNameInput"
+            <!-- Header Section -->
+            <TextView
+                android:id="@+id/headerTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Event Name"
-                android:inputType="textPersonName"
-                android:layout_marginTop="24dp"
-                app:layout_constraintTop_toTopOf="parent"
+                android:text="Set up your event and generate a promotional QR code"
+                android:textSize="16sp"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:lineSpacingExtra="4sp"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintTop_toTopOf="parent" />
 
-            <!-- Event Date -->
-            <EditText
-                android:id="@+id/eventDateInput"
+            <!-- Basic Information Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/basicInfoCard"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Date"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:clickable="true"
-                android:inputType="none"
+                android:layout_marginTop="32dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/headerTitle">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp">
+
+                    <!-- Section Header -->
+                    <TextView
+                        android:id="@+id/basicInfoHeader"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Basic Information"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/basicInfoSubtitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Essential details about your event"
+                        android:textSize="14sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/basicInfoHeader" />
+
+                    <!-- Event Title -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/nameInputLayout"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:hint="Event Title"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/basicInfoSubtitle">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/eventNameInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textCapWords"
+                            android:maxLines="1"
+                            android:text="e.g., Swimming Lessons for Beginners" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Description -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/descriptionInputLayout"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:hint="Description"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/nameInputLayout">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/eventDescriptionInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="top"
+                            android:inputType="textMultiLine"
+                            android:minHeight="120dp"
+                            android:maxLines="5"
+                            android:text="Describe what your event is about, what participants will learn or experience..." />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Category Dropdown -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/categoryDropdownLayout"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:hint="Category"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/descriptionInputLayout">
+
+                        <AutoCompleteTextView
+                            android:id="@+id/categoryDropdown"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="none" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Location and Price Row -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/locationPriceRow"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/categoryDropdownLayout">
+
+                        <!-- Location -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/locationInputLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toStartOf="@id/priceInputLayout"
+                            app:layout_constraintHorizontal_weight="2"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/eventLocationInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Location/Venue"
+                                android:inputType="text"
+                                android:text="e.g., Community Center" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- Price -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/priceInputLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintHorizontal_weight="1"
+                            app:layout_constraintStart_toEndOf="@id/locationInputLayout"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/eventPriceInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Price"
+                                android:inputType="numberDecimal"
+                                android:text="0.00" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Event Schedule Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/scheduleCard"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/eventNameInput"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintTop_toBottomOf="@id/basicInfoCard">
 
-            <!-- Event Time -->
-            <EditText
-                android:id="@+id/eventTimeInput"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp">
+
+                    <!-- Section Header -->
+                    <TextView
+                        android:id="@+id/scheduleHeader"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Event Schedule"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/scheduleSubtitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="When will your event take place?"
+                        android:textSize="14sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/scheduleHeader" />
+
+                    <!-- Event Date (Start Date Only) -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/startDateInputLayout"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:hint="Event Date"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/scheduleSubtitle">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/eventStartDateInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Event Date"
+                            android:inputType="none"
+                            android:text="mm/dd/yyyy" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Schedule Details -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/scheduleDetailsInputLayout"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:hint="Schedule Details"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/startDateInputLayout">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/scheduleDetailsInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:text="e.g., Every Monday, 2:00 PM - 3:00 PM" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Registration Period Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/registrationCard"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Time"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:clickable="true"
-                android:inputType="none"
                 android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/eventDateInput"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintTop_toBottomOf="@id/scheduleCard">
 
-            <!-- Event Description -->
-            <EditText
-                android:id="@+id/eventDescriptionInput"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp">
+
+                    <!-- Section Header -->
+                    <TextView
+                        android:id="@+id/registrationHeader"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Registration Period"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/registrationSubtitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="When can people join the waiting list?"
+                        android:textSize="14sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/registrationHeader" />
+
+                    <!-- Registration Period Row -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/registrationRow"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/registrationSubtitle">
+
+                        <!-- Registration Open -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/registrationOpenLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toStartOf="@id/registrationCloseLayout"
+                            app:layout_constraintHorizontal_weight="1"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/registrationOpenInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Registration Opens"
+                                android:inputType="none"
+                                android:text="mm/dd/yyyy" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- Registration Close -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/registrationCloseLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintHorizontal_weight="1"
+                            app:layout_constraintStart_toEndOf="@id/registrationOpenLayout"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/registrationCloseInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Registration Closes"
+                                android:inputType="none"
+                                android:text="mm/dd/yyyy" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Capacity & Lottery Settings Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/capacityCard"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Description"
-                android:inputType="textMultiLine"
-                android:gravity="top|start"
-                android:minHeight="100dp"
                 android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/eventTimeInput"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintTop_toBottomOf="@id/registrationCard">
 
-            <!-- Registration Open -->
-            <EditText
-                android:id="@+id/registrationOpenInput"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp">
+
+                    <!-- Section Header -->
+                    <TextView
+                        android:id="@+id/capacityHeader"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Capacity and Lottery Settings"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/capacitySubtitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Configure spots and waiting list limits"
+                        android:textSize="14sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/capacityHeader" />
+
+                    <!-- Capacity Row -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/capacityRow"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/capacitySubtitle">
+
+                        <!-- Number of Spots -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/capacityInputLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toStartOf="@id/waitingListLayout"
+                            app:layout_constraintHorizontal_weight="1"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/eventCapacityInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Number of Spots Available"
+                                android:inputType="number"
+                                android:text="20" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- Waiting List Limit -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/waitingListLayout"
+                            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintHorizontal_weight="1"
+                            app:layout_constraintStart_toEndOf="@id/capacityInputLayout"
+                            app:layout_constraintTop_toTopOf="parent">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/waitingListInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Waiting List Limit (Optional)"
+                                android:inputType="number"
+                                android:text="Unlimited" />
+
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <!-- Geolocation Checkbox -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/geolocationCard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/capacityRow">
+
+                        <CheckBox
+                            android:id="@+id/geolocationCheckbox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="16dp"
+                            android:text="Enable Geolocation Requirement"
+                            android:textSize="16sp"
+                            android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <TextView
+                        android:id="@+id/geolocationSubtitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Track where entrants join from (optional)"
+                        android:textSize="12sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/geolocationCard" />
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Event Poster Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/posterCard"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Registration Opens"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:clickable="true"
-                android:inputType="none"
                 android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/eventDescriptionInput"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintTop_toBottomOf="@id/capacityCard">
 
-            <!-- Registration Close -->
-            <EditText
-                android:id="@+id/registrationCloseInput"
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:id="@+id/posterTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Event Poster"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <!-- Upload Area -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/uploadCard"
+                        android:layout_width="0dp"
+                        android:layout_height="150dp"
+                        android:layout_marginTop="16dp"
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="?attr/colorOutline"
+                        app:strokeWidth="1dp"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/posterTitle">
+
+                        <ImageView
+                            android:id="@+id/posterPreview"
+                            android:layout_width="150dp"
+                            android:layout_height="200dp"
+                            android:layout_marginTop="12dp"
+                            android:scaleType="centerCrop"
+                            android:background="@drawable/event_card_bg"
+                            android:contentDescription="Poster preview" />
+
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:padding="16dp">
+
+                            <ImageView
+                                android:id="@+id/uploadIcon"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:src="@drawable/ic_upload"
+                                app:tint="?attr/colorOnSurfaceVariant"
+                                app:layout_constraintBottom_toTopOf="@id/uploadText"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent"
+                                app:layout_constraintVertical_chainStyle="packed" />
+
+                            <TextView
+                                android:id="@+id/uploadText"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:text="Click to upload or drag and drop"
+                                android:textSize="14sp"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textAlignment="center"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@id/uploadIcon" />
+
+                            <TextView
+                                android:id="@+id/uploadSubtext"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="PNG, JPG up to 10MB"
+                                android:textSize="12sp"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textAlignment="center"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toBottomOf="@id/uploadText" />
+
+                        </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Action Buttons -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/actionButtons"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="Registration Closes"
-                android:focusable="false"
-                android:focusableInTouchMode="false"
-                android:clickable="true"
-                android:inputType="none"
-                android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/registrationOpenInput"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="24dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintTop_toBottomOf="@id/posterCard">
 
-            <!-- Capacity -->
-            <EditText
-                android:id="@+id/eventCapacityInput"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Capacity"
-                android:inputType="number"
-                android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/registrationCloseInput"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                <Button
+                    android:id="@+id/cancelButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:text="Cancel"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toStartOf="@id/saveEventButton"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
-            <!-- Poster Preview -->
-            <ImageView
-                android:id="@+id/posterPreview"
-                android:layout_width="0dp"
-                android:layout_height="180dp"
-                android:scaleType="centerCrop"
-                android:contentDescription="Event Poster Preview"
-                android:background="?attr/colorSurfaceVariant"
-                android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/eventCapacityInput"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
-            <EditText
-                android:id="@+id/posterUrlInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textUri"
-                android:hint="Paste Image Here"
-                app:layout_constraintTop_toBottomOf="@id/posterPreview"
-                android:autofillHints="username"
-                android:maxLines="1" />
+                <Button
+                    android:id="@+id/saveEventButton"
+                    style="@style/Widget.Material3.Button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Create Event and Generate QR Code"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/cancelButton"
+                    app:layout_constraintTop_toTopOf="parent" />
 
-            <!-- Geolocation Required -->
-            <CheckBox
-                android:id="@+id/geolocationCheckbox"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Geolocation Required"
-                android:layout_marginTop="16dp"
-                app:layout_constraintTop_toBottomOf="@id/posterUrlInput"
-                app:layout_constraintStart_toStartOf="parent" />
-
-            <!-- Save Button -->
-            <Button
-                android:id="@+id/saveEventButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:text="Save Event"
-                android:layout_marginTop="24dp"
-                app:layout_constraintTop_toBottomOf="@id/geolocationCheckbox"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
+
     </androidx.core.widget.NestedScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

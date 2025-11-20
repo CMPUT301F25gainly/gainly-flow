@@ -32,6 +32,9 @@
         <activity
             android:name=".AdminBrowseProfilesActivity"
             android:exported="false" />
+        <activity
+            android:name=".OrganizerViewMain"
+            android:exported="false" />
 
         <activity android:name=".QRCodeScanner"
             android:exported="false"
