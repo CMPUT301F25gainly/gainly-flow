@@ -41,14 +41,14 @@ public class Event {
     private String qrUrl;
 
     // --- Entrant management ---
-    private WaitingList waitingList;
-    private List<Entrant> selected;
-    private List<Entrant> cancelled;
-    private List<Entrant> enrolled;
+    private List<Entrant> waitingList;
+    private List<Entrant> selected; //if selected by lottery
+    private List<Entrant> cancelled; //if decline
+    private List<Entrant> enrolled; //if accept
 
     // --- Constructors ---
     public Event() {
-        this.waitingList = new WaitingList();
+        this.waitingList = new ArrayList<>();
         this.selected = new ArrayList<>();
         this.cancelled = new ArrayList<>();
         this.enrolled = new ArrayList<>();
@@ -81,7 +81,7 @@ public class Event {
     public void setPosterImageId(String posterImageId) { this.posterImageId = posterImageId; }
     public void setOrganizer(Organizer organizer) { this.organizer = organizer; }
     public void setQrUrl(String qrUrl) { this.qrUrl = qrUrl; }
-    public void setWaitingList(WaitingList waitingList) { this.waitingList = waitingList; }
+    public void setWaitingList(List<Entrant>  waitingList) { this.waitingList = waitingList; }
     public void setSelected(List<Entrant> selected) { this.selected = selected; }
     public void setCancelled(List<Entrant> cancelled) { this.cancelled = cancelled; }
     public void setEnrolled(List<Entrant> enrolled) { this.enrolled = enrolled; }
@@ -105,7 +105,7 @@ public class Event {
     public String getPosterImageId() { return posterImageId; }
     public Organizer getOrganizer() { return organizer; }
     public String getQrUrl() { return qrUrl; }
-    public WaitingList getWaitingList() { return waitingList; }
+    public List<Entrant>  getWaitingList() { return waitingList; }
     public List<Entrant> getSelected() { return selected; }
     public List<Entrant> getCancelled() { return cancelled; }
     public List<Entrant> getEnrolled() { return enrolled; }
@@ -163,7 +163,7 @@ public class Event {
             this.posterImageId = e.posterImageId;
             this.organizer = e.organizer;
             this.qrUrl = e.qrUrl;
-            this.waitingList = e.waitingList != null ? e.waitingList : new WaitingList();
+            this.waitingList = e.waitingList != null ? e.waitingList : new ArrayList<>();
             this.selected = e.selected != null ? e.selected : new ArrayList<>();
             this.cancelled = e.cancelled != null ? e.cancelled : new ArrayList<>();
             this.enrolled = e.enrolled != null ? e.enrolled : new ArrayList<>();
@@ -191,7 +191,7 @@ public class Event {
                 ", category=" + getFormattedCategory() +
                 ", capacity=" + capacity +
                 ", currentParticipants=" + currentParticipants +
-                ", waitingList=" + (waitingList != null ? waitingList.getCount() : 0) +
+                ", waitingList=" + (waitingList != null ? waitingList.size() : 0) +
                 ", selected=" + selected.size() +
                 ", enrolled=" + enrolled.size() +
                 ", cancelled=" + cancelled.size() +

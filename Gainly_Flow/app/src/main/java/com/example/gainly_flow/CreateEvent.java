@@ -14,6 +14,9 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.ArrayList;
+import java.util.List;
+
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -347,7 +350,10 @@ public class CreateEvent extends AppCompatActivity {
         }
 
         // Collections/lists - initialize empty if null
-        data.put("waitingList", event.getWaitingList() != null ? event.getWaitingList() : new WaitingList());
+        data.put(
+                "waitingList",
+                event.getWaitingList() != null ? event.getWaitingList() : new ArrayList<Entrant>()
+        );
         data.put("selected", event.getSelected() != null ? event.getSelected() : new ArrayList<Entrant>());
         data.put("cancelled", event.getCancelled() != null ? event.getCancelled() : new ArrayList<Entrant>());
         data.put("enrolled", event.getEnrolled() != null ? event.getEnrolled() : new ArrayList<Entrant>());

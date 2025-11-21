@@ -2,6 +2,7 @@ package com.example.gainly_flow;
 
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -13,8 +14,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 
 public class EventDetailActivity extends AppCompatActivity {
 
@@ -29,7 +34,7 @@ public class EventDetailActivity extends AppCompatActivity {
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
 
     private Event event;
-    private WaitingList waitingList;
+    private List<Entrant> waitingList;
     private String eventId;
     private int eventCapacity;
     private String currentUserId;
@@ -116,40 +121,16 @@ public class EventDetailActivity extends AppCompatActivity {
         Database.get("events", eventId, doc -> {
             if (doc.exists()) {
                 event = new Event();
+                // Let Event handle Firestore → POJO mapping, including waitingList
+                event.fromDocument(doc);
 
-                // Manually copy each field
-                event.setId(doc.getId());
-                event.setName(doc.getString("name"));
-                event.setDescription(doc.getString("description"));
-                Object capacityObj = doc.get("capacity");
-                if (capacityObj instanceof Long) event.setCapacity(((Long) capacityObj).intValue());
-
-                // Dates
-                Object eventDateObj = doc.get("eventDate");
-                if (eventDateObj instanceof com.google.firebase.Timestamp) {
-                    event.setEventDate(((com.google.firebase.Timestamp) eventDateObj).toDate());
+                // Ensure waitingList is never null
+                if (event.getWaitingList() == null) {
+                    event.setWaitingList(new ArrayList<Entrant>());
                 }
 
-                Object regOpenObj = doc.get("registrationOpen");
-                if (regOpenObj instanceof com.google.firebase.Timestamp) {
-                    event.setRegistrationPeriod(((com.google.firebase.Timestamp) regOpenObj).toDate(), event.getRegistrationClose());
-                }
-
-                Object regCloseObj = doc.get("registrationClose");
-                if (regCloseObj instanceof com.google.firebase.Timestamp) {
-                    event.setRegistrationPeriod(event.getRegistrationOpen(), ((com.google.firebase.Timestamp) regCloseObj).toDate());
-                }
-
-                // Waiting list
-                if (doc.get("waitingList") != null) {
-                    event.setWaitingList(new WaitingList(eventId));
-                    event.getWaitingList().loadFromFirebase(list -> {
-                        updateWaitingListUI();
-                        tvAvailable.setText(String.valueOf(event.getCapacity() - list.getCount()));
-                    });
-                }
-
-                tvAvailable.setText(String.valueOf(event.getCapacity() - event.getWaitingList().getCount()));
+                int waitingCount = event.getWaitingList().size();
+                tvAvailable.setText(String.valueOf(event.getCapacity() - waitingCount));
                 updateWaitingListUI();
             }
         });
@@ -157,18 +138,33 @@ public class EventDetailActivity extends AppCompatActivity {
 
 
 
-    private void updateWaitingListUI() {
-        if (event == null || event.getWaitingList() == null) return;
 
-        WaitingList list = event.getWaitingList();
-        int count = list.getCount();
+    private void updateWaitingListUI() {
+        if (event == null) return;
+
+        List<Entrant> list = event.getWaitingList();
+        if (list == null) {
+            tvEntrants.setText("0");
+            btnJoin.setVisibility(View.VISIBLE);
+            btnLeave.setVisibility(View.GONE);
+            return;
+        }
+
+        int count = list.size();
         tvEntrants.setText(String.valueOf(count));
 
-        boolean isUserInList = list.getEntrants().stream().anyMatch(e -> e.getId().equals(currentUserId));
+        boolean isUserInList = false;
+        for (Entrant e : list) {
+            if (currentUserId != null && currentUserId.equals(e.getId())) {
+                isUserInList = true;
+                break;
+            }
+        }
 
         btnJoin.setVisibility(isUserInList ? View.GONE : View.VISIBLE);
         btnLeave.setVisibility(isUserInList ? View.VISIBLE : View.GONE);
     }
+
 
 
     private void updateRegistrationStatus(long regOpenMillis, long regCloseMillis) {
@@ -198,62 +194,144 @@ public class EventDetailActivity extends AppCompatActivity {
     private void setupButtonListeners() {
         backButton.setOnClickListener(v -> onBackPressed());
 
-        btnJoin.setOnClickListener(v -> {
-            WaitingList list = event.getWaitingList();
-            if (list != null) {
-                list.addEntrant(new Entrant(currentUserId), event.getCapacity());
-                list.save(() -> {
-                    updateWaitingListUI();
-                    tvAvailable.setText(String.valueOf(event.getCapacity() - list.getCount()));
-                });
-            }
-        });
-
-        btnLeave.setOnClickListener(v -> {
-            WaitingList list = event.getWaitingList();
-            if (list != null) {
-                list.removeEntrant(new Entrant(currentUserId));
-                list.save(() -> {
-                    updateWaitingListUI();
-                    tvAvailable.setText(String.valueOf(event.getCapacity() - list.getCount()));
-                });
-            }
-        });
-
-
-
-
+        btnJoin.setOnClickListener(v -> joinWaitingList());
+        btnLeave.setOnClickListener(v -> leaveWaitingList());
 
         btnShareQr.setOnClickListener(v ->
                 Toast.makeText(this, "Share QR feature coming soon", Toast.LENGTH_SHORT).show()
         );
 
-        btnViewWaitingList.setOnClickListener(v -> {
-            if (waitingList == null) {
-                Toast.makeText(this, "Waiting list not available.", Toast.LENGTH_SHORT).show();
+        btnViewWaitingList.setOnClickListener(v -> showWaitingListDialog());
+    }
+    private String getEventDocumentId() {
+        if (event != null && event.getId() != null) {
+            return event.getId();
+        }
+        return eventId; // fallback to the id passed via Intent
+    }
+
+    private void joinWaitingList() {
+        if (event == null) return;
+
+        if (event.getWaitingList() == null) {
+            event.setWaitingList(new ArrayList<Entrant>());
+        }
+
+        List<Entrant> list = event.getWaitingList();
+
+        // Already in list?
+        for (Entrant e : list) {
+            if (currentUserId != null && currentUserId.equals(e.getId())) {
+                Toast.makeText(this, "You are already on the waiting list.", Toast.LENGTH_SHORT).show();
                 return;
             }
+        }
 
-            waitingList.loadFromFirebase(loadedList -> {
-                if (loadedList.getEntrants().isEmpty()) {
-                    Toast.makeText(this, "No entrants in waiting list.", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+        // Capacity check (optional: here capacity is max entrants)
+        if (list.size() >= event.getCapacity()) {
+            Toast.makeText(this, "Waiting list is full.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-                StringBuilder message = new StringBuilder();
-                int i = 1;
-                for (Entrant entrant : loadedList.getEntrants()) {
-                    String name = entrant.getDisplayName() != null ? entrant.getDisplayName() : "User " + entrant.getId();
-                    message.append(i++).append(". ").append(name).append("\n");
-                }
+        Entrant entrant = new Entrant(currentUserId);
+        list.add(entrant);
 
-                new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Waiting List (" + loadedList.getCount() + " Entrants)")
-                        .setMessage(message.toString())
-                        .setPositiveButton("OK", null)
-                        .show();
-            });
-        });
+        String docId = getEventDocumentId();
+        if (docId == null) {
+            updateWaitingListUI();
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(docId)
+                .update("waitingList", list)
+                .addOnSuccessListener(aVoid -> {
+                    int waitingCount = list.size();
+                    tvAvailable.setText(String.valueOf(event.getCapacity() - waitingCount));
+                    updateWaitingListUI();
+                })
+                .addOnFailureListener(e -> {
+                    list.remove(entrant); // rollback
+                    Toast.makeText(this, "Failed to join waiting list.", Toast.LENGTH_SHORT).show();
+                });
     }
+
+    private void leaveWaitingList() {
+        if (event == null || event.getWaitingList() == null) {
+            Toast.makeText(this, "No event or waiting list.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        List<Entrant> list = event.getWaitingList();
+        Log.d("LeaveWL", "Current userId = " + currentUserId);
+        for (Entrant e : list) {
+            Log.d("LeaveWL", "Entrant in list: id=" + e.getId() + ", name=" + e.getDisplayName());
+        }
+
+        Entrant toRemove = null;
+        for (Entrant e : list) {
+            if (currentUserId != null && currentUserId.equals(e.getId())) {
+                toRemove = e;
+                break;
+            }
+        }
+
+        if (toRemove == null) {
+            Toast.makeText(this, "You are not on the waiting list.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        list.remove(toRemove);
+        final Entrant removed = toRemove;  // <- effectively final
+        String docId = getEventDocumentId();
+        if (docId == null) {
+            Log.e("LeaveWL", "docId is null, cannot update Firestore");
+            updateWaitingListUI();
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(docId)
+                .update("waitingList", list)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("LeaveWL", "Firestore update successful");
+                    int waitingCount = list.size();
+                    tvAvailable.setText(String.valueOf(event.getCapacity() - waitingCount));
+                    updateWaitingListUI();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("LeaveWL", "Firestore update FAILED", e);
+                    list.add(removed); // rollback
+                    Toast.makeText(this, "Failed to leave waiting list.", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void showWaitingListDialog() {
+        if (event == null || event.getWaitingList() == null || event.getWaitingList().isEmpty()) {
+            Toast.makeText(this, "No entrants in waiting list.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        List<Entrant> list = event.getWaitingList();
+
+        StringBuilder message = new StringBuilder();
+        int i = 1;
+        for (Entrant entrant : list) {
+            String name = entrant.getDisplayName() != null
+                    ? entrant.getDisplayName()
+                    : "User " + entrant.getId();
+            message.append(i++).append(". ").append(name).append("\n");
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Waiting List (" + list.size() + " Entrants)")
+                .setMessage(message.toString())
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+
 
 }

@@ -92,11 +92,60 @@ public class OrganizerViewMain extends AppCompatActivity {
                             }
                         }
 
-                        // Entrant lists — safe deserialization
-                        e.setWaitingList(doc.contains("waitingList") ? doc.get("waitingList", WaitingList.class) : new WaitingList());
+// Entrant lists — safe deserialization for waitingList
+                        List<Entrant> waitingList = new ArrayList<>();
+                        Object waitingObj = doc.get("waitingList");
+
+                        if (waitingObj instanceof List<?>) {
+                            // New format: list of Entrant-like maps from Firestore
+                            @SuppressWarnings("unchecked")
+                            List<Object> rawList = (List<Object>) waitingObj;
+
+                            for (Object item : rawList) {
+                                if (item instanceof java.util.Map) {
+                                    @SuppressWarnings("unchecked")
+                                    java.util.Map<String, Object> map = (java.util.Map<String, Object>) item;
+
+                                    // Keys must match the fields that Entrant exposes to Firestore
+                                    String id    = (String) map.get("id");
+                                    String name  = (String) map.get("name");
+                                    String email = (String) map.get("email");
+                                    String phone = (String) map.get("phone");
+
+                                    Entrant entrant;
+                                    if (id != null || name != null || email != null || phone != null) {
+                                        // Use the fuller constructor if you like
+                                        entrant = new Entrant(
+                                                id != null ? id : "",
+                                                name != null ? name : "",
+                                                email != null ? email : "",
+                                                phone != null ? phone : ""
+                                        );
+                                    } else {
+                                        // Fallback
+                                        entrant = new Entrant();
+                                    }
+
+                                    waitingList.add(entrant);
+                                }
+                            }
+
+                        } else if (waitingObj instanceof java.util.Map) {
+                            // Old format: entire WaitingList object serialized as a single map
+                            // We can't safely decode it as List<Entrant>, so just treat as empty
+                            android.util.Log.w("OrganizerViewMain",
+                                    "waitingList stored as old Map format; treating as empty.");
+                            // If you *really* want, you could read an "entrants" field out of this map.
+                        }
+
+// Always set something (possibly empty)
+                        e.setWaitingList(waitingList);
+
+// These lines stay exactly as they are:
                         e.setSelected(getListSafely(doc.get("selected")));
                         e.setCancelled(getListSafely(doc.get("cancelled")));
                         e.setEnrolled(getListSafely(doc.get("enrolled")));
+
 
                         // Add event — no organizer filter
                         events.add(e);
@@ -192,7 +241,8 @@ public class OrganizerViewMain extends AppCompatActivity {
             TextView status = itemView.findViewById(R.id.eventStatus);
 
             title.setText(e.getName() != null ? e.getName() : "(No Name)");
-            waiting.setText(String.valueOf(e.getWaitingList().getCount()));
+            int waitingCount = e.getWaitingList() != null ? e.getWaitingList().size() : 0;
+            waiting.setText(String.valueOf(waitingCount));
             selected.setText(String.valueOf(e.getSelected().size()));
             cancelled.setText(String.valueOf(e.getCancelled().size()));
 
