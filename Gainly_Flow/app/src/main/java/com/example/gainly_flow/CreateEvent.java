@@ -14,9 +14,6 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import java.util.ArrayList;
-import java.util.List;
-
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -24,21 +21,20 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import com.bumptech.glide.Glide;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
 
-import java.sql.Time;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.TimeZone;
+import java.util.UUID;
 
 public class CreateEvent extends AppCompatActivity {
 
@@ -53,6 +49,12 @@ public class CreateEvent extends AppCompatActivity {
     private MaterialCardView uploadCard;
     private TextView uploadText, uploadSubtext;
 
+    // Firebase
+    private FirebaseFirestore db;
+
+    // Current user/organizer
+    private String currentOrganizerId;
+
     // Formats
     private final SimpleDateFormat dateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
     private final SimpleDateFormat firestoreDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -63,6 +65,12 @@ public class CreateEvent extends AppCompatActivity {
         androidx.activity.EdgeToEdge.enable(this);
         setContentView(R.layout.activity_create_event);
 
+        // Initialize Firebase
+        db = FirebaseFirestore.getInstance();
+
+        // Get current organizer ID (you'll need to set this from your login system)
+        currentOrganizerId = getCurrentOrganizerId();
+
         bindViews();
         applyEdgeToEdgeInsets();
         setupCategoryDropdown();
@@ -71,6 +79,12 @@ public class CreateEvent extends AppCompatActivity {
         wireButtons();
         wireUploadArea();
         setupFormValidation();
+    }
+
+    private String getCurrentOrganizerId() {
+        // TODO: Replace with your actual organizer ID retrieval logic
+        // This could come from SharedPreferences, Intent extras, or your authentication system
+        return "org_" + UUID.randomUUID().toString().substring(0, 8); // Temporary for testing
     }
 
     private void bindViews() {
@@ -150,16 +164,29 @@ public class CreateEvent extends AppCompatActivity {
 
         eventNameInput.addTextChangedListener(validationWatcher);
         eventStartDateInput.addTextChangedListener(validationWatcher);
+        capacityInput.addTextChangedListener(validationWatcher);
     }
 
     private void validateForm() {
         boolean isValid = !text(eventNameInput).isEmpty() &&
-                !text(eventStartDateInput).isEmpty();
+                !text(eventStartDateInput).isEmpty() &&
+                !text(capacityInput).isEmpty();
+
+        // Validate capacity
+        if (!text(capacityInput).isEmpty()) {
+            try {
+                int capacity = Integer.parseInt(text(capacityInput));
+                if (capacity <= 0) {
+                    isValid = false;
+                }
+            } catch (NumberFormatException e) {
+                isValid = false;
+            }
+        }
 
         saveEventButton.setEnabled(isValid);
         saveEventButton.setAlpha(isValid ? 1.0f : 0.5f);
     }
-
 
     private void wirePickers() {
         // Event dates
@@ -205,6 +232,7 @@ public class CreateEvent extends AppCompatActivity {
         // Validation
         if (!require(name, eventNameInput)) return;
         if (!require(startDateStr, eventStartDateInput)) return;
+        if (!require(capStr, capacityInput)) return;
 
         // Parse dates
         final Date eventStartDate = parseDate(startDateStr);
@@ -216,16 +244,24 @@ public class CreateEvent extends AppCompatActivity {
             return;
         }
 
+        // Validate registration dates if provided
+        if (regOpen != null && regClose != null && regClose.before(regOpen)) {
+            registrationCloseInput.setError("Registration close must be after open date");
+            return;
+        }
+
+        if (eventStartDate.before(new Date())) {
+            eventStartDateInput.setError("Event date cannot be in the past");
+            return;
+        }
 
         // Parse numeric values
         int capacity = 20; // Default from XML
         try {
-            if (!capStr.isEmpty()) {
-                capacity = Integer.parseInt(capStr);
-                if (capacity <= 0) {
-                    capacityInput.setError("Capacity must be positive");
-                    return;
-                }
+            capacity = Integer.parseInt(capStr);
+            if (capacity <= 0) {
+                capacityInput.setError("Capacity must be positive");
+                return;
             }
         } catch (NumberFormatException e) {
             capacityInput.setError("Invalid capacity");
@@ -271,10 +307,10 @@ public class CreateEvent extends AppCompatActivity {
 
         // Create event object
         Event event = new Event();
-        event.setId(java.util.UUID.randomUUID().toString());
+        event.setId(UUID.randomUUID().toString());
         event.setName(name);
         event.setDescription(desc);
-        event.setEventDate(eventStartDate); // Using start date as main event date
+        event.setEventDate(eventStartDate);
         event.setTimeString(scheduleDetails.isEmpty() ? "Time not specified" : scheduleDetails);
         event.setLocation(location);
         event.setPrice(price);
@@ -283,21 +319,11 @@ public class CreateEvent extends AppCompatActivity {
         event.setGeolocationRequired(geoEnabled);
         event.setCategory(eventCategory);
         event.setActive(true);
-
-        // Note: Poster image handling would be implemented separately
-        // event.setPosterImageId(posterImageId);
+        event.setOrganizerId(currentOrganizerId); // Set the organizer ID
 
         if (regOpen != null && regClose != null) {
-            event.setRegistrationPeriod(regOpen, regClose);
-        }
-
-        // TODO: Set organizer from current user
-        // event.setOrganizer(currentUser);
-
-        // Initialize waiting list with limit if specified
-        if (waitingListLimit != null) {
-            // Note: You might need to add setWaitingListLimit method to WaitingList class
-            // event.getWaitingList().setLimit(waitingListLimit);
+            event.setRegistrationOpen(regOpen);
+            event.setRegistrationClose(regClose);
         }
 
         // Save to Firestore
@@ -321,54 +347,46 @@ public class CreateEvent extends AppCompatActivity {
         data.put("geolocationRequired", event.isGeolocationRequired());
         data.put("category", event.getCategory().name());
         data.put("isActive", event.isActive());
-        data.put("posterImageId", event.getPosterImageId());
+        data.put("organizerId", event.getOrganizerId());
 
-        // FIX: Save registration dates as UTC epoch milliseconds
-        if (event.getRegistrationOpen() != null) {
-            data.put("registrationOpenUtc", event.getRegistrationOpen().getTime());
-        }
-        if (event.getRegistrationClose() != null) {
-            data.put("registrationCloseUtc", event.getRegistrationClose().getTime());
-        }
-
-        // Also save the event date as UTC milliseconds for consistency
+        // Store dates as both Date objects and timestamps for flexibility
         if (event.getEventDate() != null) {
-            data.put("eventDateUtc", event.getEventDate().getTime());
+            data.put("eventDate", event.getEventDate());
+            data.put("eventDateTimestamp", event.getEventDate().getTime());
         }
 
-        // NEW: Store the missing fields
-        if (event.getOrganizer() != null) {
-            // Create organizer map for Firestore
-            HashMap<String, Object> organizerMap = new HashMap<>();
-            organizerMap.put("id", event.getOrganizer().getId());
-            organizerMap.put("name", event.getOrganizer().getDisplayName());
-            data.put("organizer", organizerMap);
+        if (event.getRegistrationOpen() != null) {
+            data.put("registrationOpen", event.getRegistrationOpen());
+            data.put("registrationOpenTimestamp", event.getRegistrationOpen().getTime());
         }
 
-        if (event.getQrUrl() != null) {
-            data.put("qrUrl", event.getQrUrl());
+        if (event.getRegistrationClose() != null) {
+            data.put("registrationClose", event.getRegistrationClose());
+            data.put("registrationCloseTimestamp", event.getRegistrationClose().getTime());
         }
 
-        // Collections/lists - initialize empty if null
-        data.put(
-                "waitingList",
-                event.getWaitingList() != null ? event.getWaitingList() : new ArrayList<Entrant>()
-        );
-        data.put("selected", event.getSelected() != null ? event.getSelected() : new ArrayList<Entrant>());
-        data.put("cancelled", event.getCancelled() != null ? event.getCancelled() : new ArrayList<Entrant>());
-        data.put("enrolled", event.getEnrolled() != null ? event.getEnrolled() : new ArrayList<Entrant>());
+        // Initialize empty lists for entrant management
+        data.put("waitingList", new ArrayList<String>());
+        data.put("selected", new ArrayList<String>());
+        data.put("cancelled", new ArrayList<String>());
+        data.put("enrolled", new ArrayList<String>());
 
-        FirebaseFirestore.getInstance()
-                .collection("events")
+        // Add created timestamp
+        data.put("createdAt", new Date());
+        data.put("createdAtTimestamp", System.currentTimeMillis());
+
+        db.collection("events")
                 .document(event.getId())
                 .set(data, SetOptions.merge())
                 .addOnSuccessListener(unused -> {
+                    Log.d("CreateEvent", "Event saved successfully: " + event.getId());
+
                     // Generate and store QR URL
                     String qrUrl = QRUrlCreator.buildDeepLink(event.getId());
-                    event.setQrUrl(qrUrl);
-
-                    // Update Firestore with QR URL
                     updateQrUrlInFirestore(event.getId(), qrUrl);
+
+                    // Update organizer's created events list
+                    updateOrganizerEvents(event.getId());
 
                     showQrDialog(qrUrl, () -> {
                         Toast.makeText(CreateEvent.this, "Event created successfully!", Toast.LENGTH_SHORT).show();
@@ -377,17 +395,27 @@ public class CreateEvent extends AppCompatActivity {
                     });
                 })
                 .addOnFailureListener(e -> {
+                    Log.e("CreateEvent", "Failed to create event: " + e.getMessage());
                     Toast.makeText(CreateEvent.this, "Failed to create event: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
-    // Helper method to update QR URL separately
+    private void updateOrganizerEvents(String eventId) {
+        if (currentOrganizerId == null) return;
+
+        db.collection("profiles")
+                .document(currentOrganizerId)
+                .update("createdEvents", com.google.firebase.firestore.FieldValue.arrayUnion(eventId))
+                .addOnFailureListener(e -> {
+                    Log.e("CreateEvent", "Failed to update organizer events: " + e.getMessage());
+                });
+    }
+
     private void updateQrUrlInFirestore(String eventId, String qrUrl) {
         HashMap<String, Object> updateData = new HashMap<>();
         updateData.put("qrUrl", qrUrl);
 
-        FirebaseFirestore.getInstance()
-                .collection("events")
+        db.collection("events")
                 .document(eventId)
                 .update(updateData)
                 .addOnFailureListener(e -> {
@@ -401,6 +429,7 @@ public class CreateEvent extends AppCompatActivity {
         try {
             return dateFmt.parse(dateStr);
         } catch (Exception e) {
+            Log.e("CreateEvent", "Error parsing date: " + dateStr, e);
             return null;
         }
     }
@@ -453,10 +482,18 @@ public class CreateEvent extends AppCompatActivity {
         return dateFmt.format(local.getTime());
     }
 
-    // QR Dialog methods (keep from your original code)
+    // QR Dialog methods
     private void showQrDialog(String qrUrl, @Nullable Runnable onClose) {
-        Bitmap bmp = QRImage.bitmapFromUrl(qrUrl, 512);
+        // Generate QR code bitmap (you'll need to implement QRImage.bitmapFromUrl)
+        Bitmap bmp = generateQRCode(qrUrl, 512);
         showQrDialog(qrUrl, bmp, onClose);
+    }
+
+    private Bitmap generateQRCode(String qrUrl, int size) {
+        // TODO: Implement QR code generation
+        // This is a placeholder - you'll need to use a QR code library like ZXing
+        Toast.makeText(this, "QR generation to be implemented", Toast.LENGTH_SHORT).show();
+        return null;
     }
 
     private void showQrDialog(String qrUrl, @Nullable Bitmap bmp, @Nullable Runnable onClose) {
@@ -465,11 +502,12 @@ public class CreateEvent extends AppCompatActivity {
             if (onClose != null) onClose.run();
             return;
         }
+
         View view = getLayoutInflater().inflate(R.layout.dialog_qr, null);
         ImageView qr = view.findViewById(R.id.qrImage);
         qr.setImageBitmap(bmp);
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Event QR Code")
                 .setView(view)
                 .setPositiveButton("Done", (d, w) -> {
@@ -481,8 +519,7 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     private void shareQrPng(String qrUrl) {
-        // Implementation from your original code
-        // This would share the QR code image
+        // TODO: Implement QR code sharing
         Toast.makeText(this, "Share QR functionality to be implemented", Toast.LENGTH_SHORT).show();
     }
 }

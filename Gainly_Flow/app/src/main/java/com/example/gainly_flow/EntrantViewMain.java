@@ -36,11 +36,19 @@ public class EntrantViewMain extends AppCompatActivity {
     private LinearLayout eventListContainer;
     private ImageButton backButton;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+    private Profile currentProfile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_entrant_home);
+
+        // Get profile from intent
+        currentProfile = (Profile) getIntent().getSerializableExtra("profile");
+        if (currentProfile == null) {
+            Toast.makeText(this, "Profile data not available", Toast.LENGTH_SHORT).show();
+            // You might want to redirect to MainActivity or handle this case
+        }
 
         browseEventsButton = findViewById(R.id.browseEventsButton);
         lotteryGuidelinesButton = findViewById(R.id.lotteryGuidelinesButton);
@@ -52,7 +60,11 @@ public class EntrantViewMain extends AppCompatActivity {
         eventListContainer.removeAllViews();
 
         // Buttons
-        browseEventsButton.setOnClickListener(v -> startActivity(new Intent(this, QRCodeScanner.class)));
+        browseEventsButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, QRCodeScanner.class);
+            intent.putExtra("profile", currentProfile);
+            startActivity(intent);
+        });
         lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelines());
         backButton.setOnClickListener(v -> onBackPressed());
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
@@ -93,7 +105,6 @@ public class EntrantViewMain extends AppCompatActivity {
 
                         Long currentLong = doc.getLong("currentParticipants");
                         e.setCurrentParticipants(currentLong != null ? currentLong.intValue() : 0);
-
 
                         // Geolocation
                         Boolean geo = doc.getBoolean("geolocationRequired"); // FIXED FIELD
@@ -154,6 +165,7 @@ public class EntrantViewMain extends AppCompatActivity {
             intent.putExtra("event_date", event.getEventDate() != null ? event.getEventDate().getTime() : 0);
             intent.putExtra("registration_open", event.getRegistrationOpen() != null ? event.getRegistrationOpen().getTime() : 0);
             intent.putExtra("registration_close", event.getRegistrationClose() != null ? event.getRegistrationClose().getTime() : 0);
+            intent.putExtra("profile", currentProfile);
             startActivity(intent);
         });
 
@@ -162,9 +174,20 @@ public class EntrantViewMain extends AppCompatActivity {
 
     private boolean onNavItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.menu_events) startActivity(new Intent(this, EntrantViewMain.class));
-        else if (id == R.id.menu_notifications) startActivity(new Intent(this, NotificationsActivity.class));
-        else if (id == R.id.menu_profile) startActivity(new Intent(this, ProfileActivity.class));
+        if (id == R.id.menu_events) {
+            // Already on events page, just refresh or do nothing
+            // startActivity(new Intent(this, EntrantViewMain.class));
+            // finish();
+        } else if (id == R.id.menu_notifications) {
+            Intent intent = new Intent(this, NotificationsActivity.class);
+            intent.putExtra("profile", currentProfile);
+            startActivity(intent);
+        } else if (id == R.id.menu_profile) {
+            Intent intent = new Intent(this, ProfileActivity.class);
+            intent.putExtra("profile", currentProfile);
+            intent.putExtra("userType", "Entrant");
+            startActivity(intent);
+        }
         return true;
     }
 
@@ -178,5 +201,12 @@ public class EntrantViewMain extends AppCompatActivity {
                         "5. Each entrant can only win one spot per event.\n\nFor more details, contact support.")
                 .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                 .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Update the selected item in bottom navigation
+        bottomNav.setSelectedItemId(R.id.menu_events);
     }
 }

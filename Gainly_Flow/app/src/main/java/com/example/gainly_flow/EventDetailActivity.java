@@ -13,15 +13,19 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import com.google.firebase.firestore.FirebaseFirestore;
-
 
 public class EventDetailActivity extends AppCompatActivity {
+
+    private static final String TAG = "EventDetailActivity";
 
     private TextView tvEntrants, tvAvailable, titleEvent, eventStatus, locationEvent;
     private TextView eventDuration, registrationOpen, registrationClose, eventTime;
@@ -34,32 +38,35 @@ public class EventDetailActivity extends AppCompatActivity {
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
 
     private Event event;
-    private List<Entrant> waitingList;
+    private List<String> waitingList; // Changed to List<String> for entrant IDs
     private String eventId;
     private int eventCapacity;
     private String currentUserId;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_details);
 
-        eventId = getIntent().getStringExtra("event_id");
-        loadEvent(eventId);
+        // Initialize Firebase
+        db = FirebaseFirestore.getInstance();
 
-
-        initializeViews();
-
+        // Get current user ID
         currentUserId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
-        if (getIntent() == null || getIntent().getExtras() == null) {
-            Toast.makeText(this, "Event data not available", Toast.LENGTH_SHORT).show();
+        // Get event ID from intent
+        eventId = getIntent().getStringExtra("event_id");
+        if (eventId == null || eventId.isEmpty()) {
+            Toast.makeText(this, "Event ID not available", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        displayEventData(getIntent().getExtras());
+        initializeViews();
         setupButtonListeners();
+        loadEvent(eventId);
+        loadEvent(eventId);
     }
 
     private void initializeViews() {
@@ -89,106 +96,147 @@ public class EventDetailActivity extends AppCompatActivity {
         btnViewWaitingList = findViewById(R.id.btnViewWaitingList);
     }
 
-    private void displayEventData(Bundle extras) {
-        eventId = extras.getString("event_id");
-        String eventName = extras.getString("event_name");
-        String eventDesc = extras.getString("event_description");
-        eventCapacity = extras.getInt("event_capacity", 0);
-        long eventDateMillis = extras.getLong("event_date", 0);
-        long regOpenMillis = extras.getLong("registration_open", 0);
-        long regCloseMillis = extras.getLong("registration_close", 0);
-        boolean geoRequired = extras.getBoolean("geo_required", false);
-        String eventLocation = extras.getString("event_location");
-        String eventTimeString = extras.getString("event_time_string");
-
-        titleEvent.setText(eventName != null ? eventName : "Event Name");
-        tvAvailable.setText(String.valueOf(eventCapacity));
-        eventDescription.setText(eventDesc != null ? eventDesc : "No description");
-        locationEvent.setText(eventLocation != null && !eventLocation.isEmpty() ? eventLocation : "Location not specified");
-        eventLocationDetail.setText(locationEvent.getText());
-
-        geolocationInfo.setVisibility(geoRequired ? View.VISIBLE : View.GONE);
-        if (geoRequired) geolocationInfo.setText("📍 Geolocation required for check-in");
-
-        updateRegistrationStatus(regOpenMillis, regCloseMillis);
-        updateScheduleSection(eventDateMillis, regOpenMillis, regCloseMillis, eventTimeString);
-        updateQrCode(eventId);
-    }
-
     public void loadEvent(String eventId) {
         if (eventId == null || eventId.isEmpty()) return;
 
-        Database.get("events", eventId, doc -> {
-            if (doc.exists()) {
-                event = new Event();
-                // Let Event handle Firestore → POJO mapping, including waitingList
-                event.fromDocument(doc);
+        db.collection("events").document(eventId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        event = new Event();
+                        event.fromDocument(documentSnapshot);
 
-                // Ensure waitingList is never null
-                if (event.getWaitingList() == null) {
-                    event.setWaitingList(new ArrayList<Entrant>());
-                }
+                        // Ensure waitingList is never null and is List<String>
+                        if (event.getWaitingList() == null) {
+                            event.setWaitingList(new ArrayList<>());
+                        }
 
-                int waitingCount = event.getWaitingList().size();
-                tvAvailable.setText(String.valueOf(event.getCapacity() - waitingCount));
-                updateWaitingListUI();
-            }
-        });
+                        waitingList = event.getWaitingList();
+                        updateUIWithEventData();
+                        updateWaitingListUI();
+                    } else {
+                        Toast.makeText(this, "Event not found", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading event: " + e.getMessage());
+                    Toast.makeText(this, "Error loading event", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
     }
 
-
-
-
-    private void updateWaitingListUI() {
+    private void updateUIWithEventData() {
         if (event == null) return;
 
-        List<Entrant> list = event.getWaitingList();
-        if (list == null) {
+        // Basic event info
+        titleEvent.setText(event.getName() != null ? event.getName() : "Event Name");
+        eventDescription.setText(event.getDescription() != null ? event.getDescription() : "No description");
+
+        // Capacity and participants
+        eventCapacity = event.getCapacity();
+        int currentParticipants = event.getCurrentParticipants();
+        int waitingCount = waitingList != null ? waitingList.size() : 0;
+
+        tvEntrants.setText(String.valueOf(waitingCount));
+        tvAvailable.setText(String.valueOf(eventCapacity - currentParticipants));
+
+        // Location
+        String location = event.getLocation();
+        locationEvent.setText(location != null && !location.isEmpty() ? location : "Location not specified");
+        eventLocationDetail.setText(locationEvent.getText());
+
+        // Price
+        double price = event.getPrice();
+        eventPrice.setText(price == 0 ? "Free" : String.format("$%.2f", price));
+
+        // Geolocation
+        boolean geoRequired = event.isGeolocationRequired();
+        geolocationInfo.setVisibility(geoRequired ? View.VISIBLE : View.GONE);
+        if (geoRequired) {
+            geolocationInfo.setText("📍 Geolocation required for check-in");
+        }
+
+        // Registration status
+        updateRegistrationStatus();
+
+        // Schedule information
+        updateScheduleSection();
+
+        // QR Code
+        updateQrCode();
+    }
+
+    private void updateRegistrationStatus() {
+        if (event == null) return;
+
+        String status = event.getRegistrationStatus();
+        boolean isOpen = "OPEN".equals(status);
+
+        eventStatus.setText(status);
+        eventStatus.setTextColor(getResources().getColor(
+                isOpen ? android.R.color.holo_green_dark : android.R.color.holo_red_dark
+        ));
+
+        btnJoin.setEnabled(isOpen);
+        btnJoin.setAlpha(isOpen ? 1f : 0.5f);
+    }
+
+    private void updateScheduleSection() {
+        if (event == null) return;
+
+        // Event date
+        Date eventDate = event.getEventDate();
+        eventDuration.setText(eventDate != null ?
+                "Event Date: " + dateFormat.format(eventDate) : "Event Date: Not specified");
+
+        // Registration dates
+        Date regOpen = event.getRegistrationOpen();
+        Date regClose = event.getRegistrationClose();
+
+        registrationOpen.setText(regOpen != null ?
+                "Registration Opens: " + dateFormat.format(regOpen) + " at " + timeFormat.format(regOpen) :
+                "Registration Opens: Not specified");
+
+        registrationClose.setText(regClose != null ?
+                "Registration Closes: " + dateFormat.format(regClose) + " at " + timeFormat.format(regClose) :
+                "Registration Closes: Not specified");
+
+        // Event time
+        String eventTimeString = event.getTimeString();
+        eventTime.setText(eventTimeString != null && !eventTimeString.isEmpty() ?
+                "Event Time: " + eventTimeString : "Event Time: Not specified");
+    }
+
+    private void updateQrCode() {
+        if (event == null || event.getQrUrl() == null) {
+            qrSection.setVisibility(View.GONE);
+            return;
+        }
+
+        qrSection.setVisibility(View.VISIBLE);
+        // TODO: Load QR code image using Glide or similar library
+        // Glide.with(this).load(event.getQrUrl()).into(qrCodeImage);
+    }
+
+    private void updateWaitingListUI() {
+        if (event == null || waitingList == null) {
             tvEntrants.setText("0");
             btnJoin.setVisibility(View.VISIBLE);
             btnLeave.setVisibility(View.GONE);
             return;
         }
 
-        int count = list.size();
+        int count = waitingList.size();
         tvEntrants.setText(String.valueOf(count));
 
-        boolean isUserInList = false;
-        for (Entrant e : list) {
-            if (currentUserId != null && currentUserId.equals(e.getId())) {
-                isUserInList = true;
-                break;
-            }
-        }
+        boolean isUserInList = waitingList.contains(currentUserId);
 
         btnJoin.setVisibility(isUserInList ? View.GONE : View.VISIBLE);
         btnLeave.setVisibility(isUserInList ? View.VISIBLE : View.GONE);
-    }
 
-
-
-    private void updateRegistrationStatus(long regOpenMillis, long regCloseMillis) {
-        Date now = new Date();
-        Date regOpen = regOpenMillis > 0 ? new Date(regOpenMillis) : null;
-        Date regClose = regCloseMillis > 0 ? new Date(regCloseMillis) : null;
-
-        boolean isOpen = regOpen != null && regClose != null && now.after(regOpen) && now.before(regClose);
-
-        eventStatus.setText(isOpen ? "OPEN" : "CLOSED");
-        eventStatus.setTextColor(getResources().getColor(isOpen ? android.R.color.holo_green_dark : android.R.color.holo_red_dark));
-        btnJoin.setEnabled(isOpen);
-        btnJoin.setAlpha(isOpen ? 1f : 0.5f);
-    }
-
-    private void updateScheduleSection(long eventDateMillis, long regOpenMillis, long regCloseMillis, String eventTimeString) {
-        eventDuration.setText(eventDateMillis > 0 ? "Event Date: " + dateFormat.format(new Date(eventDateMillis)) : "Event Date: Not specified");
-        registrationOpen.setText(regOpenMillis > 0 ? "Registration Opens: " + dateFormat.format(new Date(regOpenMillis)) + " at " + timeFormat.format(new Date(regOpenMillis)) : "Registration Opens: Not specified");
-        registrationClose.setText(regCloseMillis > 0 ? "Registration Closes: " + dateFormat.format(new Date(regCloseMillis)) + " at " + timeFormat.format(new Date(regCloseMillis)) : "Registration Closes: Not specified");
-        eventTime.setText(eventTimeString != null && !eventTimeString.isEmpty() ? "Event Time: " + eventTimeString : "Event Time: Not specified");
-    }
-
-    private void updateQrCode(String eventId) {
-        // Placeholder; integrate QR logic if needed
+        // Update available spots
+        int currentParticipants = event.getCurrentParticipants();
+        tvAvailable.setText(String.valueOf(event.getCapacity() - currentParticipants));
     }
 
     private void setupButtonListeners() {
@@ -197,141 +245,162 @@ public class EventDetailActivity extends AppCompatActivity {
         btnJoin.setOnClickListener(v -> joinWaitingList());
         btnLeave.setOnClickListener(v -> leaveWaitingList());
 
-        btnShareQr.setOnClickListener(v ->
-                Toast.makeText(this, "Share QR feature coming soon", Toast.LENGTH_SHORT).show()
-        );
+        btnShareQr.setOnClickListener(v -> {
+            if (event != null && event.getQrUrl() != null) {
+                shareQrCode();
+            } else {
+                Toast.makeText(this, "QR code not available", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         btnViewWaitingList.setOnClickListener(v -> showWaitingListDialog());
     }
-    private String getEventDocumentId() {
-        if (event != null && event.getId() != null) {
-            return event.getId();
-        }
-        return eventId; // fallback to the id passed via Intent
-    }
 
     private void joinWaitingList() {
-        if (event == null) return;
+        if (event == null || currentUserId == null) return;
 
-        if (event.getWaitingList() == null) {
-            event.setWaitingList(new ArrayList<Entrant>());
+        // Check if user is already in waiting list
+        if (waitingList.contains(currentUserId)) {
+            Toast.makeText(this, "You are already on the waiting list.", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        List<Entrant> list = event.getWaitingList();
-
-        // Already in list?
-        for (Entrant e : list) {
-            if (currentUserId != null && currentUserId.equals(e.getId())) {
-                Toast.makeText(this, "You are already on the waiting list.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
-        // Capacity check (optional: here capacity is max entrants)
-        if (list.size() >= event.getCapacity()) {
+        // Check if waiting list is full (using capacity as limit for simplicity)
+        if (waitingList.size() >= event.getCapacity()) {
             Toast.makeText(this, "Waiting list is full.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Entrant entrant = new Entrant(currentUserId);
-        list.add(entrant);
-
-        String docId = getEventDocumentId();
-        if (docId == null) {
-            updateWaitingListUI();
+        // Check if registration is open
+        if (!"OPEN".equals(event.getRegistrationStatus())) {
+            Toast.makeText(this, "Registration is closed for this event.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        FirebaseFirestore.getInstance()
-                .collection("events")
-                .document(docId)
-                .update("waitingList", list)
+        // Add user to waiting list in Firestore
+        db.collection("events").document(eventId)
+                .update("waitingList", FieldValue.arrayUnion(currentUserId))
                 .addOnSuccessListener(aVoid -> {
-                    int waitingCount = list.size();
-                    tvAvailable.setText(String.valueOf(event.getCapacity() - waitingCount));
+                    // Update local list
+                    waitingList.add(currentUserId);
+                    event.setWaitingList(waitingList);
+
+                    // Update UI
                     updateWaitingListUI();
+                    Toast.makeText(this, "Successfully joined waiting list!", Toast.LENGTH_SHORT).show();
+
+                    // Add event to user's history
+                    addEventToUserHistory();
                 })
                 .addOnFailureListener(e -> {
-                    list.remove(entrant); // rollback
+                    Log.e(TAG, "Failed to join waiting list: " + e.getMessage());
                     Toast.makeText(this, "Failed to join waiting list.", Toast.LENGTH_SHORT).show();
                 });
     }
 
     private void leaveWaitingList() {
-        if (event == null || event.getWaitingList() == null) {
-            Toast.makeText(this, "No event or waiting list.", Toast.LENGTH_SHORT).show();
+        if (event == null || currentUserId == null || waitingList == null) {
+            Toast.makeText(this, "Error leaving waiting list", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        List<Entrant> list = event.getWaitingList();
-        Log.d("LeaveWL", "Current userId = " + currentUserId);
-        for (Entrant e : list) {
-            Log.d("LeaveWL", "Entrant in list: id=" + e.getId() + ", name=" + e.getDisplayName());
-        }
-
-        Entrant toRemove = null;
-        for (Entrant e : list) {
-            if (currentUserId != null && currentUserId.equals(e.getId())) {
-                toRemove = e;
-                break;
-            }
-        }
-
-        if (toRemove == null) {
+        if (!waitingList.contains(currentUserId)) {
             Toast.makeText(this, "You are not on the waiting list.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        list.remove(toRemove);
-        final Entrant removed = toRemove;  // <- effectively final
-        String docId = getEventDocumentId();
-        if (docId == null) {
-            Log.e("LeaveWL", "docId is null, cannot update Firestore");
-            updateWaitingListUI();
-            return;
-        }
-
-        FirebaseFirestore.getInstance()
-                .collection("events")
-                .document(docId)
-                .update("waitingList", list)
+        // Remove user from waiting list in Firestore
+        db.collection("events").document(eventId)
+                .update("waitingList", FieldValue.arrayRemove(currentUserId))
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("LeaveWL", "Firestore update successful");
-                    int waitingCount = list.size();
-                    tvAvailable.setText(String.valueOf(event.getCapacity() - waitingCount));
+                    // Update local list
+                    waitingList.remove(currentUserId);
+                    event.setWaitingList(waitingList);
+
+                    // Update UI
                     updateWaitingListUI();
+                    Toast.makeText(this, "Successfully left waiting list.", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("LeaveWL", "Firestore update FAILED", e);
-                    list.add(removed); // rollback
+                    Log.e(TAG, "Failed to leave waiting list: " + e.getMessage());
                     Toast.makeText(this, "Failed to leave waiting list.", Toast.LENGTH_SHORT).show();
                 });
     }
 
+    private void addEventToUserHistory() {
+        if (currentUserId == null || eventId == null) return;
+
+        // Add event to user's event history
+        db.collection("profiles").document(currentUserId)
+                .update("eventHistory", FieldValue.arrayUnion(eventId))
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to update user history: " + e.getMessage());
+                });
+    }
+
     private void showWaitingListDialog() {
-        if (event == null || event.getWaitingList() == null || event.getWaitingList().isEmpty()) {
+        if (waitingList == null || waitingList.isEmpty()) {
             Toast.makeText(this, "No entrants in waiting list.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        List<Entrant> list = event.getWaitingList();
+        // Load entrant details for display
+        loadWaitingListEntrantsDetails(waitingList);
+    }
+
+    private void loadWaitingListEntrantsDetails(List<String> entrantIds) {
+        if (entrantIds.isEmpty()) return;
 
         StringBuilder message = new StringBuilder();
-        int i = 1;
-        for (Entrant entrant : list) {
-            String name = entrant.getDisplayName() != null
-                    ? entrant.getDisplayName()
-                    : "User " + entrant.getId();
-            message.append(i++).append(". ").append(name).append("\n");
-        }
+        final int[] loadedCount = {0};
 
+        for (int i = 0; i < entrantIds.size(); i++) {
+            final int position = i;
+            String entrantId = entrantIds.get(i);
+
+            db.collection("profiles").document(entrantId).get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        String name;
+                        if (documentSnapshot.exists()) {
+                            Profile profile = documentSnapshot.toObject(Profile.class);
+                            name = profile != null && profile.getDisplayName() != null ?
+                                    profile.getDisplayName() : "User " + entrantId;
+                        } else {
+                            name = "User " + entrantId;
+                        }
+
+                        message.append(position + 1).append(". ").append(name).append("\n");
+                        loadedCount[0]++;
+
+                        // Show dialog when all names are loaded
+                        if (loadedCount[0] == entrantIds.size()) {
+                            showWaitingListDialog(message.toString());
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        // If we can't load the name, just show the ID
+                        message.append(position + 1).append(". User ").append(entrantId).append("\n");
+                        loadedCount[0]++;
+
+                        if (loadedCount[0] == entrantIds.size()) {
+                            showWaitingListDialog(message.toString());
+                        }
+                    });
+        }
+    }
+
+    private void showWaitingListDialog(String message) {
         new AlertDialog.Builder(this)
-                .setTitle("Waiting List (" + list.size() + " Entrants)")
-                .setMessage(message.toString())
+                .setTitle("Waiting List (" + waitingList.size() + " Entrants)")
+                .setMessage(message)
                 .setPositiveButton("OK", null)
                 .show();
     }
 
-
+    private void shareQrCode() {
+        // TODO: Implement QR code sharing
+        // This would use Android's share intent to share the QR code image or event link
+        Toast.makeText(this, "Share QR feature coming soon", Toast.LENGTH_SHORT).show();
+    }
 
 }
