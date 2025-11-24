@@ -30,23 +30,11 @@ public class MainActivity extends AppCompatActivity {
     private void setupEntrantButton() {
         Button entrantViewButton = findViewById(R.id.entrantButton);
         entrantViewButton.setOnClickListener(v -> {
-            // Check device ID and create profile if needed
+            // Check device ID and create Entrant profile if needed
             DeviceIdManager.checkAndCreateProfile(deviceId, "Entrant", new DeviceIdManager.ProfileCreationCallback() {
                 @Override
                 public void onProfileChecked(Profile profile) {
-                    // Check if this is a new profile (incomplete profile)
-                    if (!profile.isProfileComplete() || isNewDeviceProfile(profile)) {
-                        // New device or incomplete profile, go to Profile activity
-                        Intent toProfile = new Intent(MainActivity.this, ProfileActivity.class);
-                        toProfile.putExtra("profile", profile);
-                        toProfile.putExtra("userType", "Entrant");
-                        startActivity(toProfile);
-                    } else {
-                        // Existing complete profile, proceed to Entrant view
-                        Intent toEntrant = new Intent(MainActivity.this, EntrantViewMain.class);
-                        toEntrant.putExtra("profile", profile);
-                        startActivity(toEntrant);
-                    }
+                    handleProfileForEntrant(profile);
                 }
 
                 @Override
@@ -57,26 +45,38 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void handleProfileForEntrant(Profile profile) {
+        // Check if this is a new profile (incomplete profile)
+        if (!profile.isProfileComplete() || isNewDeviceProfile(profile)) {
+            // New device or incomplete profile, go to Profile activity
+            Intent toProfile = new Intent(MainActivity.this, ProfileActivity.class);
+            toProfile.putExtra("profile", profile);
+            toProfile.putExtra("userType", "Entrant");
+            startActivity(toProfile);
+        } else {
+            // Existing complete profile, proceed to Entrant view
+            Intent toEntrant = new Intent(MainActivity.this, EntrantViewMain.class);
+
+            // If profile is actually an Entrant instance, use it directly
+            if (profile instanceof Entrant) {
+                toEntrant.putExtra("entrant", (Entrant) profile);
+            } else {
+                // Convert Profile to Entrant if needed
+                Entrant entrant = convertToEntrant(profile);
+                toEntrant.putExtra("entrant", entrant);
+            }
+            startActivity(toEntrant);
+        }
+    }
+
     private void setupOrganizerButton() {
         Button organizer = findViewById(R.id.organizerButton);
         organizer.setOnClickListener(v -> {
-            // Check device ID and create profile if needed
+            // Check device ID and create Organizer profile if needed
             DeviceIdManager.checkAndCreateProfile(deviceId, "Organizer", new DeviceIdManager.ProfileCreationCallback() {
                 @Override
                 public void onProfileChecked(Profile profile) {
-                    // Check if this is a new profile (incomplete profile)
-                    if (!profile.isProfileComplete() || isNewDeviceProfile(profile)) {
-                        // New device or incomplete profile, go to Profile activity
-                        Intent toProfile = new Intent(MainActivity.this, ProfileActivity.class);
-                        toProfile.putExtra("profile", profile);
-                        toProfile.putExtra("userType", "Organizer");
-                        startActivity(toProfile);
-                    } else {
-                        // Existing complete profile, proceed to Organizer view
-                        Intent toOrganizer = new Intent(MainActivity.this, OrganizerViewMain.class);
-                        toOrganizer.putExtra("profile", profile);
-                        startActivity(toOrganizer);
-                    }
+                    handleProfileForOrganizer(profile);
                 }
 
                 @Override
@@ -85,6 +85,69 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    private void handleProfileForOrganizer(Profile profile) {
+        // Check if this is a new profile (incomplete profile)
+        if (!profile.isProfileComplete() || isNewDeviceProfile(profile)) {
+            // New device or incomplete profile, go to Profile activity
+            Intent toProfile = new Intent(MainActivity.this, ProfileActivity.class);
+            toProfile.putExtra("profile", profile);
+            toProfile.putExtra("userType", "Organizer");
+            startActivity(toProfile);
+        } else {
+            // Existing complete profile, proceed to Organizer view
+            Intent toOrganizer = new Intent(MainActivity.this, OrganizerViewMain.class);
+
+            // If profile is actually an Organizer instance, use it directly
+            if (profile instanceof Organizer) {
+                toOrganizer.putExtra("organizer", (Organizer) profile);
+            } else {
+                // Convert Profile to Organizer if needed
+                Organizer organizer = convertToOrganizer(profile);
+                toOrganizer.putExtra("organizer", organizer);
+            }
+            startActivity(toOrganizer);
+        }
+    }
+
+
+    // Helper methods to convert Profile to specific role classes
+    private Entrant convertToEntrant(Profile profile) {
+        Entrant entrant = new Entrant(profile.getId());
+        entrant.setDisplayName(profile.getDisplayName());
+        entrant.setEmail(profile.getEmail());
+        entrant.setPhone(profile.getPhone());
+        entrant.setRole("Entrant");
+        entrant.setDeviceId(profile.getDeviceId());
+        entrant.setCreatedAt(profile.getCreatedAt());
+        entrant.setLastLoginAt(profile.getLastLoginAt());
+        entrant.setReceiveNotifications(profile.isReceiveNotifications());
+        entrant.setEnableLocationService(profile.isEnableLocationService());
+        return entrant;
+    }
+
+    private Organizer convertToOrganizer(Profile profile) {
+        Organizer organizer = new Organizer(profile.getId());
+        organizer.setDisplayName(profile.getDisplayName());
+        organizer.setEmail(profile.getEmail());
+        organizer.setPhone(profile.getPhone());
+        organizer.setRole("Organizer");
+        organizer.setDeviceId(profile.getDeviceId());
+        organizer.setCreatedAt(profile.getCreatedAt());
+        organizer.setLastLoginAt(profile.getLastLoginAt());
+        organizer.setReceiveNotifications(profile.isReceiveNotifications());
+        organizer.setEnableLocationService(profile.isEnableLocationService());
+        return organizer;
+    }
+
+    // Helper method to check if this is a new device profile
+    private boolean isNewDeviceProfile(Profile profile) {
+        return profile.getDisplayName() == null ||
+                profile.getDisplayName().isEmpty() ||
+                profile.getDisplayName().equals("New User") ||
+                profile.getEmail() == null ||
+                profile.getEmail().isEmpty();
     }
 
     private void setupAdminButton() {
@@ -123,15 +186,5 @@ public class MainActivity extends AppCompatActivity {
         });
 
         builder.show();
-    }
-
-    // Helper method to check if this is a new device profile
-    private boolean isNewDeviceProfile(Profile profile) {
-        // A profile is considered "new" if it has default/empty values
-        return profile.getDisplayName() == null ||
-                profile.getDisplayName().isEmpty() ||
-                profile.getDisplayName().equals("New User") ||
-                profile.getEmail() == null ||
-                profile.getEmail().isEmpty();
     }
 }

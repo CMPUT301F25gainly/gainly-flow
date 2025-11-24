@@ -227,4 +227,5 @@ public class Profile implements Serializable {
         result = 31 * result + (deviceId != null ? deviceId.hashCode() : 0);
         return result;
     }
+
 }

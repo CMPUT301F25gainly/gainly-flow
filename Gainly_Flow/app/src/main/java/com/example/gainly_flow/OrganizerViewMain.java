@@ -220,7 +220,7 @@ public class OrganizerViewMain extends AppCompatActivity {
     }
 
     private void openEventDetails(Event event) {
-        Intent intent = new Intent(this, OrganizerEntrantListActivity.class);
+        Intent intent = new Intent(this, OrganizerEventActivity.class);
         intent.putExtra("event_id", event.getId());
         intent.putExtra("event_name", event.getName());
         intent.putExtra("event_description", event.getDescription());

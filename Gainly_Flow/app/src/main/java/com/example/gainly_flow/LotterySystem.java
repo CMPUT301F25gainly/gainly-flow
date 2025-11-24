@@ -1,298 +1,565 @@
 package com.example.gainly_flow;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
-
-import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.firestore.DocumentReference;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Transaction;
-
+import com.google.firebase.firestore.QuerySnapshot;
+import android.util.Log;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Random;
 
 /**
- * A Firestore-backed lottery (draw) utility for events.
- *
- * <p>This class selects a random subset of entrants from a per-event waiting list and promotes
- * them to {@code selectedIds}. The selection and list updates happen inside a single
- * Firestore transaction to ensure atomicity. A draw log entry is also written during the
- * transaction. After the transaction commits, per-winner notification documents are created
- * (outside the transaction) so a backend/Cloud Function can deliver push notifications.</p>
- *
- * <h2>Data model (collections/documents)</h2>
- * <ul>
- *   <li>{@code events/{eventId}} — must contain a numeric {@code capacity} field.</li>
- *   <li>{@code waiting_lists/{eventId}} — contains arrays:
- *     <ul>
- *       <li>{@code entrantIds}: users waiting to be drawn</li>
- *       <li>{@code selectedIds}: users already drawn/selected</li>
- *     </ul>
- *   </li>
- *   <li>{@code notification_logs/{eventId}/draws/{autoId}} — a record of each draw,
- *       including before/after counts and the list of winner user IDs.</li>
- *   <li>{@code notifications/{autoId}} — one document per winner, enqueued after the
- *       transaction so another service can deliver notifications.</li>
- * </ul>
- *
- * <h2>Concurrency and idempotency</h2>
- * <p>Because selection and list mutations happen in a single transaction, concurrent
- * draws on the same event will serialize or fail with a retry-able error. Callers
- * should invoke {@link #runLottery(String, int, DrawCallback)} once per draw.</p>
- *
- * <h2>Failure modes</h2>
- * <ul>
- *   <li>Missing {@code events/{eventId}} or {@code waiting_lists/{eventId}} documents</li>
- *   <li>Non-positive requested winners</li>
- *   <li>No remaining capacity or no waiting entrants</li>
- *   <li>General Firestore errors (permission, connectivity, etc.)</li>
- * </ul>
- *
- * <p>All failures surface via {@link DrawCallback#onFailure(Exception)}.</p>
+ * LotterySystem - Handles lottery draws and replacement draws for events
+ * Uses Firebase Firestore directly for database operations
  */
 public class LotterySystem {
     private static final String TAG = "LotterySystem";
+    private static final Random random = new Random();
 
-    /**
-     * Callback for the asynchronous result of a lottery draw.
-     */
-    public interface DrawCallback {
-        /**
-         * Invoked when the transaction commits successfully.
-         *
-         * @param winners             ordered random list of winner user IDs (size ≤ requested)
-         * @param capacityLeftBefore  remaining capacity before applying the draw
-         * @param capacityLeftAfter   remaining capacity after applying the draw
-         */
-        void onSuccess(List<String> winners, int capacityLeftBefore, int capacityLeftAfter);
+    private Event event;
+    private FirebaseFirestore db;
+    private NotificationManager notificationManager;
 
-        /**
-         * Invoked when the draw fails (validation, missing data, Firestore error, etc.).
-         *
-         * @param e the underlying exception describing the failure
-         */
-        void onFailure(Exception e);
+    public LotterySystem(Event event) {
+        this.event = event;
+        this.db = FirebaseFirestore.getInstance();
+        this.notificationManager = new NotificationManager();
+    }
+
+    public LotterySystem(String eventId) {
+        this.event = new Event(eventId);
+        this.db = FirebaseFirestore.getInstance();
+        this.notificationManager = new NotificationManager();
     }
 
     /**
-     * Runs a lottery (random draw) inside a Firestore transaction.
-     *
-     * <p>Steps performed atomically in the transaction:</p>
-     * <ol>
-     *   <li>Read {@code events/{eventId}} (capacity) and {@code waiting_lists/{eventId}}
-     *       (entrantIds, selectedIds).</li>
-     *   <li>Compute remaining capacity and clamp the number of winners to
-     *       {@code min(requested, capacityLeft, waitingSize)}.</li>
-     *   <li>Randomly select {@code k} winners from {@code entrantIds \ selectedIds}.</li>
-     *   <li>Remove winners from {@code entrantIds} and add them to {@code selectedIds} using
-     *       {@link FieldValue#arrayRemove(Object...)} and {@link FieldValue#arrayUnion(Object...)}.</li>
-     *   <li>Write a draw log in {@code notification_logs/{eventId}/draws/{autoId}}.</li>
-     * </ol>
-     *
-     * <p>After the transaction commits, this method enqueues one notification document per winner
-     * in {@code notifications/} (non-transactional side effect).</p>
-     *
-     * @param eventId   Firestore document ID of the event
-     * @param requested requested number of winners; must be {@code > 0}
-     * @param cb        callback receiving success or failure
-     *
-     * @throws IllegalArgumentException if {@code requested <= 0}
-     * @throws IllegalStateException    if no capacity remains or there are no waiting entrants,
-     *                                  or if the required documents do not exist
+     * US 02.05.02 - Draw initial lottery winners
      */
-    public static void runLottery(@NonNull String eventId, int requested, @NonNull DrawCallback cb) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        DocumentReference eventRef = db.collection("events").document(eventId);
-        DocumentReference wlRef    = db.collection("waiting_lists").document(eventId);
+    public void drawInitialLottery(int numberOfWinners, final LotteryDrawCallback callback) {
+        if (event == null || event.getId() == null) {
+            callback.onError("Event not loaded properly");
+            return;
+        }
 
-        db.runTransaction((Transaction.Function<Map<String, Object>>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
-            DocumentSnapshot wlSnap    = transaction.get(wlRef);
+        // Load event directly from Firestore
+        db.collection("events").document(event.getId())
+                .get()
+                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                    @Override
+                    public void onSuccess(DocumentSnapshot documentSnapshot) {
+                        if (documentSnapshot.exists()) {
+                            event.fromDocument(documentSnapshot);
+                            performInitialDraw(numberOfWinners, callback);
+                        } else {
+                            callback.onError("Event not found in Firestore");
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to load event from Firestore: " + e.getMessage());
+                        callback.onError("Failed to load event: " + e.getMessage());
+                    }
+                });
+    }
 
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event not found: " + eventId);
+    private void performInitialDraw(int numberOfWinners, LotteryDrawCallback callback) {
+        List<String> waitingList = event.getWaitingList();
+
+        if (waitingList == null || waitingList.isEmpty()) {
+            callback.onError("No entrants in waiting list");
+            return;
+        }
+
+        if (numberOfWinners <= 0) {
+            callback.onError("Invalid number of winners specified");
+            return;
+        }
+
+        if (isRegistrationOpen()) {
+            callback.onError("Registration period is still open. Cannot draw lottery yet.");
+            return;
+        }
+
+        List<String> shuffledList = new ArrayList<>(waitingList);
+        Collections.shuffle(shuffledList, random);
+
+        int actualWinners = Math.min(numberOfWinners, event.getAvailableSpots());
+        actualWinners = Math.min(actualWinners, shuffledList.size());
+
+        List<String> winners = shuffledList.subList(0, actualWinners);
+        List<String> remainingWaitingList = new ArrayList<>(shuffledList.subList(actualWinners, shuffledList.size()));
+
+        updateEventAfterDraw(winners, remainingWaitingList, callback);
+    }
+
+    /**
+     * US 02.05.03 - Draw replacement when a selected entrant declines
+     */
+    public void drawReplacement(final LotteryDrawCallback callback) {
+        if (event == null || event.getId() == null) {
+            callback.onError("Event not loaded properly");
+            return;
+        }
+
+        // Load latest event data from Firestore
+        db.collection("events").document(event.getId())
+                .get()
+                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                    @Override
+                    public void onSuccess(DocumentSnapshot documentSnapshot) {
+                        if (documentSnapshot.exists()) {
+                            event.fromDocument(documentSnapshot);
+                            performReplacementDraw(callback);
+                        } else {
+                            callback.onError("Event not found in Firestore");
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to load event from Firestore: " + e.getMessage());
+                        callback.onError("Failed to load event: " + e.getMessage());
+                    }
+                });
+    }
+
+    private void performReplacementDraw(LotteryDrawCallback callback) {
+        List<String> waitingList = event.getWaitingList();
+
+        if (waitingList == null || waitingList.isEmpty()) {
+            callback.onError("No entrants available for replacement draw");
+            return;
+        }
+
+        if (event.isFull()) {
+            callback.onError("Event is already full");
+            return;
+        }
+
+        int randomIndex = random.nextInt(waitingList.size());
+        String replacement = waitingList.get(randomIndex);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("selected", FieldValue.arrayUnion(replacement));
+        updates.put("waitingList", FieldValue.arrayRemove(replacement));
+
+        // Update directly in Firestore
+        db.collection("events").document(event.getId())
+                .update(updates)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.d(TAG, "Replacement drawn successfully: " + replacement);
+
+                        // Update local event object
+                        event.getSelected().add(replacement);
+                        event.getWaitingList().remove(replacement);
+
+                        // Send notification
+                        sendWinnerNotification(replacement, true);
+
+                        callback.onSuccess(Collections.singletonList(replacement));
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to draw replacement: " + e.getMessage());
+                        callback.onError("Failed to draw replacement: " + e.getMessage());
+                    }
+                });
+    }
+
+    /**
+     * Process multiple declines and draw replacements in batch
+     */
+    public void processDeclinesAndDrawReplacements(final List<String> declinedEntrants,
+                                                   final LotteryDrawCallback callback) {
+        if (event == null || event.getId() == null) {
+            callback.onError("Event not loaded properly");
+            return;
+        }
+
+        // Load latest event data from Firestore
+        db.collection("events").document(event.getId())
+                .get()
+                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                    @Override
+                    public void onSuccess(DocumentSnapshot documentSnapshot) {
+                        if (documentSnapshot.exists()) {
+                            event.fromDocument(documentSnapshot);
+                            performBatchReplacementDraw(declinedEntrants, callback);
+                        } else {
+                            callback.onError("Event not found in Firestore");
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to load event from Firestore: " + e.getMessage());
+                        callback.onError("Failed to load event: " + e.getMessage());
+                    }
+                });
+    }
+
+    private void performBatchReplacementDraw(List<String> declinedEntrants, LotteryDrawCallback callback) {
+        List<String> waitingList = event.getWaitingList();
+
+        if (waitingList == null || waitingList.isEmpty()) {
+            removeDeclinedEntrants(declinedEntrants, callback);
+            return;
+        }
+
+        int availableSpots = event.getAvailableSpots();
+        int replacementsNeeded = Math.min(declinedEntrants.size(), availableSpots);
+        replacementsNeeded = Math.min(replacementsNeeded, waitingList.size());
+
+        List<String> shuffledWaiting = new ArrayList<>(waitingList);
+        Collections.shuffle(shuffledWaiting, random);
+        List<String> replacements = shuffledWaiting.subList(0, replacementsNeeded);
+        List<String> remainingWaiting = new ArrayList<>(shuffledWaiting.subList(replacementsNeeded, shuffledWaiting.size()));
+
+        Map<String, Object> updates = new HashMap<>();
+
+        for (String declined : declinedEntrants) {
+            updates.put("selected", FieldValue.arrayRemove(declined));
+            updates.put("cancelled", FieldValue.arrayUnion(declined));
+        }
+
+        for (String replacement : replacements) {
+            updates.put("selected", FieldValue.arrayUnion(replacement));
+            updates.put("waitingList", FieldValue.arrayRemove(replacement));
+        }
+
+        if (replacementsNeeded < shuffledWaiting.size()) {
+            updates.put("waitingList", remainingWaiting);
+        }
+
+        // Update directly in Firestore
+        db.collection("events").document(event.getId())
+                .update(updates)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.d(TAG, "Batch replacement draw completed successfully");
+
+                        // Update local event object
+                        event.getSelected().removeAll(declinedEntrants);
+                        event.getCancelled().addAll(declinedEntrants);
+                        event.getSelected().addAll(replacements);
+                        event.getWaitingList().removeAll(replacements);
+
+                        // Notify replacements
+                        for (String replacement : replacements) {
+                            sendWinnerNotification(replacement, true);
+                        }
+
+                        callback.onSuccess(replacements);
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to process batch replacements: " + e.getMessage());
+                        callback.onError("Failed to process replacements: " + e.getMessage());
+                    }
+                });
+    }
+
+    private void removeDeclinedEntrants(List<String> declinedEntrants, LotteryDrawCallback callback) {
+        Map<String, Object> updates = new HashMap<>();
+
+        for (String declined : declinedEntrants) {
+            updates.put("selected", FieldValue.arrayRemove(declined));
+            updates.put("cancelled", FieldValue.arrayUnion(declined));
+        }
+
+        // Update directly in Firestore
+        db.collection("events").document(event.getId())
+                .update(updates)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.d(TAG, "Declined entrants removed successfully");
+                        event.getSelected().removeAll(declinedEntrants);
+                        event.getCancelled().addAll(declinedEntrants);
+                        callback.onSuccess(new ArrayList<String>());
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to remove declined entrants: " + e.getMessage());
+                        callback.onError("Failed to remove declined entrants: " + e.getMessage());
+                    }
+                });
+    }
+
+    private void updateEventAfterDraw(List<String> winners, List<String> remainingWaitingList,
+                                      LotteryDrawCallback callback) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("selected", winners);
+        updates.put("waitingList", remainingWaitingList);
+
+        // Update directly in Firestore
+        db.collection("events").document(event.getId())
+                .update(updates)
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        Log.d(TAG, "Lottery draw completed successfully. Winners: " + winners.size());
+
+                        event.setSelected(winners);
+                        event.setWaitingList(remainingWaitingList);
+
+                        // Notify winners and losers
+                        notifyWinnersAndLosers(winners, remainingWaitingList);
+
+                        callback.onSuccess(winners);
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to update event after lottery draw: " + e.getMessage());
+                        callback.onError("Failed to complete lottery draw: " + e.getMessage());
+                    }
+                });
+    }
+
+    /**
+     * US 01.04.01 & US 01.04.02 - Notify winners and losers
+     */
+    private void notifyWinnersAndLosers(List<String> winners, List<String> remainingWaitingList) {
+        // Notify winners (US 01.04.01)
+        for (String winnerId : winners) {
+            sendWinnerNotification(winnerId, false);
+        }
+
+        // Notify losers (US 01.04.02)
+        for (String loserId : remainingWaitingList) {
+            sendLoserNotification(loserId);
+        }
+
+        Log.d(TAG, "Notifications sent: " + winners.size() + " winners, " +
+                remainingWaitingList.size() + " losers notified");
+    }
+
+    /**
+     * Send winner notification
+     */
+    private void sendWinnerNotification(String entrantId, boolean isReplacement) {
+        checkAndSendNotification(entrantId, new NotificationCreator() {
+            @Override
+            public NotificationItem createNotification(String entrantId, String entrantName) {
+                String title = isReplacement ?
+                        "Great News! A Spot Opened Up" :
+                        "Congratulations! You've Been Selected";
+
+                String message = isReplacement ?
+                        String.format("Hello %s! A spot has opened up for %s and you've been selected! Please respond quickly.",
+                                entrantName != null ? entrantName : "there", event.getName()) :
+                        String.format("Hello %s! You've been selected for %s. Please accept your spot within the specified time.",
+                                entrantName != null ? entrantName : "there", event.getName());
+
+                return new NotificationItem(
+                        title,
+                        message,
+                        NotificationItem.NotificationType.WIN.name(),
+                        entrantId,
+                        event.getId(),
+                        event.getName()
+                );
             }
-            if (!wlSnap.exists()) {
-                throw new IllegalStateException("Waiting list not found: " + eventId);
-            }
-
-            // Read capacity
-            Long capacityLong = safeLong(eventSnap.get("capacity"));
-            int capacity = capacityLong == null ? 0 : capacityLong.intValue();
-
-            // Read arrays
-            List<String> entrantIds = toStringList(wlSnap.get("entrantIds"));
-            List<String> selectedIds = toStringList(wlSnap.get("selectedIds"));
-
-            // Sanitize (remove null/blank/dup)
-            entrantIds  = sanitizeIds(entrantIds);
-            selectedIds = sanitizeIds(selectedIds);
-
-            // Exclude already selected from the candidate pool
-            Set<String> alreadySelected = new LinkedHashSet<>(selectedIds);
-            List<String> pool = new ArrayList<>();
-            for (String id : entrantIds) if (!alreadySelected.contains(id)) pool.add(id);
-
-            int already = selectedIds.size();
-            int capacityLeft = Math.max(0, capacity - already);
-            int waitingSize  = pool.size();
-
-            if (requested <= 0)          throw new IllegalArgumentException("Requested must be > 0");
-            if (capacityLeft <= 0)       throw new IllegalStateException("No capacity left");
-            if (waitingSize <= 0)        throw new IllegalStateException("No entrants waiting");
-
-            int k = Math.min(requested, Math.min(capacityLeft, waitingSize));
-            Collections.shuffle(pool);
-            List<String> winners = new ArrayList<>(pool.subList(0, k));
-
-            // Transactional updates
-            Map<String, Object> updates = new HashMap<>();
-            // remove winners from entrantIds
-            List<Object> toRemove = new ArrayList<>(winners);
-            updates.put("entrantIds", FieldValue.arrayRemove(toRemove.toArray()));
-            // add winners to selectedIds
-            List<Object> toAdd = new ArrayList<>(winners);
-            updates.put("selectedIds", FieldValue.arrayUnion(toAdd.toArray()));
-
-            transaction.update(wlRef, updates);
-
-            // draw log (write within transaction for atomicity of the record)
-            Map<String, Object> log = new HashMap<>();
-            log.put("eventId", eventId);
-            log.put("requested", requested);
-            log.put("winners", winners);
-            log.put("waitingBefore", entrantIds.size());
-            log.put("waitingAfter", entrantIds.size() - winners.size());
-            log.put("selectedBefore", selectedIds.size());
-            log.put("selectedAfter", selectedIds.size() + winners.size());
-            log.put("createdAt", FieldValue.serverTimestamp());
-            DocumentReference logRef = db.collection("notification_logs")
-                    .document(eventId)
-                    .collection("draws")
-                    .document(); // auto id
-            transaction.set(logRef, log);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("winners", winners);
-            result.put("capacityLeftBefore", capacityLeft);
-            result.put("capacityLeftAfter", capacityLeft - winners.size());
-            return result;
-        }).addOnSuccessListener(result -> {
-            @SuppressWarnings("unchecked")
-            List<String> winners = (List<String>) result.get("winners");
-            int before = (int) result.get("capacityLeftBefore");
-            int after  = (int) result.get("capacityLeftAfter");
-
-            // Enqueue notifications (outside the transaction)
-            enqueueNotifications(eventId, winners);
-
-            Log.d(TAG, "Draw complete. Winners=" + winners.size());
-            cb.onSuccess(winners, before, after);
-        }).addOnFailureListener(e -> {
-            Log.e(TAG, "Draw failed: " + e.getMessage(), e);
-            cb.onFailure(e);
         });
     }
 
     /**
-     * Enqueues one notification document per winner in the {@code notifications} collection.
-     *
-     * <p>This method is intentionally executed outside the draw transaction. Creating
-     * notification docs is a side effect that should not block the primary state change
-     * (the selection itself). A separate backend process (e.g., Cloud Functions) can watch
-     * this collection and deliver FCM push notifications.</p>
-     *
-     * @param eventId the event identifier associated with the draw
-     * @param winners list of user IDs to notify; empty lists are ignored
+     * Send loser notification
      */
-    private static void enqueueNotifications(String eventId, List<String> winners) {
-        if (winners == null || winners.isEmpty()) return;
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        String title = "You're selected!";
-        String body  = "You’ve been selected for the event.";
-
-        for (String uid : winners) {
-            if (uid == null || uid.trim().isEmpty()) continue;
-            Map<String, Object> n = new HashMap<>();
-            n.put("userId", uid);
-            n.put("eventId", eventId);
-            n.put("title", title);
-            n.put("body", body);
-            n.put("type", "WINNER");
-            n.put("read", false);
-            n.put("createdAt", FieldValue.serverTimestamp());
-            db.collection("notifications").add(n);
-        }
-    }
-
-    // ---------- helpers ----------
-
-    /**
-     * Safely converts a Firestore numeric field to a {@link Long}, accepting
-     * {@link Long}, {@link Integer}, or {@link Double} inputs.
-     *
-     * @param o the value read from Firestore
-     * @return a {@link Long} representation, or {@code null} if the type is unsupported or {@code null}
-     */
-    private static Long safeLong(Object o) {
-        if (o instanceof Long) return (Long) o;
-        if (o instanceof Integer) return ((Integer) o).longValue();
-        if (o instanceof Double)  return ((Double) o).longValue();
-        return null;
-    }
-
-    /**
-     * Converts a Firestore field to a list of strings.
-     *
-     * <p>Non-null elements are converted with {@link String#valueOf(Object)}.</p>
-     *
-     * @param o a value expected to be a {@code List<?>}
-     * @return a new mutable {@link List} of strings; empty if input is {@code null} or not a list
-     */
-    private static List<String> toStringList(Object o) {
-        List<String> out = new ArrayList<>();
-        if (o instanceof List<?>) {
-            for (Object x : (List<?>) o) {
-                if (x != null) out.add(String.valueOf(x));
+    private void sendLoserNotification(String entrantId) {
+        checkAndSendNotification(entrantId, new NotificationCreator() {
+            @Override
+            public NotificationItem createNotification(String entrantId, String entrantName) {
+                return new NotificationItem(
+                        "Lottery Results for " + event.getName(),
+                        String.format("Thank you for your interest in %s. Unfortunately, you were not selected in the initial draw, but you may still have a chance if spots open up.",
+                                event.getName()),
+                        NotificationItem.NotificationType.INFO.name(),
+                        entrantId,
+                        event.getId(),
+                        event.getName()
+                );
             }
-        }
-        return out;
+        });
     }
 
     /**
-     * Produces a cleaned, de-duplicated list of IDs.
-     *
-     * <p>Rules:</p>
-     * <ul>
-     *   <li>Ignore {@code null} values</li>
-     *   <li>Trim whitespace from each element</li>
-     *   <li>Drop blanks after trim</li>
-     *   <li>Preserve insertion order while removing duplicates</li>
-     * </ul>
-     *
-     * @param in raw list (possibly {@code null})
-     * @return a new {@link ArrayList} with sanitized IDs in deterministic order
+     * Check notification preferences and send notification if allowed
      */
-    private static List<String> sanitizeIds(List<String> in) {
-        LinkedHashSet<String> set = new LinkedHashSet<>();
-        if (in != null) {
-            for (String s : in) {
-                if (s != null) {
-                    String t = s.trim();
-                    if (!t.isEmpty()) set.add(t);
-                }
-            }
-        }
-        return new ArrayList<>(set);
+    private void checkAndSendNotification(String entrantId, NotificationCreator creator) {
+        // Check user profile for notification preferences
+        db.collection("profiles").document(entrantId)
+                .get()
+                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                    @Override
+                    public void onSuccess(DocumentSnapshot document) {
+                        if (document.exists()) {
+                            // Check if entrant has opted out of notifications (US 01.04.03)
+                            Boolean notificationsEnabled = document.getBoolean("notificationsEnabled");
+                            if (notificationsEnabled != null && !notificationsEnabled) {
+                                Log.d(TAG, "Entrant " + entrantId + " has notifications disabled");
+                                return;
+                            }
+
+                            // Get entrant's name for personalized message
+                            String entrantName = document.getString("name");
+
+                            // Create and save notification
+                            NotificationItem notification = creator.createNotification(entrantId, entrantName);
+                            saveNotification(notification);
+                        } else {
+                            // Create notification even if profile doesn't exist (for device ID users)
+                            NotificationItem notification = creator.createNotification(entrantId, null);
+                            saveNotification(notification);
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to load profile for " + entrantId + ": " + e.getMessage());
+                        // Create notification anyway
+                        NotificationItem notification = creator.createNotification(entrantId, null);
+                        saveNotification(notification);
+                    }
+                });
+    }
+
+    /**
+     * Save notification to Firestore using your existing structure
+     */
+    private void saveNotification(NotificationItem notification) {
+        // Save to global notifications collection (if you still want this)
+        String notificationId = db.collection("notifications").document().getId();
+
+        Map<String, Object> notificationData = new HashMap<>();
+        notificationData.put("title", notification.getTitle());
+        notificationData.put("message", notification.getMessage());
+        notificationData.put("type", notification.getType());
+        notificationData.put("recipientId", notification.getRecipientId());
+        notificationData.put("eventId", notification.getEventId());
+        notificationData.put("eventName", notification.getEventName());
+        notificationData.put("timestamp", new Date());
+        notificationData.put("actionRequired", notification.isActionRequired());
+        notificationData.put("isRead", notification.isRead());
+
+        db.collection("notifications").document(notificationId)
+                .set(notificationData)
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save notification to global collection: " + e.getMessage());
+                });
+
+        // ALSO save to entrant's document
+        saveNotificationToEntrant(notification);
+    }
+
+    /**
+     * Save notification to entrant's document
+     */
+    private void saveNotificationToEntrant(NotificationItem notification) {
+        String entrantId = notification.getRecipientId();
+
+        // Add notification to entrant's notifications list
+        db.collection("entrants").document(entrantId)
+                .update("notifications", FieldValue.arrayUnion(notification))
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Notification saved to entrant: " + entrantId);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save notification to entrant: " + e.getMessage());
+                });
+    }
+
+    /**
+     * Get all events that are ready for lottery draw (registration closed)
+     */
+    public void getEventsReadyForDraw(final EventsReadyCallback callback) {
+        Date now = new Date();
+
+        db.collection("events")
+                .whereLessThan("registrationClose", now)
+                .whereEqualTo("isActive", true)
+                .whereGreaterThan("capacity", 0)
+                .get()
+                .addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
+                    @Override
+                    public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
+                        List<Event> events = new ArrayList<>();
+                        for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                            Event event = new Event();
+                            event.fromDocument(doc);
+                            events.add(event);
+                        }
+                        callback.onSuccess(events);
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e(TAG, "Failed to get events ready for draw: " + e.getMessage());
+                        callback.onError("Failed to load events: " + e.getMessage());
+                    }
+                });
+    }
+
+    private boolean isRegistrationOpen() {
+        Date now = new Date();
+        return event.getRegistrationClose() != null && now.before(event.getRegistrationClose());
+    }
+
+    // Getters and setters
+    public Event getEvent() {
+        return event;
+    }
+
+    public void setEvent(Event event) {
+        this.event = event;
+    }
+
+    /**
+     * Callback interface for lottery draw operations
+     */
+    public interface LotteryDrawCallback {
+        void onSuccess(List<String> winners);
+        void onError(String errorMessage);
+    }
+
+    /**
+     * Callback interface for getting events ready for draw
+     */
+    public interface EventsReadyCallback {
+        void onSuccess(List<Event> events);
+        void onError(String errorMessage);
+    }
+
+    /**
+     * Interface for creating different types of notifications
+     */
+    private interface NotificationCreator {
+        NotificationItem createNotification(String entrantId, String entrantName);
     }
 }

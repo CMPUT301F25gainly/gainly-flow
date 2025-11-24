@@ -252,8 +252,12 @@ public class Event {
     @Exclude
     public boolean isRegistrationOpen() {
         Date now = new Date();
-        return isActive && !isFull() && registrationOpen != null && registrationClose != null &&
-                now.after(registrationOpen) && now.before(registrationClose);
+        return isActive &&
+                !isFull() &&
+                registrationOpen != null &&
+                registrationClose != null &&
+                now.after(registrationOpen) &&
+                now.before(registrationClose);
     }
 
     @Exclude
