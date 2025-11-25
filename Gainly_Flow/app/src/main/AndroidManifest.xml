@@ -21,10 +21,6 @@
             android:name=".ProfileActivity"
             android:exported="false" />
         <activity
-            android:name=".OrganizerLanding"/>
-        <activity
-            android:name=".OrganizerEntrantListActivity"/>
-        <activity
             android:name=".CreateEvent"/>
         <activity
             android:name=".AdminBrowseEventsActivity"
@@ -46,10 +42,10 @@
             android:name=".EntrantViewMain"
             android:exported="false" />
         <activity
-            android:name=".ProfileActivity"
+            android:name=".OrganizerEventActivity"
             android:exported="false" />
         <activity
-            android:name=".OrganizerEventActivity"
+            android:name=".WaitingListActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
