@@ -1,180 +1,231 @@
 package com.example.gainly_flow;
 
 import androidx.annotation.NonNull;
-
+import com.google.firebase.firestore.Exclude;
+import com.google.firebase.firestore.IgnoreExtraProperties;
 import java.io.Serializable;
 import java.util.Date;
 
 /**
  * Represents a user profile within the Gainly Flow system.
  * This class can represent an Entrant, Organizer, or Administrator user.
- * <p>
- * Each profile stores essential identification and contact information,
- * including a unique ID, display name, email, phone number, role, and creation timestamp.
- * </p>
- *
- * <p>
- * This class implements {@link Serializable} so it can be passed between activities
- * via Intents or saved in persistent storage.
- * </p>
+ * Uses @IgnoreExtraProperties for Firestore to ignore unknown fields during deserialization.
  */
+@IgnoreExtraProperties
 public class Profile implements Serializable {
 
-    /** Unique identifier for the user (e.g., Firebase Auth UID). */
     private String id;
-
-    /** The display name of the user. */
     private String displayName;
-
-    /** The email address associated with the user. */
     private String email;
-
-    /** The user's phone number (optional). */
     private String phone;
-
-    /** The role of the user, such as "Entrant", "Organizer", or "Admin". */
     private String role;
-
-    /** The date when the profile was created. */
     private Date createdAt;
+    private Date lastLoginAt;
+    private String deviceId;
 
-    /**
-     * Default constructor required for Firebase deserialization.
-     */
-    public Profile() {}
+    /** User preference: whether the user wants to receive notifications. */
+    private boolean receiveNotifications = true;
 
-    /**
-     * Constructs a profile with basic user information.
-     *
-     * @param id           the unique user ID
-     * @param displayName  the display name of the user
-     * @param email        the user's email address
-     */
+    /** User preference: whether the user allows location services. */
+    private boolean enableLocationService = false;
+
+    /** Default constructor required for Firebase. */
+    public Profile() {
+        this.createdAt = new Date();
+        this.lastLoginAt = new Date();
+    }
+
+    /** Minimal constructor for new profiles */
     public Profile(String id, String displayName, String email) {
         this.id = id;
         this.displayName = displayName;
         this.email = email;
+        this.createdAt = new Date();
+        this.lastLoginAt = new Date();
+        this.deviceId = id; // For new profiles, device ID is the profile ID
     }
 
-    /**
-     * Constructs a complete user profile with all details.
-     *
-     * @param id           the unique user ID
-     * @param displayName  the display name of the user
-     * @param email        the user's email address
-     * @param phone        the user's phone number
-     * @param role         the user's role (e.g., "Entrant", "Organizer", "Admin")
-     * @param createdAt    the timestamp indicating when the profile was created
-     */
+    /** Full constructor */
     public Profile(String id, String displayName, String email, String phone, String role, Date createdAt) {
         this.id = id;
         this.displayName = displayName;
         this.email = email;
         this.phone = phone;
         this.role = role;
-        this.createdAt = createdAt;
+        this.createdAt = createdAt != null ? createdAt : new Date();
+        this.lastLoginAt = new Date();
+        this.deviceId = id;
+    }
+
+    /** Constructor with device ID */
+    public Profile(String id, String displayName, String email, String phone, String role, Date createdAt, String deviceId) {
+        this.id = id;
+        this.displayName = displayName;
+        this.email = email;
+        this.phone = phone;
+        this.role = role;
+        this.createdAt = createdAt != null ? createdAt : new Date();
+        this.lastLoginAt = new Date();
+        this.deviceId = deviceId;
     }
 
     // --- Getters ---
 
-    /**
-     * Returns the unique identifier of the user.
-     *
-     * @return the user ID
-     */
     public String getId() { return id; }
-
-    /**
-     * Returns the display name of the user.
-     *
-     * @return the user's display name
-     */
     public String getDisplayName() { return displayName; }
-
-    /**
-     * Returns the email address of the user.
-     *
-     * @return the user's email address
-     */
     public String getEmail() { return email; }
-
-    /**
-     * Returns the user's phone number.
-     *
-     * @return the phone number, or {@code null} if not provided
-     */
     public String getPhone() { return phone; }
-
-    /**
-     * Returns the user's role within the system.
-     *
-     * @return the user's role (e.g., "Entrant", "Organizer", "Admin")
-     */
     public String getRole() { return role; }
-
-    /**
-     * Returns the date when the profile was created.
-     *
-     * @return the creation date
-     */
     public Date getCreatedAt() { return createdAt; }
+    public Date getLastLoginAt() { return lastLoginAt; }
+    public String getDeviceId() { return deviceId; }
+
+    /** Returns whether the user wants to receive notifications. */
+    public boolean isReceiveNotifications() { return receiveNotifications; }
+
+    /** Returns whether the user has enabled location services. */
+    public boolean isEnableLocationService() { return enableLocationService; }
 
     // --- Setters ---
 
-    /**
-     * Sets the unique identifier of the user.
-     *
-     * @param id the new user ID
-     */
     public void setId(String id) { this.id = id; }
-
-    /**
-     * Sets the display name of the user.
-     *
-     * @param displayName the new display name
-     */
     public void setDisplayName(String displayName) { this.displayName = displayName; }
-
-    /**
-     * Sets the email address of the user.
-     *
-     * @param email the new email address
-     */
     public void setEmail(String email) { this.email = email; }
-
-    /**
-     * Sets the phone number of the user.
-     *
-     * @param phone the new phone number
-     */
     public void setPhone(String phone) { this.phone = phone; }
-
-    /**
-     * Sets the role of the user.
-     *
-     * @param role the new role (e.g., "Entrant", "Organizer", "Admin")
-     */
     public void setRole(String role) { this.role = role; }
-
-    /**
-     * Sets the creation date of the profile.
-     *
-     * @param createdAt the new creation date
-     */
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+    public void setLastLoginAt(Date lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+
+    /** Sets whether the user wants to receive notifications. */
+    public void setReceiveNotifications(boolean receiveNotifications) {
+        this.receiveNotifications = receiveNotifications;
+    }
+
+    /** Sets whether the user allows location services. */
+    public void setEnableLocationService(boolean enableLocationService) {
+        this.enableLocationService = enableLocationService;
+    }
+
+    // --- Firestore Helper Methods ---
 
     /**
-     * Returns a string representation of the profile in a readable format.
-     * The result includes the display name, email, and role when available.
-     *
-     * @return a human-readable string describing the user
+     * Gets the Firestore document ID for this profile.
+     * Uses deviceId as the document ID for easy lookup.
      */
+    @Exclude
+    public String getDocumentId() {
+        return deviceId != null ? deviceId : id;
+    }
+
+    /**
+     * Updates the last login timestamp to current time.
+     */
+    public void updateLastLogin() {
+        this.lastLoginAt = new Date();
+    }
+
+    /**
+     * Checks if this profile is complete with essential information.
+     */
+    @Exclude
+    public boolean isProfileComplete() {
+        return displayName != null && !displayName.trim().isEmpty() &&
+                email != null && !email.trim().isEmpty() &&
+                role != null && !role.trim().isEmpty();
+    }
+
+    /**
+     * Returns a display-friendly version of the role.
+     */
+    @Exclude
+    public String getDisplayRole() {
+        if (role == null) return "User";
+        switch (role.toLowerCase()) {
+            case "entrant": return "Entrant";
+            case "organizer": return "Organizer";
+            case "admin": return "Administrator";
+            default: return role;
+        }
+    }
+
+    @Exclude
+    public boolean hasRole(String role) {
+        if (role == null || this.role == null) return false;
+        return this.role.equalsIgnoreCase(role);
+    }
+
+    /**
+     * Returns true if this profile can act as organizer
+     */
+    @Exclude
+    public boolean isOrganizer() {
+        return hasRole("Organizer") || hasRole("Admin");
+    }
+
+    /**
+     * Returns true if this profile can act as entrant
+     */
+    @Exclude
+    public boolean isEntrant() {
+        return hasRole("Entrant") || hasRole("Organizer") || hasRole("Admin");
+    }
+
+    /**
+     * Creates a device-specific profile ID combining device ID and role
+     */
+    @Exclude
+    public static String generateProfileId(String deviceId, String role) {
+        return deviceId + "_" + role.toLowerCase();
+    }
+
     @NonNull
     @Override
     public String toString() {
         String line1 = displayName == null ? "(No name)" : displayName;
         String line2 = (email == null || email.isEmpty()) ? "" : " • " + email;
-        String line3 = (role == null || role.isEmpty()) ? "" : " (" + role + ")";
+        String line3 = (role == null || role.isEmpty()) ? "" : " (" + getDisplayRole() + ")";
         return line1 + line2 + line3;
     }
+
+    /**
+     * Creates a copy of this profile.
+     */
+    @Exclude
+    public Profile copy() {
+        Profile copy = new Profile();
+        copy.id = this.id;
+        copy.displayName = this.displayName;
+        copy.email = this.email;
+        copy.phone = this.phone;
+        copy.role = this.role;
+        copy.createdAt = this.createdAt != null ? new Date(this.createdAt.getTime()) : null;
+        copy.lastLoginAt = this.lastLoginAt != null ? new Date(this.lastLoginAt.getTime()) : null;
+        copy.deviceId = this.deviceId;
+        copy.receiveNotifications = this.receiveNotifications;
+        copy.enableLocationService = this.enableLocationService;
+        return copy;
+    }
+
+    /**
+     * Compares two profiles for equality based on ID and device ID.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Profile profile = (Profile) o;
+
+        if (id != null ? !id.equals(profile.id) : profile.id != null) return false;
+        return deviceId != null ? deviceId.equals(profile.deviceId) : profile.deviceId == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id != null ? id.hashCode() : 0;
+        result = 31 * result + (deviceId != null ? deviceId.hashCode() : 0);
+        return result;
+    }
+
 }

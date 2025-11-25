@@ -134,7 +134,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                         if (capacity != null) e.setCapacity(capacity.intValue());
 
                         e.setGeolocationRequired(Boolean.TRUE.equals(doc.getBoolean("geolocationRequired")));
-                        e.setPosterImage(doc.getString("posterUri"));
+                        e.setPosterImageId(doc.getString("posterUri"));
 
                         Long regOpen = doc.getLong("registrationOpen");
                         Long regClose = doc.getLong("registrationClose");

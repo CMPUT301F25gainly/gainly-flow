@@ -1,614 +1,367 @@
 package com.example.gainly_flow;
 
-import android.util.Log;
-
-import com.google.android.gms.tasks.OnSuccessListener;
-import android.util.Log;
-
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.firestore.DocumentSnapshot;
-import android.util.Log;
 import androidx.annotation.NonNull;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentSnapshot;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.google.firebase.firestore.Exclude;
+import com.google.firebase.firestore.IgnoreExtraProperties;
+import android.util.Log;
 import java.sql.Time;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
- * Represents an event entity stored in/loaded from Firestore and used across the app UI.
- * <p>
- * This model provides:
- * <ul>
- *   <li>Core descriptive fields (name, description, location, category, poster, organizer)</li>
- *   <li>Scheduling information (date/time or a flexible {@code timeString})</li>
- *   <li>Registration window (open/close), capacity and occupancy tracking</li>
- *   <li>Status helpers (registration status, whether full/active)</li>
- *   <li>Convenience formatting (price display, time display)</li>
- *   <li>Lightweight Firestore mapping via {@link #fromDocument(DocumentSnapshot)} and
- *       asynchronous loading via {@link #load(String, OnSuccessListener)}</li>
- * </ul>
- *
- * <h3>Firestore compatibility</h3>
- * The class includes a public no-arg constructor and public setters/getters for
- * fields that may be serialized/deserialized by Firestore.
- *
- * <p><b>Note:</b> Some properties are provided in multiple representations
- * (e.g., {@link #eventTime} and {@link #timeString}) to allow flexible storage and display.
+ * Represents an event in the Gainly Flow system.
+ * Includes waiting list, selected/cancelled/enrolled entrants, and organizer details.
  */
+@IgnoreExtraProperties
 public class Event {
-    /** Firestore document ID for this event. */
+    private static final String TAG = "Event";
+
+    // --- Event Categories ---
+    public enum Category {
+        ALL, SPORT, MUSIC, ART, EDUCATION
+    }
+
     private String id;
-    /** Human-readable event name/title. */
     private String name;
-    /** Long-form description of the event. */
     private String description;
-    /** Calendar date of the event (no time component). */
     private Date eventDate;
-    /** Clock time of the event (optional when {@link #timeString} is used). */
     private Time eventTime;
-    /** Registration opening datetime. */
+    private String timeString; // Flexible display time
     private Date registrationOpen;
-    /** Registration closing datetime. */
     private Date registrationClose;
-    /** Maximum number of participants allowed. */
     private int capacity;
-    /** Whether attendees must provide geolocation to participate. */
+    private int currentParticipants;
     private boolean geolocationRequired;
-    /** Identifier for the poster image asset (e.g., Cloud Storage ID). */
+    private String location;
+    private double price;
+    private Category category; // Changed to enum
+    private boolean isActive = true;
     private String posterImageId;
-    /** Organizer's user ID. */
-    private String organizerId;
-    /** URL encoded in the event QR code (e.g., for check-in). */
+    private String organizerId; // Store organizer ID for Firestore compatibility
     private String qrUrl;
 
-    //     public Event(String id) { this.id = id; }
-    //     public Event() {}
+    // --- Entrant management ---
+    private List<String> waitingList; // Store entrant IDs instead of full objects
+    private List<String> selected; // Store entrant IDs
+    private List<String> cancelled; // Store entrant IDs
+    private List<String> enrolled; // Store entrant IDs
 
-    // New fields for better compatibility
-    /** Venue or address of the event. */
-    private String location;
-    /** Flexible, display-ready time string (e.g., "6:30 PM MDT"). */
-    private String timeString; // For flexible time storage
-    /** Current number of registered participants. */
-    private int currentParticipants;
-    /** Ticket price; zero denotes a free event. */
-    private double price;
-    /** Category or tag (e.g., "Workshop", "Seminar"). */
-    private String category;
-    /** Logical active flag; inactive events are treated as cancelled. */
-    private boolean isActive = true;
+    // --- Constructors ---
+    public Event() {
+        this.waitingList = new ArrayList<>();
+        this.selected = new ArrayList<>();
+        this.cancelled = new ArrayList<>();
+        this.enrolled = new ArrayList<>();
+        this.category = Category.ALL; // Default category
+    }
 
-    /**
-     * Empty constructor required by Firestore for deserialization.
-     */
-    public Event() {}
-
-    /**
-     * Constructs an {@code Event} with the given identifier.
-     *
-     * @param id Firestore document ID of the event.
-     */
     public Event(String id) {
+        this();
         this.id = id;
-        this.isActive = true;
+    }
+
+    public Event(String id, String name, String description, Date eventDate, String organizerId) {
+        this();
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.eventDate = eventDate;
+        this.organizerId = organizerId;
     }
 
     // --- Setters ---
-
-    /**
-     * Sets the event name/title.
-     *
-     * @param name human-readable event name.
-     */
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    /**
-     * Sets the event description.
-     *
-     * @param description long-form event description.
-     */
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    /**
-     * Sets the event time component.
-     * <p>
-     * If you prefer a more flexible representation for UI display, consider using
-     * {@link #setTimeString(String)}.
-     *
-     * @param time the clock time of the event.
-     */
-    public void setEventTime(Time time){
-        this.eventTime = time;
-    }
-
-    /**
-     * Sets the event date component (no time).
-     *
-     * @param date the calendar date of the event.
-     */
-    public void setEventDate(Date date){
-        this.eventDate = date;
-    }
-
-    /**
-     * Sets the registration open/close window.
-     *
-     * @param open  registration opening datetime.
-     * @param close registration closing datetime.
-     */
+    public void setId(String id) { this.id = id; }
+    public void setName(String name) { this.name = name; }
+    public void setDescription(String description) { this.description = description; }
+    public void setEventDate(Date date) { this.eventDate = date; }
+    public void setEventTime(Time time) { this.eventTime = time; }
+    public void setTimeString(String timeString) { this.timeString = timeString; }
+    public void setRegistrationOpen(Date registrationOpen) { this.registrationOpen = registrationOpen; }
+    public void setRegistrationClose(Date registrationClose) { this.registrationClose = registrationClose; }
     public void setRegistrationPeriod(Date open, Date close) {
         this.registrationOpen = open;
         this.registrationClose = close;
     }
-
-    /**
-     * Sets the maximum number of participants.
-     *
-     * @param capacity maximum capacity; values &lt; 0 are not recommended.
-     */
-    public void setCapacity(int capacity) {
-        this.capacity = capacity;
-    }
-
-    /**
-     * Sets the poster image identifier.
-     *
-     * @param imageId identifier for the poster image asset.
-     */
-    public void setPosterImage(String imageId) {
-        this.posterImageId = imageId;
-    }
-
-    /**
-     * Sets whether geolocation is required.
-     *
-     * @param required {@code true} if geolocation is required; otherwise {@code false}.
-     */
-    public void setGeolocationRequired(boolean required) {
-        this.geolocationRequired = required;
-    }
-
-    /**
-     * Sets the organizer's user ID.
-     *
-     * @param organizerId organizer identifier.
-     */
-    public void setOrganizerId(String organizerId) {
-        this.organizerId = organizerId;
-    }
-
-    /**
-     * Sets the QR URL used for check-in or event linking.
-     *
-     * @param qrUrl URL encoded within the event's QR code.
-     */
-    public void setQrUrl(String qrUrl) {
-        this.qrUrl = qrUrl;
-    }
-
-    // New setters
-
-    /**
-     * Sets the event location/venue.
-     *
-     * @param location human-readable location or address.
-     */
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    /**
-     * Sets a flexible, display-ready time string.
-     * <p>
-     * Use this when the event time is better expressed as a formatted string rather than a {@link Time}.
-     *
-     * @param timeString display-friendly time (e.g., "6:30 PM MDT").
-     */
-    public void setTimeString(String timeString) {
-        this.timeString = timeString;
-    }
-
-    /**
-     * Sets the current number of registered participants.
-     *
-     * @param currentParticipants number of participants registered so far.
-     */
-    public void setCurrentParticipants(int currentParticipants) {
-        this.currentParticipants = currentParticipants;
-    }
-
-    /**
-     * Sets the ticket price in the event's currency.
-     * <p>
-     * A value of {@code 0} is treated as a free event in {@link #getFormattedPrice()}.
-     *
-     * @param price non-negative price value.
-     */
-    public void setPrice(double price) {
-        this.price = price;
-    }
-
-    /**
-     * Sets the event category.
-     *
-     * @param category category/tag such as "Workshop", "Seminar", etc.
-     */
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
-    /**
-     * Sets whether the event is currently active.
-     * <p>
-     * Inactive events are considered cancelled in {@link #getRegistrationStatus()}.
-     *
-     * @param active {@code true} if active; {@code false} to mark cancelled/inactive.
-     */
-    public void setActive(boolean active) {
-        isActive = active;
-    }
+    public void setCapacity(int capacity) { this.capacity = capacity; }
+    public void setCurrentParticipants(int currentParticipants) { this.currentParticipants = currentParticipants; }
+    public void setGeolocationRequired(boolean geolocationRequired) { this.geolocationRequired = geolocationRequired; }
+    public void setLocation(String location) { this.location = location; }
+    public void setPrice(double price) { this.price = price; }
+    public void setCategory(Category category) { this.category = category; }
+    public void setActive(boolean active) { this.isActive = active; }
+    public void setPosterImageId(String posterImageId) { this.posterImageId = posterImageId; }
+    public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
+    public void setQrUrl(String qrUrl) { this.qrUrl = qrUrl; }
+    public void setWaitingList(List<String> waitingList) { this.waitingList = waitingList != null ? waitingList : new ArrayList<>(); }
+    public void setSelected(List<String> selected) { this.selected = selected != null ? selected : new ArrayList<>(); }
+    public void setCancelled(List<String> cancelled) { this.cancelled = cancelled != null ? cancelled : new ArrayList<>(); }
+    public void setEnrolled(List<String> enrolled) { this.enrolled = enrolled != null ? enrolled : new ArrayList<>(); }
 
     // --- Getters ---
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public String getDescription() { return description; }
+    public Date getEventDate() { return eventDate; }
+    public Time getEventTime() { return eventTime; }
+    public String getTimeString() { return timeString; }
+    public Date getRegistrationOpen() { return registrationOpen; }
+    public Date getRegistrationClose() { return registrationClose; }
+    public int getCapacity() { return capacity; }
+    public int getCurrentParticipants() { return currentParticipants; }
+    public boolean isGeolocationRequired() { return geolocationRequired; }
+    public String getLocation() { return location; }
+    public double getPrice() { return price; }
+    public Category getCategory() { return category; }
+    public boolean isActive() { return isActive; }
+    public String getPosterImageId() { return posterImageId; }
+    public String getOrganizerId() { return organizerId; }
+    public String getQrUrl() { return qrUrl; }
+    public List<String> getWaitingList() { return waitingList; }
+    public List<String> getSelected() { return selected; }
+    public List<String> getCancelled() { return cancelled; }
+    public List<String> getEnrolled() { return enrolled; }
+
+    // --- Firestore Helper Methods ---
 
     /**
-     * Returns the Firestore document ID of this event.
-     *
-     * @return event identifier.
+     * Gets the Firestore document ID for this event.
      */
-    public String getId() {
+    @Exclude
+    public String getDocumentId() {
         return id;
     }
 
-    /**
-     * Returns the QR URL associated with the event.
-     *
-     * @return QR code URL.
-     */
-    public String getQrUrl() {
-        return qrUrl;
-    }
+    // --- Entrant Management Methods ---
 
     /**
-     * Returns the event name/title.
-     *
-     * @return event name.
+     * Adds an entrant to the waiting list by their ID.
      */
-    public String getName() {
-        return name;
-    }
-
-    /**
-     * Returns the event description.
-     *
-     * @return event description.
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * Returns the event calendar date (no time).
-     *
-     * @return event date or {@code null} if unset.
-     */
-    public Date getEventDate() {
-        return eventDate;
-    }
-
-    /**
-     * Returns the event clock time.
-     *
-     * @return {@link Time} or {@code null} if unset.
-     */
-    public Time getEventTime() {
-        return eventTime;
-    }
-
-    /**
-     * Returns the registration opening datetime.
-     *
-     * @return registration open time or {@code null}.
-     */
-    public Date getRegistrationOpen() {
-        return registrationOpen;
-    }
-
-    /**
-     * Returns the registration closing datetime.
-     *
-     * @return registration close time or {@code null}.
-     */
-    public Date getRegistrationClose() {
-        return registrationClose;
-    }
-
-    /**
-     * Returns the maximum allowed participants.
-     *
-     * @return capacity as a non-negative integer.
-     */
-    public int getCapacity() {
-        return capacity;
-    }
-
-    /**
-     * Indicates whether geolocation is required for attendees.
-     *
-     * @return {@code true} if required; otherwise {@code false}.
-     */
-    public boolean isGeolocationRequired() {
-        return geolocationRequired;
-    }
-
-    /**
-     * Returns the poster image identifier.
-     *
-     * @return poster image ID or {@code null}.
-     */
-    public String getPosterImageId() {
-        return posterImageId;
-    }
-
-    /**
-     * Returns the organizer's user ID.
-     *
-     * @return organizer ID or {@code null}.
-     */
-    public String getOrganizerId() {
-        return organizerId;
-    }
-
-    // New getters
-
-    /**
-     * Returns the human-readable location.
-     *
-     * @return location/venue string.
-     */
-    public String getLocation() {
-        return location;
-    }
-
-    /**
-     * Returns the display-friendly time string.
-     *
-     * @return time string if set, else {@code null}.
-     */
-    public String getTimeString() {
-        return timeString;
-    }
-
-    /**
-     * Returns the number of currently registered participants.
-     *
-     * @return current participant count.
-     */
-    public int getCurrentParticipants() {
-        return currentParticipants;
-    }
-
-    /**
-     * Returns the ticket price.
-     *
-     * @return price value (zero denotes free).
-     */
-    public double getPrice() {
-        return price;
-    }
-
-    /**
-     * Returns the event category or tag.
-     *
-     * @return category string.
-     */
-    public String getCategory() {
-        return category;
-    }
-
-    /**
-     * Indicates whether this event is marked active.
-     *
-     * @return {@code true} if active; otherwise {@code false}.
-     */
-    public boolean isActive() {
-        return isActive;
-    }
-
-    // --- Helper methods for QR scanner compatibility ---
-
-    /**
-     * Returns the event time in a display-friendly string.
-     * <p>
-     * If {@link #timeString} is set and non-empty, it is returned.
-     * Otherwise, if {@link #eventTime} is set, its {@code toString()} is returned.
-     * If neither is set, returns {@code "Time not specified"}.
-     *
-     * @return display-ready time string.
-     */
-    public String getEventTimeString() {
-        if (timeString != null && !timeString.isEmpty()) {
-            return timeString;
+    public boolean addToWaitingList(String entrantId) {
+        if (entrantId != null && !waitingList.contains(entrantId) &&
+                !selected.contains(entrantId) && !enrolled.contains(entrantId)) {
+            return waitingList.add(entrantId);
         }
-        if (eventTime != null) {
-            return eventTime.toString();
-        }
-        return "Time not specified";
+        return false;
     }
 
     /**
-     * Returns the price as a formatted string for UI display.
-     * <p>
-     * Returns {@code "Free"} when {@link #price} equals zero; otherwise returns
-     * a currency string like {@code "$12.99"}.
-     *
-     * @return formatted price string.
+     * Removes an entrant from the waiting list.
      */
-    public String getFormattedPrice() {
-        if (price == 0) {
-            return "Free";
-        } else {
-            return String.format("$%.2f", price);
-        }
+    public boolean removeFromWaitingList(String entrantId) {
+        return waitingList.remove(entrantId);
     }
 
     /**
-     * Indicates whether the event has reached full capacity.
-     *
-     * @return {@code true} if {@link #currentParticipants} ≥ {@link #capacity}; otherwise {@code false}.
+     * Selects an entrant from the waiting list (lottery selection).
      */
+    public boolean selectEntrant(String entrantId) {
+        if (waitingList.contains(entrantId) && !selected.contains(entrantId)) {
+            waitingList.remove(entrantId);
+            return selected.add(entrantId);
+        }
+        return false;
+    }
+
+    /**
+     * Enrolls a selected entrant.
+     */
+    public boolean enrollEntrant(String entrantId) {
+        if (selected.contains(entrantId) && !enrolled.contains(entrantId)) {
+            selected.remove(entrantId);
+            if (enrolled.add(entrantId)) {
+                currentParticipants++;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Cancels a selected entrant's participation.
+     */
+    public boolean cancelEntrant(String entrantId) {
+        if (selected.contains(entrantId)) {
+            selected.remove(entrantId);
+            return cancelled.add(entrantId);
+        }
+        return false;
+    }
+
+    /**
+     * Checks if an entrant is on the waiting list.
+     */
+    @Exclude
+    public boolean isOnWaitingList(String entrantId) {
+        return waitingList.contains(entrantId);
+    }
+
+    /**
+     * Checks if an entrant is selected.
+     */
+    @Exclude
+    public boolean isSelected(String entrantId) {
+        return selected.contains(entrantId);
+    }
+
+    /**
+     * Checks if an entrant is enrolled.
+     */
+    @Exclude
+    public boolean isEnrolled(String entrantId) {
+        return enrolled.contains(entrantId);
+    }
+
+    /**
+     * Gets the waiting list position of an entrant.
+     */
+    @Exclude
+    public int getWaitingListPosition(String entrantId) {
+        return waitingList.indexOf(entrantId) + 1; // 1-based position
+    }
+
+    // --- Event Status Methods ---
+
+    @Exclude
     public boolean isFull() {
         return currentParticipants >= capacity;
     }
 
-    /**
-     * Returns the number of remaining registration spots.
-     * <p>
-     * If the event is over capacity, the result may be negative.
-     *
-     * @return {@code capacity - currentParticipants}.
-     */
+    @Exclude
     public int getAvailableSpots() {
-        return capacity - currentParticipants;
+        return Math.max(0, capacity - currentParticipants);
     }
 
-    // --- Logic helper ---
+    @Exclude
+    public int getWaitingListSize() {
+        return waitingList != null ? waitingList.size() : 0;
+    }
 
-    /**
-     * Indicates whether registration is currently open.
-     * <p>
-     * Registration is considered open if:
-     * <ul>
-     *   <li>{@link #registrationOpen} and {@link #registrationClose} are non-null</li>
-     *   <li>The current time is between the open and close times</li>
-     *   <li>The event is active and not full</li>
-     * </ul>
-     *
-     * @return {@code true} if registration is open under the above rules; otherwise {@code false}.
-     */
+    @Exclude
+    public int getSelectedCount() {
+        return selected != null ? selected.size() : 0;
+    }
+
+    @Exclude
+    public int getEnrolledCount() {
+        return enrolled != null ? enrolled.size() : 0;
+    }
+
+    @Exclude
     public boolean isRegistrationOpen() {
-        if (registrationOpen == null || registrationClose == null) {
-            return false;
-        }
         Date now = new Date();
-        return now.after(registrationOpen) && now.before(registrationClose) && isActive && !isFull();
+        return isActive &&
+                !isFull() &&
+                registrationOpen != null &&
+                registrationClose != null &&
+                now.after(registrationOpen) &&
+                now.before(registrationClose);
     }
 
-    /**
-     * Returns a high-level registration status string for UI.
-     * <p>
-     * Possible values:
-     * <ul>
-     *   <li>{@code "CANCELLED"} – when not active</li>
-     *   <li>{@code "FULL"} – when capacity is reached</li>
-     *   <li>{@code "OPEN"} – when {@link #isRegistrationOpen()} is true</li>
-     *   <li>{@code "CLOSED"} – otherwise</li>
-     * </ul>
-     *
-     * @return registration status label.
-     */
+    @Exclude
     public String getRegistrationStatus() {
-        if (!isActive) {
-            return "CANCELLED";
-        } else if (isFull()) {
-            return "FULL";
-        } else if (isRegistrationOpen()) {
-            return "OPEN";
-        } else {
-            return "CLOSED";
-        }
+        if (!isActive) return "CANCELLED";
+        if (isFull()) return "FULL";
+        if (isRegistrationOpen()) return "OPEN";
+        return "CLOSED";
     }
 
+    // --- Display Methods ---
+
+    @Exclude
+    public String getFormattedPrice() {
+        return price == 0 ? "Free" : String.format("$%.2f", price);
+    }
+
+    @Exclude
+    public String getEventTimeDisplay() {
+        if (timeString != null && !timeString.isEmpty()) return timeString;
+        if (eventTime != null) return eventTime.toString();
+        return "Time not specified";
+    }
+
+    @Exclude
+    public String getFormattedCategory() {
+        return category != null ? category.name().charAt(0) + category.name().substring(1).toLowerCase() : "All";
+    }
+
+    @Exclude
+    public String getShortDescription() {
+        if (description == null) return "";
+        return description.length() > 100 ? description.substring(0, 100) + "..." : description;
+    }
+
+    // --- Firestore integration ---
+
     /**
-     * Returns the Firestore event ID.
-     * <p>
-     * Alias of {@link #getId()} provided for legacy compatibility.
-     *
-     * @return event ID.
+     * Populates this event from a Firestore document.
      */
-    public String getEventId() {
-        return id;
-    }
+    public void fromDocument(@NonNull DocumentSnapshot doc) {
+        this.id = doc.getId();
 
-    /** Tag used for logcat messages from this class. */
-    private static final String TAG = "Event";
-
-    /**
-     * Populates this instance from a Firestore document snapshot.
-     * <p>
-     * The current implementation copies the document ID into {@link #id} and
-     * attempts to deserialize an {@code Event} object from the document for any
-     * future field-by-field synchronization needs.
-     *
-     * @param document non-null Firestore document snapshot.
-     */
-    public void fromDocument(@NonNull DocumentSnapshot document) {
-        // Minimal, safe mapping so it compiles and runs
-        // (add more fields if you have them)
-        this.id = document.getId();  // keep Firestore doc id as eventId
-        // If you have fields in Firestore, you can optionally copy them:
-        Event e = document.toObject(Event.class);
-        if (e != null) {
-            // copy whatever fields your model defines
-            // e.g., this.title = e.title; this.description = e.description; ...
+        // Manually set fields to handle enum conversion
+        if (doc.contains("name")) this.name = doc.getString("name");
+        if (doc.contains("description")) this.description = doc.getString("description");
+        if (doc.contains("eventDate")) this.eventDate = doc.getDate("eventDate");
+        if (doc.contains("timeString")) this.timeString = doc.getString("timeString");
+        if (doc.contains("registrationOpen")) this.registrationOpen = doc.getDate("registrationOpen");
+        if (doc.contains("registrationClose")) this.registrationClose = doc.getDate("registrationClose");
+        if (doc.contains("capacity")) this.capacity = doc.getLong("capacity").intValue();
+        if (doc.contains("currentParticipants")) this.currentParticipants = doc.getLong("currentParticipants").intValue();
+        if (doc.contains("geolocationRequired")) this.geolocationRequired = Boolean.TRUE.equals(doc.getBoolean("geolocationRequired"));
+        if (doc.contains("location")) this.location = doc.getString("location");
+        if (doc.contains("price")) this.price = doc.getDouble("price");
+        if (doc.contains("category")) {
+            String categoryStr = doc.getString("category");
+            this.category = categoryStr != null ? Category.valueOf(categoryStr) : Category.ALL;
         }
+        if (doc.contains("isActive")) this.isActive = Boolean.TRUE.equals(doc.getBoolean("isActive"));
+        if (doc.contains("posterImageId")) this.posterImageId = doc.getString("posterImageId");
+        if (doc.contains("organizerId")) this.organizerId = doc.getString("organizerId");
+        if (doc.contains("qrUrl")) this.qrUrl = doc.getString("qrUrl");
+        if (doc.contains("waitingList")) this.waitingList = (List<String>) doc.get("waitingList");
+        if (doc.contains("selected")) this.selected = (List<String>) doc.get("selected");
+        if (doc.contains("cancelled")) this.cancelled = (List<String>) doc.get("cancelled");
+        if (doc.contains("enrolled")) this.enrolled = (List<String>) doc.get("enrolled");
+
+        // Initialize lists if they're null
+        if (this.waitingList == null) this.waitingList = new ArrayList<>();
+        if (this.selected == null) this.selected = new ArrayList<>();
+        if (this.cancelled == null) this.cancelled = new ArrayList<>();
+        if (this.enrolled == null) this.enrolled = new ArrayList<>();
     }
 
     /**
-     * Asynchronously loads the event from Firestore and invokes a callback with this instance.
-     * <p>
-     * This method uses {@link Database#get(String, String, OnSuccessListener)} to fetch the
-     * {@code events/{eventId}} document. If the document exists, {@link #fromDocument(DocumentSnapshot)}
-     * is called to populate this instance; if not, the {@link #id} is still set so consumers
-     * can avoid {@code null} checks. The provided listener is then invoked with {@code this}.
-     *
-     * @param eventId  Firestore document ID to load.
-     * @param listener success callback receiving this {@code Event} instance after load.
+     * Loads an event from Firestore by ID.
      */
     public void load(String eventId, OnSuccessListener<Event> listener) {
-        Database.get("events", eventId, document -> {
-            if (document.exists()) {
-                fromDocument(document);
+        Database.get("events", eventId, doc -> {
+            if (doc.exists()) {
+                fromDocument(doc);
                 Log.d(TAG, "Loaded event " + eventId);
             } else {
                 Log.w(TAG, "Event not found: " + eventId);
-                this.id = eventId;   // <-- keep requested id to avoid nulls
+                this.id = eventId;
             }
             listener.onSuccess(this);
         });
     }
 
-    /**
-     * Returns a debug-friendly string representation of this event, including core fields.
-     *
-     * @return string containing the current state of this event.
-     */
     @Override
     public String toString() {
         return "Event{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
-                ", description='" + description + '\'' +
-                ", eventDate=" + eventDate +
-                ", eventTime=" + eventTime +
-                ", timeString='" + timeString + '\'' +
-                ", registrationOpen=" + registrationOpen +
-                ", registrationClose=" + registrationClose +
+                ", category=" + getFormattedCategory() +
                 ", capacity=" + capacity +
                 ", currentParticipants=" + currentParticipants +
-                ", geolocationRequired=" + geolocationRequired +
-                ", location='" + location + '\'' +
-                ", price=" + price +
-                ", category='" + category + '\'' +
+                ", waitingList=" + getWaitingListSize() +
+                ", selected=" + getSelectedCount() +
+                ", enrolled=" + getEnrolledCount() +
+                ", cancelled=" + (cancelled != null ? cancelled.size() : 0) +
                 ", isActive=" + isActive +
-                ", posterImageId='" + posterImageId + '\'' +
-                ", organizerId='" + organizerId + '\'' +
-                ", qrUrl='" + qrUrl + '\'' +
                 '}';
     }
 }

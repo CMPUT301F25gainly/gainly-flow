@@ -1,100 +1,54 @@
 package com.example.gainly_flow;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
-import android.view.View;
 
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * {@code ProfileActivity} manages the display and modification of user profile data within the app.
- * <p>
- * This activity interacts with Firebase Firestore to:
- * <ul>
- *     <li>Retrieve and display an existing profile.</li>
- *     <li>Create a new profile if none exists.</li>
- *     <li>Allow users to update profile information such as name, email, and phone number.</li>
- *     <li>Toggle notification preferences.</li>
- *     <li>Delete the profile document if desired.</li>
- * </ul>
- *
- * <p>The class also generates a unique device ID to associate with each profile and ensures
- * synchronization between UI inputs and Firestore records.</p>
- *
- * <p><b>Firestore Collection:</b> {@code profiles}</p>
- */
 public class ProfileActivity extends AppCompatActivity {
 
-    // --- UI Elements ---
-    /** Displays the user's full name. */
+    // UI Elements
     private TextView textUserName;
-
-    /** Displays the user's unique device ID. */
     private TextView textDeviceId;
-
-    /** Editable field for user's full name. */
     private TextInputEditText editFullName;
-
-    /** Editable field for user's email address. */
     private TextInputEditText editEmail;
-
-    /** Editable field for user's phone number. */
     private TextInputEditText editPhoneNumber;
-
-    /** Toggle switch for enabling or disabling app notifications. */
     private SwitchMaterial switchNotifications;
-
-    /** Toggle switch for enabling or disabling location services (currently unused). */
     private SwitchMaterial switchLocation;
-
-    /** Button to confirm and upload profile updates to Firestore. */
     private MaterialButton buttonUpdateProfile;
-
-    /** Button to delete the user's profile from Firestore. */
     private MaterialButton buttonDeleteAccount;
-
-    /** Navigates back to the previous screen. */
     private ImageButton backButton;
-
-    /** Displays the user's profile icon. */
     private ImageView profileIcon;
 
-    // --- Firebase ---
-    /** Instance of Firestore database. */
+    // Firebase
     private FirebaseFirestore db;
-
-    /** Hardcoded profile ID (intended to be dynamic in future implementations). */
-    private String profileId = "114514";
-
-    /** Reference to the user's document in the "profiles" collection. */
     private DocumentReference profileRef;
 
-    // --- Device ID ---
-    /** Unique device identifier associated with the profile. */
+    // Profile data
+    private Profile profile;
+    private String userType;
     private String deviceId;
 
-    /**
-     * Called when the activity is first created.
-     * Initializes Firestore, binds UI components, and loads or creates the user's profile.
-     *
-     * @param savedInstanceState previously saved state of the activity, if any.
-     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,12 +56,37 @@ public class ProfileActivity extends AppCompatActivity {
 
         // Initialize Firestore
         db = FirebaseFirestore.getInstance();
-        profileRef = db.collection("profiles").document(profileId);
 
-        // Generate unique device ID
-        deviceId = generateDeviceId();
+        // Get profile and user type from intent
+        profile = (Profile) getIntent().getSerializableExtra("profile");
+        userType = getIntent().getStringExtra("userType");
+
+        if (profile == null) {
+            Toast.makeText(this, "Error: No profile data", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        // Use profile's device ID or generate new one
+        deviceId = profile.getDeviceId() != null ? profile.getDeviceId() : generateDeviceId();
+
+        // Set up Firestore reference using device ID as document ID
+        profileRef = db.collection("profiles").document(deviceId);
 
         // Bind UI components
+        initializeViews();
+
+        // Load or create user profile
+        loadOrCreateProfile();
+
+        // Set button listeners
+        setupButtonListeners();
+
+        // Setup modern back press handling
+        setupBackPressHandler();
+    }
+
+    private void initializeViews() {
         textUserName = findViewById(R.id.text_user_name);
         textDeviceId = findViewById(R.id.text_device_id);
         editFullName = findViewById(R.id.edit_full_name);
@@ -119,24 +98,33 @@ public class ProfileActivity extends AppCompatActivity {
         buttonDeleteAccount = findViewById(R.id.button_delete_account);
         backButton = findViewById(R.id.back_button_profile);
         profileIcon = findViewById(R.id.profile_icon);
-
-        // Load or create user profile
-        loadOrCreateProfile();
-
-        // Set button listeners
-        buttonUpdateProfile.setOnClickListener(v -> updateProfile());
-        buttonDeleteAccount.setOnClickListener(v -> deleteAccount());
-        backButton.setOnClickListener(v -> onBackPressed());
     }
 
-    /**
-     * Generates a unique device identifier for the current device.
-     * <p>
-     * Attempts to use {@link Settings.Secure#ANDROID_ID}, and falls back to a randomly generated
-     * UUID if unavailable.
-     *
-     * @return a unique device ID string.
-     */
+    private void setupButtonListeners() {
+        buttonUpdateProfile.setOnClickListener(v -> updateProfile());
+        buttonDeleteAccount.setOnClickListener(v -> deleteAccount());
+        backButton.setOnClickListener(v -> handleBackPress());
+    }
+
+    private void setupBackPressHandler() {
+        // Modern back press handling for Android 13+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBackPress();
+            }
+        });
+    }
+
+    private void handleBackPress() {
+        // If profile is complete, navigate to user activity, otherwise go to main
+        if (profile.isProfileComplete()) {
+            navigateToUserActivity();
+        } else {
+            finish();
+        }
+    }
+
     private String generateDeviceId() {
         String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         if (androidId == null || androidId.isEmpty()) {
@@ -145,106 +133,258 @@ public class ProfileActivity extends AppCompatActivity {
         return androidId;
     }
 
-    /**
-     * Loads an existing user profile from Firestore, or creates a new one if it does not exist.
-     * <p>
-     * Displays a toast message upon failure.
-     */
     private void loadOrCreateProfile() {
         profileRef.get()
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists()) {
-                        loadProfile(snapshot);
+                        loadProfileFromFirestore(snapshot);
                     } else {
-                        createNewProfile();
+                        // Create new profile in Firestore with appropriate class
+                        createProfileInFirestore();
                     }
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Failed to load profile: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to load profile: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    // Load from local profile as fallback
+                    loadFromLocalProfile();
+                });
     }
 
-    /**
-     * Populates the UI fields with profile information retrieved from Firestore.
-     *
-     * @param snapshot Firestore {@link DocumentSnapshot} containing user profile data.
-     */
-    private void loadProfile(DocumentSnapshot snapshot) {
-        String name = snapshot.getString("name");
-        String email = snapshot.getString("email");
-        String phone = snapshot.getString("phoneNumber");
-        String device = snapshot.getString("deviceId");
-        Boolean notifications = snapshot.getBoolean("notificationsEnabled");
-
-        textUserName.setText(name != null ? name : "Unknown User");
-        textDeviceId.setText("Device ID: " + (device != null ? device : deviceId));
-        editFullName.setText(name);
-        editEmail.setText(email);
-        editPhoneNumber.setText(phone);
-        switchNotifications.setChecked(notifications != null && notifications);
+    private void loadProfileFromFirestore(DocumentSnapshot snapshot) {
+        try {
+            // Convert to appropriate role class
+            Profile firestoreProfile = DeviceIdManager.convertToRoleClass(snapshot, userType);
+            if (firestoreProfile != null) {
+                this.profile = firestoreProfile;
+                updateUIWithProfile();
+            } else {
+                throw new Exception("Failed to convert profile");
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error loading profile data", Toast.LENGTH_SHORT).show();
+            loadFromLocalProfile();
+        }
     }
 
-    /**
-     * Creates a new Firestore document with default user profile values if none exists.
-     * <p>
-     * Called when no document is found during {@link #loadOrCreateProfile()}.
-     */
-    private void createNewProfile() {
-        Map<String, Object> data = new HashMap<>();
-        data.put("profileId", profileId);
-        data.put("name", "New User");
-        data.put("email", "");
-        data.put("phoneNumber", "");
-        data.put("notificationsEnabled", true);
-        data.put("valid", true);
-        data.put("deviceId", deviceId);
+    private void loadFromLocalProfile() {
+        updateUIWithProfile();
+    }
 
-        profileRef.set(data)
+    private void createProfileInFirestore() {
+        // Create appropriate profile class based on user type
+        Profile profileToSave = createRoleSpecificProfile();
+
+        // Create final variable for lambda
+        final Profile finalProfileToSave = profileToSave;
+
+        // Save to Firestore
+        profileRef.set(profileToSave)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "New profile created!", Toast.LENGTH_SHORT).show();
-                    textUserName.setText("New User");
-                    textDeviceId.setText("Device ID: " + deviceId);
+                    Toast.makeText(this, "Profile created successfully!", Toast.LENGTH_SHORT).show();
+                    this.profile = finalProfileToSave;
+                    updateUIWithProfile();
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Failed to create profile: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to create profile: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    updateUIWithProfile(); // Still update UI with local data
+                });
     }
 
-    /**
-     * Updates user profile fields in Firestore.
-     * <p>
-     * Uses {@link DocumentReference#set(Object)} with {@code merge=true} to overwrite or create
-     * the document as needed.
-     */
+    private Profile createRoleSpecificProfile() {
+        Profile profileToSave;
+
+        if (userType != null) {
+            switch (userType.toLowerCase()) {
+                case "entrant":
+                    if (profile instanceof Entrant) {
+                        profileToSave = profile;
+                    } else {
+                        profileToSave = convertToEntrant(profile);
+                    }
+                    break;
+                case "organizer":
+                    if (profile instanceof Organizer) {
+                        profileToSave = profile;
+                    } else {
+                        profileToSave = convertToOrganizer(profile);
+                    }
+                    break;
+                default:
+                    profileToSave = profile;
+            }
+        } else {
+            profileToSave = profile;
+        }
+
+        // Ensure device ID is set
+        profileToSave.setDeviceId(deviceId);
+        profileToSave.setRole(userType != null ? userType : "User");
+        profileToSave.setLastLoginAt(new Date());
+
+        return profileToSave;
+    }
+
+    private Entrant convertToEntrant(Profile profile) {
+        Entrant entrant = new Entrant(profile.getId());
+        copyProfileProperties(profile, entrant);
+        return entrant;
+    }
+
+    private Organizer convertToOrganizer(Profile profile) {
+        Organizer organizer = new Organizer(profile.getId());
+        copyProfileProperties(profile, organizer);
+        return organizer;
+    }
+
+    private void copyProfileProperties(Profile source, Profile target) {
+        target.setDisplayName(source.getDisplayName());
+        target.setEmail(source.getEmail());
+        target.setPhone(source.getPhone());
+        target.setDeviceId(source.getDeviceId());
+        target.setCreatedAt(source.getCreatedAt());
+        target.setLastLoginAt(source.getLastLoginAt());
+        target.setReceiveNotifications(source.isReceiveNotifications());
+        target.setEnableLocationService(source.isEnableLocationService());
+    }
+
+    private void updateUIWithProfile() {
+        String displayName = profile.getDisplayName();
+        if (displayName == null || displayName.isEmpty()) {
+            displayName = "New User";
+        }
+
+        textUserName.setText(displayName);
+        textDeviceId.setText("Device ID: " + deviceId);
+        editFullName.setText(displayName);
+        editEmail.setText(profile.getEmail());
+        editPhoneNumber.setText(profile.getPhone());
+        switchNotifications.setChecked(profile.isReceiveNotifications());
+        switchLocation.setChecked(profile.isEnableLocationService());
+
+        // Show role in the title or user name if needed
+        // You can append role to the user name or show it in a toast
+        if (profile.getRole() != null && !profile.getRole().isEmpty()) {
+            // Optionally show role in user name text
+            String roleText = " (" + profile.getDisplayRole() + ")";
+            if (!textUserName.getText().toString().contains(roleText)) {
+                textUserName.setText(displayName + roleText);
+            }
+        }
+    }
+
     private void updateProfile() {
         String name = editFullName.getText().toString().trim();
         String email = editEmail.getText().toString().trim();
         String phone = editPhoneNumber.getText().toString().trim();
         boolean notificationsEnabled = switchNotifications.isChecked();
+        boolean locationEnabled = switchLocation.isChecked();
 
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("name", name);
-        updates.put("email", email);
-        updates.put("phoneNumber", phone);
-        updates.put("notificationsEnabled", notificationsEnabled);
-        updates.put("deviceId", deviceId);
-        updates.put("valid", true);
+        if (name.isEmpty() || email.isEmpty()) {
+            Toast.makeText(this, "Please fill in name and email", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        profileRef.set(updates)
-                .addOnSuccessListener(aVoid ->
-                        Toast.makeText(this, "Profile updated successfully!", Toast.LENGTH_SHORT).show())
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Failed to update: " + e.getMessage(), Toast.LENGTH_LONG).show());
+        // Update local profile
+        profile.setDisplayName(name);
+        profile.setEmail(email);
+        profile.setPhone(phone);
+        profile.setReceiveNotifications(notificationsEnabled);
+        profile.setEnableLocationService(locationEnabled);
+        profile.setLastLoginAt(new Date());
+
+        // Ensure profile has correct role class before saving
+        Profile profileToSave = ensureCorrectRoleClass(profile);
+
+        // Create final variable for lambda
+        final Profile finalProfileToSave = profileToSave;
+
+        // Save to Firestore
+        profileRef.set(profileToSave)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, "Profile updated successfully!", Toast.LENGTH_SHORT).show();
+
+                    // Update UI with new name and role
+                    String displayText = name;
+                    if (profile.getRole() != null && !profile.getRole().isEmpty()) {
+                        displayText += " (" + profile.getDisplayRole() + ")";
+                    }
+                    textUserName.setText(displayText);
+
+                    this.profile = finalProfileToSave;
+
+                    // Navigate to appropriate activity after profile completion
+                    if (profile.isProfileComplete()) {
+                        navigateToUserActivity();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to update: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
     }
 
-    /**
-     * Deletes the user's profile document from Firestore.
-     * <p>
-     * Displays a success or failure message depending on the result.
-     */
+    private Profile ensureCorrectRoleClass(Profile profile) {
+        if (userType == null) {
+            return profile;
+        }
+
+        // Check if profile is already the correct class
+        switch (userType.toLowerCase()) {
+            case "entrant":
+                if (profile instanceof Entrant) {
+                    return profile;
+                } else {
+                    return convertToEntrant(profile);
+                }
+            case "organizer":
+                if (profile instanceof Organizer) {
+                    return profile;
+                } else {
+                    return convertToOrganizer(profile);
+                }
+            default:
+                return profile;
+        }
+    }
+
     private void deleteAccount() {
         profileRef.delete()
-                .addOnSuccessListener(aVoid ->
-                        Toast.makeText(this, "Account deleted.", Toast.LENGTH_SHORT).show())
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Failed to delete: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, "Account deleted.", Toast.LENGTH_SHORT).show();
+                    // Go back to main activity
+                    Intent intent = new Intent(this, MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(intent);
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to delete: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+    }
+
+    private void navigateToUserActivity() {
+        Intent intent;
+
+        if (profile instanceof Entrant || "Entrant".equals(userType)) {
+            intent = new Intent(this, EntrantViewMain.class);
+            if (profile instanceof Entrant) {
+                intent.putExtra("entrant", (Entrant) profile);
+            } else {
+                intent.putExtra("entrant", convertToEntrant(profile));
+            }
+        } else if (profile instanceof Organizer || "Organizer".equals(userType)) {
+            intent = new Intent(this, OrganizerViewMain.class);
+            if (profile instanceof Organizer) {
+                intent.putExtra("organizer", (Organizer) profile);
+            } else {
+                intent.putExtra("organizer", convertToOrganizer(profile));
+            }
+        } else {
+            // Default fallback
+            intent = new Intent(this, MainActivity.class);
+            intent.putExtra("profile", profile);
+        }
+
+        startActivity(intent);
+        finish();
     }
 }
