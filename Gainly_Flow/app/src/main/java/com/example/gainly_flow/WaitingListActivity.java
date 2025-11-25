@@ -43,7 +43,6 @@ public class WaitingListActivity extends AppCompatActivity {
 
     // Action Buttons (now solid and stacked)
     private MaterialButton btnExportCsv;
-    private MaterialButton btnSendMessage;
     private MaterialButton btnViewMap;
 
     /**
@@ -83,7 +82,6 @@ public class WaitingListActivity extends AppCompatActivity {
 
         // 2. Initialize buttons
         btnExportCsv = findViewById(R.id.btn_export_csv);
-        btnSendMessage = findViewById(R.id.btn_send_message);
         btnViewMap = findViewById(R.id.btn_view_map);
 
         // 3. Setup RecyclerView
@@ -227,12 +225,6 @@ public class WaitingListActivity extends AppCompatActivity {
             // Implement CSV generation and download logic here.
         });
 
-        // Send Message Button Action
-        btnSendMessage.setOnClickListener(v -> {
-            // This button now features a message icon
-            Toast.makeText(WaitingListActivity.this, "Opening Message Composer...", Toast.LENGTH_SHORT).show();
-            // Implement logic to compose an SMS or in-app message to selected/all entrants.
-        });
 
         // View Map Button Action
         btnViewMap.setOnClickListener(v -> {

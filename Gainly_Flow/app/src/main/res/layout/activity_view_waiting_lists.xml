@@ -98,15 +98,6 @@
             android:textSize="16sp" />
 
         <!-- MODIFIED: Changed to solid Material Button style and set width to MATCH_PARENT. -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_send_message"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:text="Send Message"
-            android:textAllCaps="false"
-            android:textSize="16sp" />
 
         <!-- MODIFIED: Changed to solid Material Button style and set width to MATCH_PARENT. -->
         <com.google.android.material.button.MaterialButton
