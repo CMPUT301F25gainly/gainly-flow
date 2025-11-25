@@ -18,7 +18,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 public class NotificationsActivity extends AppCompatActivity {
 
@@ -33,9 +35,7 @@ public class NotificationsActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId;
     private String currentDeviceId;
-    private ListenerRegistration profileListener;
-    private Profile currentProfile;
-    private Entrant currentEntrant;
+    private ListenerRegistration notificationsListener;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -51,76 +51,48 @@ public class NotificationsActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recyclerViewNotifications);
         backButton = findViewById(R.id.backButton_notification);
 
-        // Create empty state text programmatically
         createEmptyStateView();
-
         db = FirebaseFirestore.getInstance();
-
-        // Get current user ID from intent or use device ID
         initializeUserData();
 
         backButton.setOnClickListener(v -> onBackPressed());
     }
 
     private void initializeUserData() {
-        // Try to get profile/entrant from intent first
-        currentEntrant = (Entrant) getIntent().getSerializableExtra("entrant");
-        if (currentEntrant != null) {
-            currentProfile = currentEntrant;
-            currentUserId = currentEntrant.getId();
-            currentDeviceId = currentEntrant.getDeviceId();
-            Log.d(TAG, "Loaded Entrant from intent: " + currentEntrant.getDisplayName());
-            return;
-        }
+        // Get device ID first
+        currentDeviceId = getCurrentDeviceId();
+        Log.d(TAG, "Device ID: " + currentDeviceId);
 
-        currentProfile = (Profile) getIntent().getSerializableExtra("profile");
-        if (currentProfile != null) {
-            currentUserId = currentProfile.getId();
-            currentDeviceId = currentProfile.getDeviceId();
-            Log.d(TAG, "Loaded Profile from intent: " + currentProfile.getDisplayName());
+        // Try to get user data from intent
+        currentUserId = getIntent().getStringExtra("userId");
+        if (currentUserId == null) {
+            Profile profile = (Profile) getIntent().getSerializableExtra("profile");
+            Entrant entrant = (Entrant) getIntent().getSerializableExtra("entrant");
 
-            // Convert to Entrant if needed
-            if (currentProfile instanceof Entrant) {
-                currentEntrant = (Entrant) currentProfile;
-            } else if ("Entrant".equals(currentProfile.getRole())) {
-                currentEntrant = convertProfileToEntrant(currentProfile);
+            if (entrant != null) {
+                currentUserId = entrant.getId();
+                Log.d(TAG, "Got user ID from entrant: " + currentUserId);
+            } else if (profile != null) {
+                currentUserId = profile.getId();
+                Log.d(TAG, "Got user ID from profile: " + currentUserId);
+            } else {
+                // Fallback: use device ID as user ID
+                currentUserId = currentDeviceId;
+                Log.d(TAG, "Using device ID as user ID: " + currentUserId);
             }
-        } else {
-            // Fallback to device ID
-            currentDeviceId = getCurrentDeviceId();
-            currentUserId = currentDeviceId; // Use device ID as user ID
-            Log.d(TAG, "Using device ID as user ID: " + currentDeviceId);
         }
 
-        Log.d(TAG, "Current user ID: " + currentUserId + ", Device ID: " + currentDeviceId);
+        Log.d(TAG, "Final User ID: " + currentUserId + ", Device ID: " + currentDeviceId);
     }
 
-    // Renamed to avoid conflict with ContextWrapper's getDeviceId()
     private String getCurrentDeviceId() {
-        // TODO: Replace with your actual device ID retrieval logic
-        // This should match what you use in MainActivity
         return Settings.Secure.getString(
                 getContentResolver(),
                 Settings.Secure.ANDROID_ID
         );
     }
 
-    private Entrant convertProfileToEntrant(Profile profile) {
-        Entrant entrant = new Entrant(profile.getId());
-        entrant.setDisplayName(profile.getDisplayName());
-        entrant.setEmail(profile.getEmail());
-        entrant.setPhone(profile.getPhone());
-        entrant.setRole("Entrant");
-        entrant.setDeviceId(profile.getDeviceId());
-        entrant.setCreatedAt(profile.getCreatedAt());
-        entrant.setLastLoginAt(profile.getLastLoginAt());
-        entrant.setReceiveNotifications(profile.isReceiveNotifications());
-        entrant.setEnableLocationService(profile.isEnableLocationService());
-        return entrant;
-    }
-
     private void createEmptyStateView() {
-        // Create empty state view programmatically
         emptyStateText = new TextView(this);
         emptyStateText.setId(View.generateViewId());
         emptyStateText.setLayoutParams(new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
@@ -134,7 +106,6 @@ public class NotificationsActivity extends AppCompatActivity {
         emptyStateText.setPadding(0, 32, 0, 32);
         emptyStateText.setVisibility(View.GONE);
 
-        // Add to constraint layout
         androidx.constraintlayout.widget.ConstraintLayout layout = findViewById(R.id.notificationLayout);
         androidx.constraintlayout.widget.ConstraintLayout.LayoutParams params =
                 (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) emptyStateText.getLayoutParams();
@@ -166,80 +137,214 @@ public class NotificationsActivity extends AppCompatActivity {
     }
 
     /**
-     * Load notifications from the profile's document in the profiles collection
+     * Load notifications from ALL possible sources
      */
     private void loadNotifications() {
         showLoading(true);
+        notificationList.clear();
 
-        // Use device ID as the document ID in the profiles collection
-        String documentId = currentDeviceId != null ? currentDeviceId : currentUserId;
+        Log.d(TAG, "Loading notifications for user: " + currentUserId);
 
-        if (documentId == null || documentId.isEmpty()) {
-            Toast.makeText(this, "Cannot load notifications: No user ID available", Toast.LENGTH_LONG).show();
-            showLoading(false);
-            return;
+        // Method 1: Load from global notifications collection
+        loadGlobalNotifications();
+
+        // Method 2: Load from user's profile document (using user ID)
+        loadUserProfileNotifications();
+
+        // Method 3: Load from device profile (using device ID) - for backward compatibility
+        if (currentDeviceId != null && !currentDeviceId.equals(currentUserId)) {
+            loadDeviceProfileNotifications();
         }
+    }
 
-        Log.d(TAG, "Loading notifications from profiles/" + documentId);
+    /**
+     * Load from global notifications collection where recipientId matches
+     */
+    private void loadGlobalNotifications() {
+        Log.d(TAG, "Loading from global notifications collection...");
 
-        // Listen to the profile document for real-time updates
-        profileListener = db.collection("profiles").document(documentId)
-                .addSnapshotListener((documentSnapshot, error) -> {
-                    showLoading(false);
+        db.collection("notifications")
+                .whereEqualTo("recipientId", currentUserId)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    Log.d(TAG, "Found " + queryDocumentSnapshots.size() + " global notifications");
 
-                    if (error != null) {
-                        Log.e(TAG, "Error loading profile data: " + error.getMessage());
-                        Toast.makeText(this, "Failed to load notifications", Toast.LENGTH_SHORT).show();
-                        return;
+                    for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                        try {
+                            NotificationItem notification = new NotificationItem(doc);
+                            if (!containsNotification(notificationList, notification)) {
+                                notificationList.add(notification);
+                                Log.d(TAG, "Added global notification: " + notification.getTitle());
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing global notification: " + e.getMessage());
+                        }
                     }
-
-                    if (documentSnapshot != null && documentSnapshot.exists()) {
-                        processProfileData(documentSnapshot);
-                    } else {
-                        Log.w(TAG, "Profile document not found: " + documentId);
-                        Toast.makeText(this, "User profile not found. Please complete your profile first.", Toast.LENGTH_LONG).show();
-                        showCustomEmptyState("Complete your profile to receive notifications");
-                    }
+                    updateNotificationsUI();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading global notifications: " + e.getMessage());
+                    updateNotificationsUI();
                 });
     }
 
-    private void processProfileData(DocumentSnapshot documentSnapshot) {
+    /**
+     * Load from user's profile document (using user ID as document ID)
+     */
+    private void loadUserProfileNotifications() {
+        if (currentUserId == null) {
+            Log.e(TAG, "Cannot load user profile notifications: user ID is null");
+            return;
+        }
+
+        Log.d(TAG, "Loading from user profile: " + currentUserId);
+
+        db.collection("profiles").document(currentUserId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        processProfileNotifications(documentSnapshot, "user profile");
+                    } else {
+                        Log.d(TAG, "User profile document not found: " + currentUserId);
+                    }
+                    updateNotificationsUI();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading user profile: " + e.getMessage());
+                    updateNotificationsUI();
+                });
+    }
+
+    /**
+     * Load from device profile (using device ID as document ID) - for backward compatibility
+     */
+    private void loadDeviceProfileNotifications() {
+        Log.d(TAG, "Loading from device profile: " + currentDeviceId);
+
+        db.collection("profiles").document(currentDeviceId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        processProfileNotifications(documentSnapshot, "device profile");
+                    } else {
+                        Log.d(TAG, "Device profile document not found: " + currentDeviceId);
+                    }
+                    updateNotificationsUI();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading device profile: " + e.getMessage());
+                    updateNotificationsUI();
+                });
+    }
+
+    private void processProfileNotifications(DocumentSnapshot documentSnapshot, String source) {
         try {
-            // Convert the document to appropriate class
-            Profile profile = DeviceIdManager.convertToRoleClass(documentSnapshot, "Entrant");
-            if (profile != null) {
-                this.currentProfile = profile;
+            if (documentSnapshot.contains("notifications")) {
+                Object notificationsObj = documentSnapshot.get("notifications");
 
-                // Get notifications from the profile
-                List<NotificationItem> profileNotifications = new ArrayList<>();
+                if (notificationsObj instanceof List) {
+                    List<Map<String, Object>> notificationsData = (List<Map<String, Object>>) notificationsObj;
+                    Log.d(TAG, "Found " + notificationsData.size() + " notifications in " + source);
 
-                if (profile instanceof Entrant) {
-                    currentEntrant = (Entrant) profile;
-                    profileNotifications = currentEntrant.getNotifications();
-                    Log.d(TAG, "Loaded Entrant with " + profileNotifications.size() + " notifications");
-                } else {
-                    // For base Profile class, we need to handle notifications differently
-                    // You might want to add notifications field to base Profile class
-                    Log.d(TAG, "Loaded base Profile, no notifications available");
-                    Toast.makeText(this, "Notification feature requires Entrant profile", Toast.LENGTH_SHORT).show();
+                    for (Map<String, Object> notificationData : notificationsData) {
+                        try {
+                            NotificationItem notification = convertMapToNotification(notificationData);
+                            if (notification != null && !containsNotification(notificationList, notification)) {
+                                notificationList.add(notification);
+                                Log.d(TAG, "Added profile notification from " + source + ": " + notification.getTitle());
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error converting notification data: " + e.getMessage());
+                        }
+                    }
                 }
-
-                notificationList.clear();
-                if (profileNotifications != null) {
-                    notificationList.addAll(profileNotifications);
-
-                    // Sort by timestamp (newest first)
-                    notificationList.sort((n1, n2) -> n2.getTimestamp().compareTo(n1.getTimestamp()));
-                }
-
-                Log.d(TAG, "Loaded " + notificationList.size() + " notifications");
-                updateEmptyState();
-                adapter.notifyDataSetChanged();
+            } else {
+                Log.d(TAG, "No notifications field in " + source);
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error processing profile data: " + e.getMessage());
-            Toast.makeText(this, "Error loading notifications", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Error processing " + source + " notifications: " + e.getMessage());
         }
+    }
+
+    private boolean containsNotification(List<NotificationItem> list, NotificationItem notification) {
+        for (NotificationItem item : list) {
+            if (item.getId() != null && item.getId().equals(notification.getId())) {
+                return true;
+            }
+            if (item.getTitle() != null && item.getTitle().equals(notification.getTitle()) &&
+                    item.getMessage() != null && item.getMessage().equals(notification.getMessage()) &&
+                    item.getTimestamp() != null && item.getTimestamp().equals(notification.getTimestamp())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private NotificationItem convertMapToNotification(Map<String, Object> data) {
+        try {
+            NotificationItem notification = new NotificationItem();
+
+            if (data.containsKey("id")) notification.setId((String) data.get("id"));
+            if (data.containsKey("title")) notification.setTitle((String) data.get("title"));
+            if (data.containsKey("message")) notification.setMessage((String) data.get("message"));
+            if (data.containsKey("description")) notification.setDescription((String) data.get("description"));
+            if (data.containsKey("eventId")) notification.setEventId((String) data.get("eventId"));
+            if (data.containsKey("eventName")) notification.setEventName((String) data.get("eventName"));
+            if (data.containsKey("type")) notification.setType((String) data.get("type"));
+            if (data.containsKey("recipientId")) notification.setRecipientId((String) data.get("recipientId"));
+
+            // Handle timestamp
+            if (data.containsKey("timestamp")) {
+                Object timestamp = data.get("timestamp");
+                if (timestamp instanceof com.google.firebase.Timestamp) {
+                    notification.setTimestamp(((com.google.firebase.Timestamp) timestamp).toDate());
+                } else if (timestamp instanceof Date) {
+                    notification.setTimestamp((Date) timestamp);
+                } else if (timestamp instanceof Long) {
+                    notification.setTimestamp(new Date((Long) timestamp));
+                }
+            }
+
+            // Handle boolean fields
+            if (data.containsKey("actionRequired")) {
+                Object actionReq = data.get("actionRequired");
+                if (actionReq instanceof Boolean) {
+                    notification.setActionRequired((Boolean) actionReq);
+                }
+            }
+
+            if (data.containsKey("isRead")) {
+                Object isRead = data.get("isRead");
+                if (isRead instanceof Boolean) {
+                    notification.setRead((Boolean) isRead);
+                }
+            }
+
+            return notification;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error converting map to notification: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void updateNotificationsUI() {
+        // Remove this check to allow UI updates from multiple sources
+        runOnUiThread(() -> {
+            // Sort by timestamp (newest first)
+            notificationList.sort((n1, n2) -> {
+                if (n1.getTimestamp() == null && n2.getTimestamp() == null) return 0;
+                if (n1.getTimestamp() == null) return 1;
+                if (n2.getTimestamp() == null) return -1;
+                return n2.getTimestamp().compareTo(n1.getTimestamp());
+            });
+
+            Log.d(TAG, "Total notifications loaded: " + notificationList.size());
+
+            updateEmptyState();
+            adapter.notifyDataSetChanged();
+            showLoading(false);
+        });
     }
 
     private void updateEmptyState() {
@@ -255,15 +360,6 @@ public class NotificationsActivity extends AppCompatActivity {
         }
     }
 
-    // Renamed method to avoid conflict
-    private void showCustomEmptyState(String message) {
-        if (emptyStateText != null) {
-            emptyStateText.setVisibility(View.VISIBLE);
-            emptyStateText.setText(message);
-            recyclerView.setVisibility(View.GONE);
-        }
-    }
-
     private void showLoading(boolean show) {
         if (emptyStateText != null) {
             if (show) {
@@ -271,46 +367,32 @@ public class NotificationsActivity extends AppCompatActivity {
                 emptyStateText.setText("Loading notifications...");
                 recyclerView.setVisibility(View.GONE);
             } else {
-                updateEmptyState(); // Let updateEmptyState handle the final state
+                updateEmptyState();
             }
         }
     }
 
-    /**
-     * Handle accept action for lottery win notifications
-     */
+    // ... rest of your methods (handleAcceptAction, handleDeclineAction, etc.) remain the same
     private void handleAcceptAction(NotificationItem item) {
         Log.d(TAG, "Accepting notification: " + item.getId());
-
         if (item.getType() != null && item.getType().equals(NotificationItem.NotificationType.WIN.name())) {
-            // Handle lottery win acceptance
             acceptLotteryWin(item);
         } else {
-            // Handle other types of accept actions
             markNotificationAsRead(item);
             Toast.makeText(this, "Accepted: " + item.getTitle(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    /**
-     * Handle decline action for lottery win notifications
-     */
     private void handleDeclineAction(NotificationItem item) {
         Log.d(TAG, "Declining notification: " + item.getId());
-
         if (item.getType() != null && item.getType().equals(NotificationItem.NotificationType.WIN.name())) {
-            // Handle lottery win decline
             declineLotteryWin(item);
         } else {
-            // Handle other types of decline actions
             markNotificationAsRead(item);
             Toast.makeText(this, "Declined: " + item.getTitle(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    /**
-     * Accept a lottery win - move user from selected to enrolled
-     */
     private void acceptLotteryWin(NotificationItem item) {
         if (item.getEventId() == null) {
             Toast.makeText(this, "Error: No event associated with this notification", Toast.LENGTH_SHORT).show();
@@ -323,7 +405,6 @@ public class NotificationsActivity extends AppCompatActivity {
             return;
         }
 
-        // Update event in Firestore - move user from selected to enrolled
         db.collection("events").document(item.getEventId())
                 .update(
                         "selected", com.google.firebase.firestore.FieldValue.arrayRemove(userId),
@@ -332,14 +413,6 @@ public class NotificationsActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     markNotificationAsRead(item);
                     Toast.makeText(this, "Successfully enrolled in " + item.getEventName(), Toast.LENGTH_LONG).show();
-                    Log.d(TAG, "User enrolled in event: " + item.getEventId());
-
-                    // Remove from pending invitations if this is an Entrant
-                    if (currentEntrant != null) {
-                        removeFromPendingInvitations(item.getEventId());
-                    }
-
-                    // Remove action buttons since decision is made
                     item.setActionRequired(false);
                     adapter.notifyItemChanged(notificationList.indexOf(item));
                 })
@@ -349,9 +422,6 @@ public class NotificationsActivity extends AppCompatActivity {
                 });
     }
 
-    /**
-     * Decline a lottery win - move user from selected to cancelled
-     */
     private void declineLotteryWin(NotificationItem item) {
         if (item.getEventId() == null) {
             Toast.makeText(this, "Error: No event associated with this notification", Toast.LENGTH_SHORT).show();
@@ -364,7 +434,6 @@ public class NotificationsActivity extends AppCompatActivity {
             return;
         }
 
-        // Update event in Firestore - move user from selected to cancelled
         db.collection("events").document(item.getEventId())
                 .update(
                         "selected", com.google.firebase.firestore.FieldValue.arrayRemove(userId),
@@ -373,18 +442,8 @@ public class NotificationsActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     markNotificationAsRead(item);
                     Toast.makeText(this, "Declined spot for " + item.getEventName(), Toast.LENGTH_LONG).show();
-                    Log.d(TAG, "User declined event: " + item.getEventId());
-
-                    // Remove from pending invitations if this is an Entrant
-                    if (currentEntrant != null) {
-                        removeFromPendingInvitations(item.getEventId());
-                    }
-
-                    // Remove action buttons since decision is made
                     item.setActionRequired(false);
                     adapter.notifyItemChanged(notificationList.indexOf(item));
-
-                    // The LotterySystem will automatically draw a replacement
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to decline lottery win: " + e.getMessage());
@@ -392,59 +451,24 @@ public class NotificationsActivity extends AppCompatActivity {
                 });
     }
 
-    /**
-     * Remove event from entrant's pending invitations
-     */
-    private void removeFromPendingInvitations(String eventId) {
-        if (currentDeviceId == null) return;
-
-        db.collection("profiles").document(currentDeviceId)
-                .update("pendingInvitations", com.google.firebase.firestore.FieldValue.arrayRemove(eventId))
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Removed from pending invitations: " + eventId);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to remove from pending invitations: " + e.getMessage());
-                });
-    }
-
-    /**
-     * Mark notification as read in the profile's document
-     */
     private void markNotificationAsRead(NotificationItem item) {
-        if (currentDeviceId == null) return;
-
-        // Update the specific notification in the list
         item.setRead(true);
         item.setActionRequired(false);
-
-        // Update the entire notifications list in Firestore
-        db.collection("profiles").document(currentDeviceId)
-                .update("notifications", notificationList)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Notifications marked as read and updated");
-                    adapter.notifyDataSetChanged();
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to update notifications: " + e.getMessage());
-                });
+        adapter.notifyDataSetChanged();
+        Log.d(TAG, "Notification marked as read: " + item.getId());
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Remove the Firestore listener to prevent memory leaks
-        if (profileListener != null) {
-            profileListener.remove();
+        if (notificationsListener != null) {
+            notificationsListener.remove();
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh notifications when activity resumes
-        if (currentDeviceId != null || currentUserId != null) {
-            loadNotifications();
-        }
+        loadNotifications();
     }
 }
