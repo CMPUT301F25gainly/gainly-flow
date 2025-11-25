@@ -1,5 +1,7 @@
 package com.example.gainly_flow;
 
+import static android.content.ContentValues.TAG;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -328,26 +330,68 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void sendNotificationsToUsers(List<String> userIds, String message, String recipientGroup) {
-        NotificationManager notificationManager = new NotificationManager();
-
-        // Create notification for each user
         for (String userId : userIds) {
-            NotificationItem notification = new NotificationItem(
-                    "Message from " + currentEvent.getName(),
-                    message,
-                    NotificationItem.NotificationType.INFO.name(),
-                    userId,
-                    currentEvent.getId(),
-                    currentEvent.getName()
-            );
-            saveNotificationToFirestore(notification);
-        }
+            // Save to global notifications collection
+            saveNotificationToGlobalCollection(userId, message);
 
-        // Also use the existing NotificationManager
-        notificationManager.notifySelected(userIds, currentEvent.getId());
+            // Also save to user's profile if needed
+            saveNotificationToUserProfile(userId, message);
+        }
 
         String toastMessage = String.format("Notification sent to %s (%d users)", recipientGroup, userIds.size());
         Toast.makeText(this, toastMessage, Toast.LENGTH_LONG).show();
+    }
+
+    private void saveNotificationToGlobalCollection(String userId, String message) {
+        String notificationId = db.collection("notifications").document().getId();
+
+        Map<String, Object> notificationData = new HashMap<>();
+        notificationData.put("id", notificationId);
+        notificationData.put("title", "Message from " + currentEvent.getName());
+        notificationData.put("message", message);
+        notificationData.put("type", NotificationItem.NotificationType.INFO.name());
+        notificationData.put("recipientId", userId);
+        notificationData.put("eventId", currentEvent.getId());
+        notificationData.put("eventName", currentEvent.getName());
+        notificationData.put("timestamp", com.google.firebase.Timestamp.now());
+        notificationData.put("actionRequired", false);
+        notificationData.put("isRead", false);
+
+        db.collection("notifications").document(notificationId)
+                .set(notificationData)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Notification saved to global collection"))
+                .addOnFailureListener(e -> Log.e(TAG, "Failed to save notification: " + e.getMessage()));
+    }
+
+    private void saveNotificationToUserProfile(String userId, String message) {
+        // This adds the notification to the user's profile document
+        NotificationItem notification = new NotificationItem(
+                "Message from " + currentEvent.getName(),
+                message,
+                NotificationItem.NotificationType.INFO.name(),
+                userId,
+                currentEvent.getId(),
+                currentEvent.getName()
+        );
+
+        // Convert to map
+        Map<String, Object> notificationMap = new HashMap<>();
+        notificationMap.put("id", notification.getId());
+        notificationMap.put("title", notification.getTitle());
+        notificationMap.put("message", notification.getMessage());
+        notificationMap.put("type", notification.getType());
+        notificationMap.put("recipientId", notification.getRecipientId());
+        notificationMap.put("eventId", notification.getEventId());
+        notificationMap.put("eventName", notification.getEventName());
+        notificationMap.put("timestamp", com.google.firebase.Timestamp.now());
+        notificationMap.put("actionRequired", notification.isActionRequired());
+        notificationMap.put("isRead", notification.isRead());
+
+        // Add to user's profile notifications array
+        db.collection("profiles").document(userId) // Using userId as document ID
+                .update("notifications", com.google.firebase.firestore.FieldValue.arrayUnion(notificationMap))
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Notification added to user profile"))
+                .addOnFailureListener(e -> Log.e(TAG, "Failed to add notification to profile: " + e.getMessage()));
     }
 
     private void saveNotificationToFirestore(NotificationItem notification) {
