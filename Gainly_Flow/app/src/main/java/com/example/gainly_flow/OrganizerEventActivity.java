@@ -192,9 +192,9 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
     // Quick Actions Methods
     private void viewWaitingList() {
-        Intent intent = new Intent(this, WaitingListActivity.class);
-        intent.putExtra("event_id", eventId);
-        intent.putExtra("event_name", currentEvent.getName());
+        // Use the helper so the key matches EXTRA_EVENT_ID
+        Intent intent = WaitingListActivity.newIntent(this, eventId);
+        intent.putExtra("event_name", currentEvent.getName()); // optional, keep if you use it
         startActivity(intent);
     }
 

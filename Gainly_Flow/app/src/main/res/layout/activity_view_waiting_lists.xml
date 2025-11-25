@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layout_organizer_view_entrants"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    tools:context=".organizer.ViewEntrantListsActivity">
+
+    <!-- Purple top bar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar_entrant_lists"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorPrimary"
+        android:theme="@style/ThemeOverlay.MaterialComponents.ActionBar"
+        app:title="Waiting Lists"
+        app:titleTextColor="@android:color/white"
+        app:navigationIcon="@drawable/ic_arrow_back_24"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Event name / subtitle -->
+    <TextView
+        android:id="@+id/text_event_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="2dp"
+        android:text="Swimming Lessons • Entrants"
+        android:textColor="#666666"
+        android:textSize="14sp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar_entrant_lists"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Tabs: Selected / Enrolled / Cancelled / Waiting -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tab_status"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        app:tabMode="scrollable"
+        app:tabIndicatorColor="?attr/colorPrimary"
+        app:tabSelectedTextColor="?attr/colorPrimary"
+        app:tabTextColor="#808080"
+        app:layout_constraintTop_toBottomOf="@id/text_event_name"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/tab_selected"
+            android:text="Selected (0)" />
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/tab_enrolled"
+            android:text="Enrolled (0)" />
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/tab_cancelled"
+            android:text="Cancelled (0)" />
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/tab_waiting"
+            android:text="Waiting (0)" />
+    </com.google.android.material.tabs.TabLayout>
+
+    <!-- Actions row: Export CSV / Send Message / View Map -->
+    <!-- MODIFIED: Changed to vertical orientation to stack buttons like in the screenshot. -->
+    <LinearLayout
+        android:id="@+id/layout_actions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
+        app:layout_constraintTop_toBottomOf="@id/tab_status"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- MODIFIED: Changed to solid Material Button style and set width to MATCH_PARENT for full width. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_export_csv"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Export CSV"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+
+        <!-- MODIFIED: Changed to solid Material Button style and set width to MATCH_PARENT. -->
+
+        <!-- MODIFIED: Changed to solid Material Button style and set width to MATCH_PARENT. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_view_map"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="View Map"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+
+    <!-- Entrant list for the currently selected tab -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_entrants"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:clipToPadding="false"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintTop_toBottomOf="@id/layout_actions"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:listitem="@layout/item_entrant" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
