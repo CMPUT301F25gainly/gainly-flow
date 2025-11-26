@@ -104,7 +104,6 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
     private void loadEventsFromFirebase() {
         FirebaseFirestore.getInstance()
                 .collection("events")
-                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     eventListContainer.removeAllViews();
@@ -120,30 +119,12 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String id = doc.getString("id");
-                        if (id == null) continue;
+                        if (id == null) id = doc.getId();
 
                         Event e = new Event(id);
-                        e.setName(doc.getString("name"));
-                        e.setDescription(doc.getString("description"));
 
-                        Long capacity = null;
-                        try {
-                            Number capNum = (Number) doc.get("capacity");
-                            if (capNum != null) capacity = capNum.longValue();
-                        } catch (Exception ignored) {}
-                        if (capacity != null) e.setCapacity(capacity.intValue());
-
-                        e.setGeolocationRequired(Boolean.TRUE.equals(doc.getBoolean("geolocationRequired")));
-                        e.setPosterImageId(doc.getString("posterUri"));
-
-                        Long regOpen = doc.getLong("registrationOpen");
-                        Long regClose = doc.getLong("registrationClose");
-                        if (regOpen != null || regClose != null) {
-                            e.setRegistrationPeriod(
-                                    regOpen == null ? null : new Date(regOpen),
-                                    regClose == null ? null : new Date(regClose)
-                            );
-                        }
+                        // Use the fromDocument method for proper parsing
+                        e.fromDocument(doc);
 
                         addEventCard(e);
                     }

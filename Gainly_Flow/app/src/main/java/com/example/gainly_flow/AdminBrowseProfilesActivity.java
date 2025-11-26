@@ -118,12 +118,12 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
                     // Create Profile objects and add cards for each
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String id = doc.getId();
-                        String name = doc.getString("name");
+                        String displayName = doc.getString("displayName");
                         String email = doc.getString("email");
                         String role = doc.getString("role");
 
                         Profile p = new Profile(id, null, null);
-                        p.setDisplayName(name);
+                        p.setDisplayName(displayName);
                         p.setEmail(email);
                         p.setRole(role);
 
