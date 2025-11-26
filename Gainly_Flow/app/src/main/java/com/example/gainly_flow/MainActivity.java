@@ -55,7 +55,8 @@ public class MainActivity extends AppCompatActivity {
             startActivity(toProfile);
         } else {
             // Existing complete profile, proceed to Entrant view
-            Intent toEntrant = new Intent(MainActivity.this, EntrantViewMain.class);
+//            Intent toEntrant = new Intent(MainActivity.this, EntrantViewMain.class);
+            Intent toEntrant = new Intent(MainActivity.this, EntrantOrganizerViewMain.class);
 
             // If profile is actually an Entrant instance, use it directly
             if (profile instanceof Entrant) {

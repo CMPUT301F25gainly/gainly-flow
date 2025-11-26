@@ -49,6 +49,9 @@
             android:name=".WaitingListActivity"
             android:exported="false" />
         <activity
+            android:name=".EntrantOrganizerViewMain"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
