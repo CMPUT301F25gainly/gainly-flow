@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -12,6 +14,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gainly_Flow">
+
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyA4YgP-wM-k5NNmVI63PYjuepfOZXNpsCQ" />
+
         <activity
             android:name=".AdminMainActivity"
             android:exported="false" />
@@ -31,6 +39,9 @@
             android:exported="false" />
         <activity
             android:name=".OrganizerViewMain"
+            android:exported="false" />
+        <activity
+            android:name=".EntrantLocationMapActivity"
             android:exported="false" />
 
         <activity android:name=".QRCodeScanner"

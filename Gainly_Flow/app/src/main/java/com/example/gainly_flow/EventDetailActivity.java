@@ -1,5 +1,7 @@
 package com.example.gainly_flow;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -12,6 +14,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -29,6 +33,7 @@ import com.google.firebase.storage.StorageReference;
 public class EventDetailActivity extends AppCompatActivity {
 
     private static final String TAG = "EventDetailActivity";
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
 
     private TextView tvEntrants, tvAvailable, titleEvent, eventStatus, locationEvent;
     private TextView eventDuration, registrationOpen, registrationClose, eventTime;
@@ -317,6 +322,11 @@ public class EventDetailActivity extends AppCompatActivity {
 
                     // Add event to user's history
                     addEventToUserHistory();
+
+                    // Save location if geolocation is enabled for this event
+                    if (event.isGeolocationRequired()) {
+                        saveJoinLocation();
+                    }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to join waiting list: " + e.getMessage());
@@ -427,6 +437,42 @@ public class EventDetailActivity extends AppCompatActivity {
         // TODO: Implement QR code sharing
         // This would use Android's share intent to share the QR code image or event link
         Toast.makeText(this, "Share QR feature coming soon", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Saves the user's current location when they join the waiting list.
+     * This location data will be displayed on a map for the organizer.
+     * Only called if geolocation is enabled for this event.
+     */
+    private void saveJoinLocation() {
+        // Fetch user's display name from their profile
+        db.collection("profiles").document(currentUserId).get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    String entrantName = "Unknown User";
+                    if (documentSnapshot.exists()) {
+                        Profile profile = documentSnapshot.toObject(Profile.class);
+                        if (profile != null && profile.getDisplayName() != null) {
+                            entrantName = profile.getDisplayName();
+                        }
+                    }
+
+                    // Save location using LocationHelper
+                    LocationHelper.saveJoinLocation(
+                            EventDetailActivity.this,
+                            eventId,
+                            currentUserId,
+                            entrantName
+                    );
+                })
+                .addOnFailureListener(e -> {
+                    // Even if we can't get the name, save the location with user ID
+                    LocationHelper.saveJoinLocation(
+                            EventDetailActivity.this,
+                            eventId,
+                            currentUserId,
+                            "User " + currentUserId
+                    );
+                });
     }
 
 }

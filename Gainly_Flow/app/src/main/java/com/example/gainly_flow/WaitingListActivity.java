@@ -299,14 +299,16 @@ public class WaitingListActivity extends AppCompatActivity {
         // Export CSV Button Action
         btnExportCsv.setOnClickListener(v -> exportCurrentTabToCsv());
 
-        // View Map Button Action
+        // View Map Button Action - Shows where entrants joined the waiting list from
         btnViewMap.setOnClickListener(v -> {
-            // This button now features a map icon
-            if (currentEvent != null && currentEvent.getLocation() != null) {
-                Toast.makeText(WaitingListActivity.this, "Showing Event Location: " + currentEvent.getLocation(), Toast.LENGTH_LONG).show();
-                // Implement logic to start a Map Activity (e.g., Google Maps Intent)
+            if (currentEvent != null) {
+                // Launch the EntrantLocationMapActivity to show entrant locations
+                Intent mapIntent = new Intent(WaitingListActivity.this, EntrantLocationMapActivity.class);
+                mapIntent.putExtra("event_id", eventId);
+                mapIntent.putExtra("event_name", currentEvent.getName());
+                startActivity(mapIntent);
             } else {
-                Toast.makeText(WaitingListActivity.this, "Map functionality disabled or location not set.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(WaitingListActivity.this, "Event not loaded yet.", Toast.LENGTH_SHORT).show();
             }
         });
     }
