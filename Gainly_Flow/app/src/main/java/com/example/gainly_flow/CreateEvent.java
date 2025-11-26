@@ -36,6 +36,10 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.UUID;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import android.net.Uri;
+
 public class CreateEvent extends AppCompatActivity {
 
     // UI Components
@@ -55,9 +59,22 @@ public class CreateEvent extends AppCompatActivity {
     // Current user/organizer
     private String currentOrganizerId;
 
+    // Image Upload
+    private Uri selectedImageUri;
+    private ImageManager imageManager;
+    private ActivityResultLauncher<String> imagePickerLauncher;
+
     // Formats
-    private final SimpleDateFormat dateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
-    private final SimpleDateFormat firestoreDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+    private final SimpleDateFormat dateFmt;
+    private final SimpleDateFormat firestoreDateFormat;
+
+    {
+        dateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+        dateFmt.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+
+        firestoreDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        firestoreDateFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +88,9 @@ public class CreateEvent extends AppCompatActivity {
         // Get current organizer ID (you'll need to set this from your login system)
         currentOrganizerId = getCurrentOrganizerId();
 
+        imageManager = new ImageManager();
+        setupImagePicker();
+
         bindViews();
         applyEdgeToEdgeInsets();
         setupCategoryDropdown();
@@ -81,10 +101,41 @@ public class CreateEvent extends AppCompatActivity {
         setupFormValidation();
     }
 
+    private void setupImagePicker() {
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        selectedImageUri = uri;
+                        posterPreview.setImageURI(uri);
+                        posterPreview.setVisibility(View.VISIBLE);
+                        uploadIcon.setVisibility(View.GONE);
+                        uploadText.setVisibility(View.GONE);
+                        uploadSubtext.setVisibility(View.GONE);
+                    }
+                }
+        );
+    }
+
     private String getCurrentOrganizerId() {
-        // TODO: Replace with your actual organizer ID retrieval logic
-        // This could come from SharedPreferences, Intent extras, or your authentication system
-        return "org_" + UUID.randomUUID().toString().substring(0, 8); // Temporary for testing
+        return android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+    }
+
+    // ... (rest of the file)
+
+    private void updateOrganizerEvents(String eventId) {
+        if (currentOrganizerId == null) return;
+
+        // Use set with merge to create the document if it doesn't exist
+        HashMap<String, Object> data = new HashMap<>();
+        data.put("createdEvents", com.google.firebase.firestore.FieldValue.arrayUnion(eventId));
+
+        db.collection("profiles")
+                .document(currentOrganizerId)
+                .set(data, SetOptions.merge())
+                .addOnFailureListener(e -> {
+                    Log.e("CreateEvent", "Failed to update organizer events: " + e.getMessage());
+                });
     }
 
     private void bindViews() {
@@ -208,9 +259,7 @@ public class CreateEvent extends AppCompatActivity {
 
     private void wireUploadArea() {
         uploadCard.setOnClickListener(v -> {
-            // TODO: Implement image upload from device
-            // For now, show a toast message
-            Toast.makeText(this, "Image upload functionality to be implemented", Toast.LENGTH_SHORT).show();
+            imagePickerLauncher.launch("image/*");
         });
     }
 
@@ -327,7 +376,23 @@ public class CreateEvent extends AppCompatActivity {
         }
 
         // Save to Firestore
-        saveEventToFirestore(event);
+        if (selectedImageUri != null) {
+            // Upload image first
+            Toast.makeText(this, "Uploading poster...", Toast.LENGTH_SHORT).show();
+            saveEventButton.setEnabled(false); // Prevent double submission
+
+            imageManager.uploadPoster(selectedImageUri,
+                    imageId -> {
+                        event.setPosterImageId(imageId);
+                        saveEventToFirestore(event);
+                    },
+                    e -> {
+                        saveEventButton.setEnabled(true);
+                        Toast.makeText(this, "Failed to upload poster: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+        } else {
+            saveEventToFirestore(event);
+        }
     }
 
     private void saveEventToFirestore(Event event) {
@@ -400,16 +465,7 @@ public class CreateEvent extends AppCompatActivity {
                 });
     }
 
-    private void updateOrganizerEvents(String eventId) {
-        if (currentOrganizerId == null) return;
 
-        db.collection("profiles")
-                .document(currentOrganizerId)
-                .update("createdEvents", com.google.firebase.firestore.FieldValue.arrayUnion(eventId))
-                .addOnFailureListener(e -> {
-                    Log.e("CreateEvent", "Failed to update organizer events: " + e.getMessage());
-                });
-    }
 
     private void updateQrUrlInFirestore(String eventId, String qrUrl) {
         HashMap<String, Object> updateData = new HashMap<>();

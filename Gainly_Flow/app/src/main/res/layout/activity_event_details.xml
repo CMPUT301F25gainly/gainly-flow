@@ -14,9 +14,17 @@
         <!-- Top Banner -->
         <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:background="@drawable/blue_gradient_bg"
-            android:padding="16dp">
+            android:layout_height="250dp"
+            android:background="@drawable/blue_gradient_bg">
+
+            <!-- Event Poster -->
+            <ImageView
+                android:id="@+id/event_poster_image"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:contentDescription="Event Poster"
+                android:visibility="gone" />
 
             <!-- Back Button -->
             <ImageView
@@ -24,8 +32,8 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_alignParentStart="true"
-                android:layout_marginTop="8dp"
-                android:layout_marginStart="8dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginStart="16dp"
                 android:src="@drawable/ic_arrow_back_24"
                 android:contentDescription="Back"
                 app:tint="@android:color/white" />
@@ -35,8 +43,8 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:layout_alignParentEnd="true"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="8dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="16dp"
                 android:src="@drawable/ic_qr_code_scan"
                 android:contentDescription="QR Code Icon" />
 
