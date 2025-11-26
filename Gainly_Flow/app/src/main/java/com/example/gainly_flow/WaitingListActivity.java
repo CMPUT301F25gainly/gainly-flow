@@ -19,6 +19,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -191,26 +192,103 @@ public class WaitingListActivity extends AppCompatActivity {
     private void updateEntrantList(List<String> entrantIds, String status) {
         if (entrantIds == null || entrantIds.isEmpty()) {
             entrantsAdapter.setEntrants(new ArrayList<>());
-            Toast.makeText(this, "No entrants found for status: " + status, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,
+                    "No entrants found for status: " + status,
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // In a real app, you would fetch all Entrant objects based on IDs.
-        // MODIFIED: We are now using the constructor Entrant(id, name, email, phone) for mocking.
+        List<Entrant> mockEntrants = buildMockEntrants(entrantIds);
+        entrantsAdapter.setEntrants(mockEntrants);
+
+        Toast.makeText(this,
+                "Displaying " + mockEntrants.size() + " " + status + " entrants.",
+                Toast.LENGTH_SHORT).show();
+    }
+
+
+    /**
+     * Build mock Entrant objects from their IDs.
+     * In a real app you would load entrants from Firestore instead.
+     */
+    private List<Entrant> buildMockEntrants(List<String> entrantIds) {
         List<Entrant> mockEntrants = new ArrayList<>();
+        if (entrantIds == null) return mockEntrants;
+
         for (int i = 0; i < entrantIds.size(); i++) {
             String id = entrantIds.get(i);
-            // Mocking data using the Entrant constructor: new Entrant(id, name, email, phone)
             String mockName = "Entrant User " + id.substring(0, 4);
             String mockEmail = id.substring(0, 4) + "@example.com";
-            String mockPhone = "555-010" + (i + 1); // Ensure unique phone number for mock data
+            String mockPhone = "555-010" + (i + 1);
 
             Entrant mockEntrant = new Entrant(id, mockName, mockEmail, mockPhone);
             mockEntrants.add(mockEntrant);
         }
+        return mockEntrants;
+    }
 
-        entrantsAdapter.setEntrants(mockEntrants);
-        Toast.makeText(this, "Displaying " + mockEntrants.size() + " " + status + " entrants.", Toast.LENGTH_SHORT).show();
+    /**
+     * Export the entrants for the currently selected tab (Selected / Enrolled / Cancelled / Waiting)
+     * to a CSV file using CSVExporter.
+     */
+    private void exportCurrentTabToCsv() {
+        if (currentEvent == null) {
+            Toast.makeText(this,
+                    "Event not loaded yet – please try again.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int position = tabStatus.getSelectedTabPosition();
+        List<String> entrantIds;
+        String statusLabel;
+
+        switch (position) {
+            case 0: // Selected
+                entrantIds = currentEvent.getSelected();
+                statusLabel = "Selected";
+                break;
+            case 1: // Enrolled
+                entrantIds = currentEvent.getEnrolled();
+                statusLabel = "Enrolled";
+                break;
+            case 2: // Cancelled
+                entrantIds = currentEvent.getCancelled();
+                statusLabel = "Cancelled";
+                break;
+            case 3: // Waiting
+            default:
+                entrantIds = currentEvent.getWaitingList();
+                statusLabel = "Waiting";
+                break;
+        }
+
+        if (entrantIds == null || entrantIds.isEmpty()) {
+            Toast.makeText(this,
+                    "No " + statusLabel.toLowerCase() + " entrants to export.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Build the same mock entrants used for display
+        List<Entrant> entrants = buildMockEntrants(entrantIds);
+
+        CSVExporter exporter = new CSVExporter();
+        File csvFile = exporter.exportEntrants(
+                this,
+                currentEvent.getName() + "_" + statusLabel,
+                entrants
+        );
+
+        if (csvFile != null) {
+            Toast.makeText(this,
+                    "CSV exported to:\n" + csvFile.getAbsolutePath(),
+                    Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this,
+                    "Failed to export CSV.",
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
 
@@ -219,12 +297,7 @@ public class WaitingListActivity extends AppCompatActivity {
      */
     private void setupActionListeners() {
         // Export CSV Button Action
-        btnExportCsv.setOnClickListener(v -> {
-            // This button now features a download icon
-            Toast.makeText(WaitingListActivity.this, "Exporting All Entrant Data to CSV...", Toast.LENGTH_SHORT).show();
-            // Implement CSV generation and download logic here.
-        });
-
+        btnExportCsv.setOnClickListener(v -> exportCurrentTabToCsv());
 
         // View Map Button Action
         btnViewMap.setOnClickListener(v -> {
