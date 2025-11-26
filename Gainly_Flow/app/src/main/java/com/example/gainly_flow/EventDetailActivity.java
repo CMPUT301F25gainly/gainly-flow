@@ -23,6 +23,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import com.bumptech.glide.Glide;
+import com.google.firebase.storage.StorageReference;
+
 public class EventDetailActivity extends AppCompatActivity {
 
     private static final String TAG = "EventDetailActivity";
@@ -30,7 +33,7 @@ public class EventDetailActivity extends AppCompatActivity {
     private TextView tvEntrants, tvAvailable, titleEvent, eventStatus, locationEvent;
     private TextView eventDuration, registrationOpen, registrationClose, eventTime;
     private TextView eventDescription, eventLocationDetail, eventPrice, geolocationInfo;
-    private ImageView backButton, qrCodeImage;
+    private ImageView backButton, qrCodeImage, eventPosterImage;
     private LinearLayout qrSection;
     private Button btnJoin, btnLeave, btnShareQr, btnViewWaitingList;
 
@@ -89,6 +92,7 @@ public class EventDetailActivity extends AppCompatActivity {
         backButton = findViewById(R.id.back_button_event_detail);
         qrSection = findViewById(R.id.qr_section);
         qrCodeImage = findViewById(R.id.qr_code_image);
+        eventPosterImage = findViewById(R.id.event_poster_image);
 
         btnJoin = findViewById(R.id.btnJoin);
         btnLeave = findViewById(R.id.btnLeave);
@@ -164,6 +168,28 @@ public class EventDetailActivity extends AppCompatActivity {
 
         // QR Code
         updateQrCode();
+
+        // Poster
+        updatePoster();
+    }
+
+    private void updatePoster() {
+        if (event == null || event.getPosterImageId() == null || event.getPosterImageId().isEmpty()) {
+            eventPosterImage.setVisibility(View.GONE);
+            return;
+        }
+
+        ImageManager imageManager = new ImageManager();
+        StorageReference posterRef = imageManager.getPosterReference(event.getPosterImageId());
+
+        if (posterRef != null) {
+            eventPosterImage.setVisibility(View.VISIBLE);
+            Glide.with(this)
+                    .load(posterRef)
+                    .centerCrop()
+                    .placeholder(R.drawable.blue_gradient_bg) // Use gradient as placeholder
+                    .into(eventPosterImage);
+        }
     }
 
     private void updateRegistrationStatus() {
