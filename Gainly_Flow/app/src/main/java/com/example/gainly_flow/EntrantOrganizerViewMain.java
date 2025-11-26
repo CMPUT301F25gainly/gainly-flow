@@ -228,6 +228,13 @@ public class EntrantOrganizerViewMain extends AppCompatActivity {
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         Log.d(TAG, "Doc " + doc.getId() + ": " + doc.getData());
 
+                        // If this event was organized by me, skip it in ENTRANT mode
+                        String eventOrganizerId = doc.getString("organizerId");
+                        boolean isMyEvent = currentOrganizerId != null && currentOrganizerId.equals(eventOrganizerId);
+                        if (isMyEvent) {
+                            continue; // don't show my own events when browsing as entrant
+                        }
+
                         Event event = createEventFromDocument(doc);
                         addEventToView(event);
                     }
@@ -445,15 +452,18 @@ public class EntrantOrganizerViewMain extends AppCompatActivity {
     // -----------------------
 
     private String getCurrentOrganizerId() {
-        // TODO: Replace with your actual organizer ID retrieval logic
-        String organizerId = "org_default";
+        // Prefer deviceId, since that is what you use as the profile doc ID
+        if (currentProfile != null) {
+            if (currentProfile.getDeviceId() != null && !currentProfile.getDeviceId().isEmpty()) {
+                return currentProfile.getDeviceId();
+            }
+            if (currentProfile.getId() != null && !currentProfile.getId().isEmpty()) {
+                return currentProfile.getId();
+            }
+        }
 
-        // If you need to get from Intent extras:
-        // if (getIntent() != null && getIntent().hasExtra("organizer_id")) {
-        //     organizerId = getIntent().getStringExtra("organizer_id");
-        // }
-
-        return organizerId;
+        Log.w(TAG, "getCurrentOrganizerId: no profile/device id, falling back to org_default");
+        return "org_default";
     }
 
     private void loadAllEvents() {
@@ -470,15 +480,22 @@ public class EntrantOrganizerViewMain extends AppCompatActivity {
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         try {
+                            String eventOrganizerId = doc.getString("organizerId");
+                            boolean isMyEvent = currentOrganizerId != null && currentOrganizerId.equals(eventOrganizerId);
+
+                            // In ORGANIZER mode we only care about events that I organized
+                            if (!isMyEvent) {
+                                continue;
+                            }
+
                             Event event = new Event();
                             event.fromDocument(doc);
                             events.add(event);
 
-                            String eventOrganizerId = doc.getString("organizerId");
                             Log.d(TAG, "Loaded event: " + event.getName() +
                                     " (Organizer: " + eventOrganizerId +
                                     ", Current Organizer: " + currentOrganizerId +
-                                    ", Is Mine: " + currentOrganizerId.equals(eventOrganizerId) + ")");
+                                    ", Is Mine: " + isMyEvent + ")");
                         } catch (Exception e) {
                             Log.e(TAG, "Error parsing event document: " + e.getMessage());
                         }
