@@ -32,23 +32,54 @@
             app:tint="@android:color/white"
             android:layout_marginEnd="16dp" />
 
-        <TextView
-            android:id="@+id/titleText"
-            android:layout_width="wrap_content"
+        <RelativeLayout
+            android:id="@+id/titleRow"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Event Lottery"
-            android:textColor="@android:color/white"
-            android:textStyle="bold"
-            android:textSize="22sp" />
+            android:layout_marginTop="8dp">
 
-        <TextView
-            android:id="@+id/subtitleText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Find your next adventure"
-            android:textColor="@android:color/white"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Event Lottery"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textSize="22sp"
+                android:layout_alignParentStart="true"/>
+
+            <TextView
+                android:id="@+id/subtitleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Find your next adventure"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:layout_below="@id/titleText"
+                android:layout_alignParentStart="true"
+                android:layout_marginTop="4dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/eventHistoryButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Event History"
+                android:textAllCaps="false"
+                android:textSize="12sp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:textColor="@color/blue_500"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_history"
+                app:iconSize="16dp"
+                app:iconPadding="4dp"
+                app:iconTint="@color/blue_500"
+                app:backgroundTint="@android:color/white"
+                app:strokeColor="@android:color/transparent"
+                app:strokeWidth="0dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"/>
+        </RelativeLayout>
     </LinearLayout>
 
     <!-- Browse Events Button -->

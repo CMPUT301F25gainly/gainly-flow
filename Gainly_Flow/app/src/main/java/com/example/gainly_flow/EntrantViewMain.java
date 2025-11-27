@@ -30,7 +30,7 @@ import java.util.Locale;
  */
 public class EntrantViewMain extends AppCompatActivity {
 
-    private MaterialButton browseEventsButton, lotteryGuidelinesButton;
+    private MaterialButton browseEventsButton, lotteryGuidelinesButton, eventHistoryButton;
     private BottomNavigationView bottomNav;
     private LinearLayout eventListContainer;
     private ImageButton backButton;
@@ -50,6 +50,7 @@ public class EntrantViewMain extends AppCompatActivity {
         lotteryGuidelinesButton = findViewById(R.id.lotteryGuidelinesButton);
         bottomNav = findViewById(R.id.bottomNav);
         eventListContainer = findViewById(R.id.eventListContainer);
+        eventHistoryButton = findViewById(R.id.eventHistoryButton);
         backButton = findViewById(R.id.backButton);
 
         // Clear container
@@ -66,6 +67,16 @@ public class EntrantViewMain extends AppCompatActivity {
             startActivity(intent);
         });
         lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelines());
+        // Event history (Entrant only; hidden in organizer mode)
+        eventHistoryButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, EntrantEventHistory.class);
+            if (currentEntrant != null) {
+                intent.putExtra("entrant", currentEntrant);
+            } else if (currentProfile != null) {
+                intent.putExtra("profile", currentProfile);
+            }
+            startActivity(intent);
+        });
         backButton.setOnClickListener(v -> onBackPressed());
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
 
