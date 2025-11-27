@@ -156,12 +156,14 @@
             android:id="@+id/categoryButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:backgroundTint="@color/blue_500"
             android:text="Category" />
 
         <Button
             android:id="@+id/dateButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            app:backgroundTint="@color/blue_500"
             android:text="Date"
             android:layout_marginStart="4dp"/>
     </LinearLayout>
