@@ -18,12 +18,22 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.widget.ProgressBar;
+
+import android.graphics.Bitmap;
+
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.github.chrisbanes.photoview.PhotoView;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
+
+import android.graphics.drawable.Drawable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -192,45 +202,67 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
 
     /**
      * Shows a fullscreen preview of the selected image with zoom support.
+     * Displays only the image - no metadata overlay.
      */
     private void showImagePreview(ImageItem item) {
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_image_preview, null);
 
         PhotoView previewImage = dialogView.findViewById(R.id.preview_image);
-        TextView tvDescription = dialogView.findViewById(R.id.tv_preview_description);
-        TextView tvImageId = dialogView.findViewById(R.id.tv_preview_image_id);
         ImageButton btnClose = dialogView.findViewById(R.id.btn_close_preview);
+        ProgressBar loadingIndicator = dialogView.findViewById(R.id.loading_indicator);
+
+        // Create fullscreen dialog first
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
 
         // Load full-size image with download URL
         StorageReference imageRef = storage.getReference()
                 .child((item.getType().equals("poster") ? "posters/" : "profiles/") + item.getImageId());
 
+        loadingIndicator.setVisibility(View.VISIBLE);
+
         imageRef.getDownloadUrl()
                 .addOnSuccessListener(uri -> {
+                    Log.d(TAG, "Loading preview image from URL: " + uri.toString());
+
+                    // Load bitmap with custom target to manually set on PhotoView
                     Glide.with(this)
-                            .load(uri)
-                            .fitCenter()
-                            .into(previewImage);
+                            .asBitmap()
+                            .load(uri.toString())
+                            .into(new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
+                                @Override
+                                public void onResourceReady(@NonNull Bitmap resource, @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super Bitmap> transition) {
+                                    loadingIndicator.setVisibility(View.GONE);
+                                    Log.d(TAG, "Image loaded successfully, size: " + resource.getWidth() + "x" + resource.getHeight());
+                                    previewImage.setImageBitmap(resource);
+                                }
+
+                                @Override
+                                public void onLoadFailed(@androidx.annotation.Nullable Drawable errorDrawable) {
+                                    loadingIndicator.setVisibility(View.GONE);
+                                    Log.e(TAG, "Failed to load image");
+                                    Toast.makeText(AdminBrowseImagesActivity.this, "Failed to load image", Toast.LENGTH_SHORT).show();
+                                }
+
+                                @Override
+                                public void onLoadCleared(@androidx.annotation.Nullable Drawable placeholder) {
+                                    // Optional: Handle cleanup if needed
+                                }
+                            });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to load preview image: " + e.getMessage());
+                    loadingIndicator.setVisibility(View.GONE);
+                    Log.e(TAG, "Failed to get download URL for preview: " + e.getMessage());
                     Toast.makeText(this, "Failed to load image preview", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
                 });
-
-        // Set metadata
-        tvDescription.setText(item.getDescription());
-        tvImageId.setText("Image ID: " + item.getImageId());
-
-        // Create fullscreen dialog
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setView(dialogView)
-                .create();
 
         // Wire up close button
         btnClose.setOnClickListener(v -> dialog.dismiss());
 
-        // Disable tap-to-dismiss on the PhotoView itself to allow zooming/panning
-        // Only the close button will dismiss the dialog
+        // PhotoView handles zoom/pan gestures automatically
+        // Only the close button dismisses the dialog
 
         dialog.show();
     }
