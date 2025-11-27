@@ -114,9 +114,15 @@ public class EntrantOrganizerViewMain extends AppCompatActivity {
         });
 
         // Event history (Entrant only; hidden in organizer mode)
-        eventHistoryButton.setOnClickListener(v ->
-                Toast.makeText(this, "Event history not implemented yet.", Toast.LENGTH_SHORT).show()
-        );
+        eventHistoryButton.setOnClickListener(v -> {
+            Intent intent = new Intent(this, EntrantEventHistory.class);
+            if (currentEntrant != null) {
+                intent.putExtra("entrant", currentEntrant);
+            } else if (currentProfile != null) {
+                intent.putExtra("profile", currentProfile);
+            }
+            startActivity(intent);
+        });
 
         // Bottom nav
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
