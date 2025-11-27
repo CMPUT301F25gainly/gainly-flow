@@ -33,7 +33,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 
 /**
  * Activity for organizers to view and manage entrant lists (Selected, Enrolled, Cancelled, Waiting)
- * for a specific event. This activity implements the new vertically stacked button UI.
+ * For a specific event. This activity implements the new vertically stacked button UI.
  */
 public class WaitingListActivity extends AppCompatActivity {
 
