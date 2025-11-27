@@ -81,14 +81,16 @@ public class EntrantEventHistory extends AppCompatActivity {
         filterLostButton = findViewById(R.id.filterLostButton);
         searchInput = findViewById(R.id.searchInput);
 
-        // Bottom nav behavior
+        // IMPORTANT: highlight Events tab BEFORE attaching listener,
+        // so it doesn't trigger navigation.
+        bottomNav.setSelectedItemId(R.id.menu_events);
+
+        // Now attach listener
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
 
         // Toggle group for All / Waiting / Won / Lost
         historyFilterGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
-            if (!isChecked) {
-                return;
-            }
+            if (!isChecked) return;
 
             if (checkedId == R.id.filterAllButton) {
                 currentFilter = HistoryFilter.ALL;
@@ -110,12 +112,8 @@ public class EntrantEventHistory extends AppCompatActivity {
         loadHistoryEvents();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        bottomNav.setSelectedItemId(R.id.menu_events);
-        loadHistoryEvents();
-    }
+    // NOTE: onResume override removed so we don't re-trigger navigation
+    // via bottomNav.setSelectedItemId()
 
     // ----------------------------------------------------
     // Profile / Entrant initialization (same pattern)
