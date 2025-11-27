@@ -89,8 +89,12 @@ public class AdminMainActivity extends AppCompatActivity {
                 startActivity(new Intent(AdminMainActivity.this, AdminBrowseProfilesActivity.class))
         );
 
+        // Navigate to image management screen
+        rowBrowseImages.setOnClickListener(v ->
+                startActivity(new Intent(AdminMainActivity.this, AdminBrowseImagesActivity.class))
+        );
+
         // Placeholder for upcoming features
-        rowBrowseImages.setOnClickListener(this::toastNotImplemented);
         rowNotificationLogs.setOnClickListener(this::toastNotImplemented);
 
         // ---- Populate dashboard stats (stubbed; replace with real data source) ----

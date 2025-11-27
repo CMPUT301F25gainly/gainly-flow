@@ -414,6 +414,11 @@ public class CreateEvent extends AppCompatActivity {
         data.put("isActive", event.isActive());
         data.put("organizerId", event.getOrganizerId());
 
+        // Save poster image ID if present
+        if (event.getPosterImageId() != null && !event.getPosterImageId().isEmpty()) {
+            data.put("posterImageId", event.getPosterImageId());
+        }
+
         // Store dates as both Date objects and timestamps for flexibility
         if (event.getEventDate() != null) {
             data.put("eventDate", event.getEventDate());
