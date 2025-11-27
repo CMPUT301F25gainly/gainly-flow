@@ -94,8 +94,10 @@ public class AdminMainActivity extends AppCompatActivity {
                 startActivity(new Intent(AdminMainActivity.this, AdminBrowseImagesActivity.class))
         );
 
-        // Placeholder for upcoming features
-        rowNotificationLogs.setOnClickListener(this::toastNotImplemented);
+        // Navigate to notification logs screen
+        rowNotificationLogs.setOnClickListener(v ->
+                startActivity(new Intent(AdminMainActivity.this, AdminNotificationLogsActivity.class))
+        );
 
         // ---- Populate dashboard stats (stubbed; replace with real data source) ----
         tvTotalEvents.setText(String.valueOf(getFakeEventCount()));

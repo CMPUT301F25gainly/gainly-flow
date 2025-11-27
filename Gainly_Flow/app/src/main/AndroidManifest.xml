@@ -41,6 +41,9 @@
             android:name=".AdminBrowseImagesActivity"
             android:exported="false" />
         <activity
+            android:name=".AdminNotificationLogsActivity"
+            android:exported="false" />
+        <activity
             android:name=".OrganizerViewMain"
             android:exported="false" />
         <activity
