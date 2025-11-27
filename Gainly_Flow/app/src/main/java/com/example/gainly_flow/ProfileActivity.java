@@ -365,8 +365,8 @@ public class ProfileActivity extends AppCompatActivity {
         Intent intent;
 
         if (profile instanceof Entrant || "Entrant".equals(userType)) {
-//            intent = new Intent(this, EntrantViewMain.class);
-            intent = new Intent(this, EntrantOrganizerViewMain.class);
+            intent = new Intent(this, EntrantViewMain.class);
+//            intent = new Intent(this, EntrantOrganizerViewMain.class);
             if (profile instanceof Entrant) {
                 intent.putExtra("entrant", (Entrant) profile);
             } else {

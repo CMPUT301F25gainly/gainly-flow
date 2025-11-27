@@ -433,7 +433,7 @@ public class EntrantEventHistory extends AppCompatActivity {
 
         if (id == R.id.menu_events) {
             // Back to main entrant/organizer events screen
-            intent = new Intent(this, EntrantOrganizerViewMain.class);
+            intent = new Intent(this, EntrantViewMain.class);
             if (currentEntrant != null) {
                 intent.putExtra("entrant", currentEntrant);
             } else if (currentProfile != null) {
