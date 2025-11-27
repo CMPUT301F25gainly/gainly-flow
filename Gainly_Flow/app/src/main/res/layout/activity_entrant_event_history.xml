@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/white"
-    tools:context=".EntrantEventHistoryActivity">
+    tools:context=".EntrantEventHistory">
 
     <!-- Header: title + subtitle + segment buttons -->
     <LinearLayout
@@ -162,10 +162,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <!-- Example card, will be replaced dynamically -->
-            <include layout="@layout/item_event" />
-
         </LinearLayout>
     </ScrollView>
 
