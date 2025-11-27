@@ -6,7 +6,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ImageButton;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,100 +17,129 @@ import androidx.cardview.widget.CardView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /**
- * Entrant home screen that lists available events.
- * Fixed to match Firestore field names and optional fields.
+ * Entrant event history screen.
+ * Shows events related to this entrant and filters by
+ * All / Waiting / Won / Lost.
  */
-public class EntrantViewMain extends AppCompatActivity {
+public class EntrantEventHistory extends AppCompatActivity {
 
-    private MaterialButton browseEventsButton, lotteryGuidelinesButton, eventHistoryButton;
+    private static final String TAG = "EntrantEventHistory";
+
+    // UI
     private BottomNavigationView bottomNav;
     private LinearLayout eventListContainer;
-    private ImageButton backButton;
+    private MaterialButtonToggleGroup historyFilterGroup;
+    private MaterialButton filterAllButton, filterWaitingButton, filterWonButton, filterLostButton;
+    private EditText searchInput; // not wired yet, but ready for later
+
+    // Date format reused from entrant view
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+
+    // Profile / entrant
     private Profile currentProfile;
     private Entrant currentEntrant;
+
+    // Firestore
+    private FirebaseFirestore db;
+
+    // Filter mode
+    private enum HistoryFilter {
+        ALL, WAITING, WON, LOST
+    }
+
+    private HistoryFilter currentFilter = HistoryFilter.ALL;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_entrant_home);
+        setContentView(R.layout.activity_entrant_event_history);
 
-        // Get profile from intent - handle both Profile and Entrant objects
+        // Init Firestore
+        db = FirebaseFirestore.getInstance();
+
+        // Load profile / entrant from intent (same logic style as EntrantOrganizerViewMain)
         initializeProfileData();
 
-        browseEventsButton = findViewById(R.id.browseEventsButton);
-        lotteryGuidelinesButton = findViewById(R.id.lotteryGuidelinesButton);
+        // Bind views
         bottomNav = findViewById(R.id.bottomNav);
         eventListContainer = findViewById(R.id.eventListContainer);
-        eventHistoryButton = findViewById(R.id.eventHistoryButton);
-        backButton = findViewById(R.id.backButton);
+        historyFilterGroup = findViewById(R.id.historyFilterGroup);
+        filterAllButton = findViewById(R.id.filterAllButton);
+        filterWaitingButton = findViewById(R.id.filterWaitingButton);
+        filterWonButton = findViewById(R.id.filterWonButton);
+        filterLostButton = findViewById(R.id.filterLostButton);
+        searchInput = findViewById(R.id.searchInput);
 
-        // Clear container
-        eventListContainer.removeAllViews();
+        // IMPORTANT: highlight Events tab BEFORE attaching listener,
+        // so it doesn't trigger navigation.
+        bottomNav.setSelectedItemId(R.id.menu_events);
 
-        // Buttons
-        browseEventsButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, QRCodeScanner.class);
-            if (currentEntrant != null) {
-                intent.putExtra("entrant", currentEntrant);
-            } else if (currentProfile != null) {
-                intent.putExtra("profile", currentProfile);
-            }
-            startActivity(intent);
-        });
-        lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelines());
-        // Event history (Entrant only; hidden in organizer mode)
-        eventHistoryButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, EntrantEventHistory.class);
-            if (currentEntrant != null) {
-                intent.putExtra("entrant", currentEntrant);
-            } else if (currentProfile != null) {
-                intent.putExtra("profile", currentProfile);
-            }
-            startActivity(intent);
-        });
-        backButton.setOnClickListener(v -> onBackPressed());
+        // Now attach listener
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
 
-        // Load events
-        loadEventsFromFirebase();
+        // Toggle group for All / Waiting / Won / Lost
+        historyFilterGroup.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) return;
+
+            if (checkedId == R.id.filterAllButton) {
+                currentFilter = HistoryFilter.ALL;
+            } else if (checkedId == R.id.filterWaitingButton) {
+                currentFilter = HistoryFilter.WAITING;
+            } else if (checkedId == R.id.filterWonButton) {
+                currentFilter = HistoryFilter.WON;
+            } else if (checkedId == R.id.filterLostButton) {
+                currentFilter = HistoryFilter.LOST;
+            }
+
+            loadHistoryEvents();
+        });
+
+        // Default selection already set in XML, but make sure
+        historyFilterGroup.check(R.id.filterAllButton);
+
+        // Initial load
+        loadHistoryEvents();
     }
 
+    // NOTE: onResume override removed so we don't re-trigger navigation
+    // via bottomNav.setSelectedItemId()
+
+    // ----------------------------------------------------
+    // Profile / Entrant initialization (same pattern)
+    // ----------------------------------------------------
+
     private void initializeProfileData() {
-        // Try to get Entrant first
+        // Try Entrant first
         currentEntrant = (Entrant) getIntent().getSerializableExtra("entrant");
         if (currentEntrant != null) {
-            currentProfile = currentEntrant; // Entrant extends Profile
-            Log.d("EntrantViewMain", "Loaded Entrant: " + currentEntrant.getDisplayName());
+            currentProfile = currentEntrant;
+            Log.d(TAG, "Loaded Entrant: " + currentEntrant.getDisplayName());
             return;
         }
 
-        // Try to get Profile
+        // Fallback to Profile
         currentProfile = (Profile) getIntent().getSerializableExtra("profile");
         if (currentProfile != null) {
-            Log.d("EntrantViewMain", "Loaded Profile: " + currentProfile.getDisplayName());
+            Log.d(TAG, "Loaded Profile: " + currentProfile.getDisplayName());
 
-            // If we have a Profile but not an Entrant, try to convert it
             if (currentProfile instanceof Entrant) {
                 currentEntrant = (Entrant) currentProfile;
             } else if ("Entrant".equals(currentProfile.getRole())) {
-                // Convert Profile to Entrant
                 currentEntrant = convertProfileToEntrant(currentProfile);
             }
         } else {
-            // No profile data found
             Toast.makeText(this, "Profile data not available. Please log in again.", Toast.LENGTH_LONG).show();
-            Log.e("EntrantViewMain", "No profile data found in intent");
-
-            // Redirect to MainActivity
             Intent intent = new Intent(this, MainActivity.class);
             startActivity(intent);
             finish();
@@ -131,56 +160,135 @@ public class EntrantViewMain extends AppCompatActivity {
         return entrant;
     }
 
-    private void loadEventsFromFirebase() {
-        FirebaseFirestore.getInstance()
-                .collection("events")
+    // ----------------------------------------------------
+    // Loading and filtering history
+    // ----------------------------------------------------
+
+    private void loadHistoryEvents() {
+        if (db == null) {
+            db = FirebaseFirestore.getInstance();
+        }
+
+        db.collection("events")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     eventListContainer.removeAllViews();
 
                     if (querySnapshot.isEmpty()) {
-                        showEmptyState("No events available");
+                        showEmptyState("No events found.");
                         return;
                     }
 
-                    Log.d("EntrantViewMain", "Found " + querySnapshot.size() + " events");
+                    String entrantId = getEntrantId();
+                    String entrantDeviceId = getEntrantDeviceId();
+
+                    List<Event> results = new ArrayList<>();
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        Log.d("EntrantViewMain", "Doc " + doc.getId() + ": " + doc.getData());
-
                         Event event = createEventFromDocument(doc);
-                        addEventToView(event);
+
+                        List<String> waitingList = event.getWaitingList();
+                        List<String> selectedList = event.getSelected();
+                        List<String> enrolledList = event.getEnrolled();
+                        List<String> cancelledList = event.getCancelled();
+
+                        boolean isWaiting = containsEntrant(waitingList, entrantId, entrantDeviceId);
+                        boolean isWon = containsEntrant(selectedList, entrantId, entrantDeviceId)
+                                || containsEntrant(enrolledList, entrantId, entrantDeviceId);
+                        boolean isLost = containsEntrant(cancelledList, entrantId, entrantDeviceId);
+
+                        boolean involved = isWaiting || isWon || isLost;
+
+                        if (!involved) {
+                            // This event has nothing to do with this entrant
+                            continue;
+                        }
+
+                        boolean include = false;
+                        switch (currentFilter) {
+                            case ALL:
+                                include = true;
+                                break;
+                            case WAITING:
+                                include = isWaiting;
+                                break;
+                            case WON:
+                                include = isWon;
+                                break;
+                            case LOST:
+                                include = isLost;
+                                break;
+                        }
+
+                        if (include) {
+                            results.add(event);
+                        }
+                    }
+
+                    if (results.isEmpty()) {
+                        showEmptyState("No events match this filter.");
+                    } else {
+                        for (Event e : results) {
+                            addEventToView(e);
+                        }
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("EntrantViewMain", "Failed to load events: " + e.getMessage());
-                    Toast.makeText(this, "Failed to load events: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    showEmptyState("Failed to load events");
+                    Log.e(TAG, "Failed to load history: " + e.getMessage());
+                    Toast.makeText(this, "Failed to load history: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    showEmptyState("Failed to load events.");
                 });
     }
+
+    private String getEntrantId() {
+        if (currentEntrant != null && currentEntrant.getId() != null) {
+            return currentEntrant.getId();
+        }
+        if (currentProfile != null && currentProfile.getId() != null) {
+            return currentProfile.getId();
+        }
+        return null;
+    }
+
+    private String getEntrantDeviceId() {
+        if (currentEntrant != null && currentEntrant.getDeviceId() != null) {
+            return currentEntrant.getDeviceId();
+        }
+        if (currentProfile != null && currentProfile.getDeviceId() != null) {
+            return currentProfile.getDeviceId();
+        }
+        return null;
+    }
+
+    private boolean containsEntrant(List<String> list, String id, String deviceId) {
+        if (list == null || list.isEmpty()) return false;
+        if (id != null && list.contains(id)) return true;
+        if (deviceId != null && list.contains(deviceId)) return true;
+        return false;
+    }
+
+    // ----------------------------------------------------
+    // Helpers copied from entrant list
+    // ----------------------------------------------------
 
     private Event createEventFromDocument(DocumentSnapshot doc) {
         Event event = new Event(doc.getId());
 
-        // Basic event info
         event.setName(doc.getString("name"));
         event.setDescription(doc.getString("description"));
         event.setPosterImageId(doc.getString("posterImageId"));
         event.setLocation(doc.getString("location"));
         event.setTimeString(doc.getString("timeString"));
 
-        // Capacity and participants
         Long capLong = doc.getLong("capacity");
         event.setCapacity(capLong != null ? capLong.intValue() : 20);
 
         Long currentLong = doc.getLong("currentParticipants");
         event.setCurrentParticipants(currentLong != null ? currentLong.intValue() : 0);
 
-        // Geolocation
         Boolean geo = doc.getBoolean("geolocationRequired");
         event.setGeolocationRequired(Boolean.TRUE.equals(geo));
 
-        // Event date
         Object eventDateObj = doc.get("eventDate");
         if (eventDateObj instanceof Date) {
             event.setEventDate((Date) eventDateObj);
@@ -188,7 +296,6 @@ public class EntrantViewMain extends AppCompatActivity {
             event.setEventDate(new Date((Long) eventDateObj));
         }
 
-        // Registration period
         Object openObj = doc.get("registrationOpen");
         if (openObj instanceof Date) {
             event.setRegistrationOpen((Date) openObj);
@@ -203,13 +310,11 @@ public class EntrantViewMain extends AppCompatActivity {
             event.setRegistrationClose(new Date((Long) closeObj));
         }
 
-        // Price
         Double price = doc.getDouble("price");
         if (price != null) {
             event.setPrice(price);
         }
 
-        // Category
         String category = doc.getString("category");
         if (category != null) {
             try {
@@ -219,16 +324,16 @@ public class EntrantViewMain extends AppCompatActivity {
             }
         }
 
-        // Lists
-        event.setWaitingList((java.util.List<String>) doc.get("waitingList"));
-        event.setSelected((java.util.List<String>) doc.get("selected"));
-        event.setEnrolled((java.util.List<String>) doc.get("enrolled"));
-        event.setCancelled((java.util.List<String>) doc.get("cancelled"));
+        event.setWaitingList((List<String>) doc.get("waitingList"));
+        event.setSelected((List<String>) doc.get("selected"));
+        event.setEnrolled((List<String>) doc.get("enrolled"));
+        event.setCancelled((List<String>) doc.get("cancelled"));
 
         return event;
     }
 
     private void showEmptyState(String message) {
+        eventListContainer.removeAllViews();
         TextView emptyText = new TextView(this);
         emptyText.setText(message);
         emptyText.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
@@ -258,7 +363,6 @@ public class EntrantViewMain extends AppCompatActivity {
         eventSpots.setText(event.getCapacity() + " spots");
         eventWaiting.setText(event.getWaitingListSize() + " waiting");
 
-        // Status with better logic
         String status = event.getRegistrationStatus();
         eventStatus.setText(status);
 
@@ -285,7 +389,7 @@ public class EntrantViewMain extends AppCompatActivity {
         }
 
         eventView.setOnClickListener(v -> {
-            Intent intent = new Intent(EntrantViewMain.this, EventDetailActivity.class);
+            Intent intent = new Intent(EntrantEventHistory.this, EventDetailActivity.class);
             intent.putExtra("event_id", event.getId());
             intent.putExtra("event_name", event.getName());
             intent.putExtra("event_description", event.getDescription());
@@ -307,7 +411,6 @@ public class EntrantViewMain extends AppCompatActivity {
             intent.putExtra("geo_required", event.isGeolocationRequired());
             intent.putExtra("event_price", event.getPrice());
 
-            // Pass the appropriate profile/entrant object
             if (currentEntrant != null) {
                 intent.putExtra("entrant", currentEntrant);
             } else if (currentProfile != null) {
@@ -320,13 +423,23 @@ public class EntrantViewMain extends AppCompatActivity {
         eventListContainer.addView(eventView);
     }
 
+    // ----------------------------------------------------
+    // Bottom navigation
+    // ----------------------------------------------------
+
     private boolean onNavItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
         Intent intent;
 
         if (id == R.id.menu_events) {
-            // Already on events page, refresh
-            loadEventsFromFirebase();
+            // Back to main entrant/organizer events screen
+            intent = new Intent(this, EntrantViewMain.class);
+            if (currentEntrant != null) {
+                intent.putExtra("entrant", currentEntrant);
+            } else if (currentProfile != null) {
+                intent.putExtra("profile", currentProfile);
+            }
+            startActivity(intent);
         } else if (id == R.id.menu_notifications) {
             intent = new Intent(this, NotificationsActivity.class);
             if (currentEntrant != null) {
@@ -339,33 +452,13 @@ public class EntrantViewMain extends AppCompatActivity {
             intent = new Intent(this, ProfileActivity.class);
             if (currentEntrant != null) {
                 intent.putExtra("profile", currentEntrant);
+                intent.putExtra("userType", "Entrant");
             } else if (currentProfile != null) {
                 intent.putExtra("profile", currentProfile);
+                intent.putExtra("userType", currentProfile.getRole());
             }
-            intent.putExtra("userType", "Entrant");
             startActivity(intent);
         }
         return true;
-    }
-
-    private void showLotteryGuidelines() {
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Lottery Selection Process")
-                .setMessage("1. All entrants must register before the deadline.\n" +
-                        "2. Lottery is random and fair.\n" +
-                        "3. Only registered entrants are eligible.\n" +
-                        "4. Winners will be notified via email or app notification.\n" +
-                        "5. Each entrant can only win one spot per event.\n\nFor more details, contact support.")
-                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
-                .show();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Update the selected item in bottom navigation
-        bottomNav.setSelectedItemId(R.id.menu_events);
-        // Refresh events when returning to this activity
-        loadEventsFromFirebase();
     }
 }

@@ -60,6 +60,9 @@
             android:name=".WaitingListActivity"
             android:exported="false" />
         <activity
+            android:name=".EntrantEventHistory"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
