@@ -127,45 +127,193 @@
         app:strokeColor="@color/gray_300"
         app:strokeWidth="1dp"/>
 
-
-
-    <!-- Filter Search Bar -->
+    <!-- Enhanced Filter Search Bar -->
     <LinearLayout
         android:id="@+id/filterBar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
+        android:orientation="vertical"
         android:background="@drawable/event_card_bg"
         app:layout_constraintTop_toBottomOf="@id/lotteryGuidelinesButton"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="16dp">
+        android:layout_margin="16dp"
+        android:padding="12dp">
 
-        <EditText
-            android:id="@+id/searchInput"
-            android:layout_width="0dp"
+        <!-- Search Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="Search..."
-            android:padding="8dp"
-            android:background="@null"
-            android:textSize="14sp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <Button
-            android:id="@+id/categoryButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:backgroundTint="@color/blue_500"
-            android:text="Category" />
+            <EditText
+                android:id="@+id/searchInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Search events..."
+                android:padding="12dp"
+                android:background="@drawable/event_card_bg"
+                android:textSize="14sp"
+                android:imeOptions="actionSearch" />
 
-        <Button
-            android:id="@+id/dateButton"
-            android:layout_width="wrap_content"
+            <ImageButton
+                android:id="@+id/filterToggleButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_filter_list"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Toggle filters"
+                app:tint="@color/blue_500"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <!-- Filter Options (Initially Hidden) -->
+        <LinearLayout
+            android:id="@+id/filterOptionsLayout"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:backgroundTint="@color/blue_500"
-            android:text="Date"
-            android:layout_marginStart="4dp"/>
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="12dp">
+
+            <!-- Category Filter -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Category"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <Spinner
+                android:id="@+id/categorySpinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/spinner_background"
+                android:padding="12dp" />
+
+            <!-- Date Range Filter -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Date Range"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/startDateButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Start Date"
+                    android:textSize="12sp"
+                    app:icon="@drawable/ic_calendar"
+                    app:iconSize="16dp"
+                    app:backgroundTint="@android:color/white"
+                    app:strokeColor="@color/gray_300"
+                    app:strokeWidth="1dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="to"
+                    android:gravity="center"
+                    android:paddingHorizontal="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/endDateButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="End Date"
+                    android:textSize="12sp"
+                    app:icon="@drawable/ic_calendar"
+                    app:iconSize="16dp"
+                    app:backgroundTint="@android:color/white"
+                    app:strokeColor="@color/gray_300"
+                    app:strokeWidth="1dp" />
+            </LinearLayout>
+
+            <!-- Availability Filter -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Registration Status"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="4dp" />
+
+            <RadioGroup
+                android:id="@+id/availabilityRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/radioAll"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="All"
+                    android:checked="true" />
+
+                <RadioButton
+                    android:id="@+id/radioOpen"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Open" />
+
+                <RadioButton
+                    android:id="@+id/radioUpcoming"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Upcoming" />
+            </RadioGroup>
+
+            <!-- Filter Actions -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/applyFiltersButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Apply Filters"
+                    android:textSize="14sp"
+                    app:backgroundTint="@color/blue_500"
+                    android:textColor="@android:color/white"
+                    android:layout_marginEnd="4dp"
+                    app:cornerRadius="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/clearFiltersButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Clear"
+                    android:textSize="14sp"
+                    app:backgroundTint="@color/gray_300"
+                    android:textColor="@color/gray_700"
+                    android:layout_marginStart="4dp"
+                    app:cornerRadius="8dp" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Event List -->
@@ -184,9 +332,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <!-- Event Card Example -->
-            <include layout="@layout/item_event"/>
         </LinearLayout>
     </ScrollView>
 
