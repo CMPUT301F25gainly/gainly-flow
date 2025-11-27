@@ -22,6 +22,14 @@ import com.google.android.material.tabs.TabLayout;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import android.app.AlertDialog;
+import android.widget.ImageButton;
+
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldPath;
+import com.google.firebase.firestore.DocumentSnapshot;
+
 
 /**
  * Activity for organizers to view and manage entrant lists (Selected, Enrolled, Cancelled, Waiting)
@@ -189,6 +197,9 @@ public class WaitingListActivity extends AppCompatActivity {
     /**
      * Fetch entrant details for the given IDs and update the RecyclerView.
      */
+    /**
+     * Fetch entrant details for the given IDs from Firestore and update the RecyclerView.
+     */
     private void updateEntrantList(List<String> entrantIds, String status) {
         if (entrantIds == null || entrantIds.isEmpty()) {
             entrantsAdapter.setEntrants(new ArrayList<>());
@@ -198,33 +209,35 @@ public class WaitingListActivity extends AppCompatActivity {
             return;
         }
 
-        List<Entrant> mockEntrants = buildMockEntrants(entrantIds);
-        entrantsAdapter.setEntrants(mockEntrants);
+        // Firestore: load the matching profile docs by their document IDs
+        FirebaseFirestore.getInstance()
+                .collection("profiles")
+                .whereIn(FieldPath.documentId(), entrantIds)  // IDs in your event lists
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Entrant> realEntrants = new ArrayList<>();
 
-        Toast.makeText(this,
-                "Displaying " + mockEntrants.size() + " " + status + " entrants.",
-                Toast.LENGTH_SHORT).show();
-    }
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String id          = doc.getId();
+                        String displayName = doc.getString("displayName");
+                        String email       = doc.getString("email");
+                        String phone       = doc.getString("phone");  // or null if you don’t store it
 
+                        Entrant e = new Entrant(id, displayName, email, phone);
+                        realEntrants.add(e);
+                    }
 
-    /**
-     * Build mock Entrant objects from their IDs.
-     * In a real app you would load entrants from Firestore instead.
-     */
-    private List<Entrant> buildMockEntrants(List<String> entrantIds) {
-        List<Entrant> mockEntrants = new ArrayList<>();
-        if (entrantIds == null) return mockEntrants;
+                    entrantsAdapter.setEntrants(realEntrants);
 
-        for (int i = 0; i < entrantIds.size(); i++) {
-            String id = entrantIds.get(i);
-            String mockName = "Entrant User " + id.substring(0, 4);
-            String mockEmail = id.substring(0, 4) + "@example.com";
-            String mockPhone = "555-010" + (i + 1);
-
-            Entrant mockEntrant = new Entrant(id, mockName, mockEmail, mockPhone);
-            mockEntrants.add(mockEntrant);
-        }
-        return mockEntrants;
+                    Toast.makeText(this,
+                            "Displaying " + realEntrants.size() + " " + status + " entrants.",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this,
+                            "Failed to load entrants: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
     }
 
     /**
@@ -264,30 +277,46 @@ public class WaitingListActivity extends AppCompatActivity {
         }
 
         if (entrantIds == null || entrantIds.isEmpty()) {
-            Toast.makeText(this,
+            Toast.makeText(
+                    this,
                     "No " + statusLabel.toLowerCase() + " entrants to export.",
-                    Toast.LENGTH_SHORT).show();
+                    Toast.LENGTH_SHORT
+            ).show();
             return;
         }
 
-        // Build the same mock entrants used for display
-        List<Entrant> entrants = buildMockEntrants(entrantIds);
-
         CSVExporter exporter = new CSVExporter();
+
+        // ✅ get the actual Entrant objects currently shown in the list
+        List<Entrant> entrantsToExport = entrantsAdapter.getEntrants();
+
+        if (entrantsToExport == null || entrantsToExport.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "No " + statusLabel.toLowerCase() + " entrants to export.",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
         File csvFile = exporter.exportEntrants(
                 this,
                 currentEvent.getName() + "_" + statusLabel,
-                entrants
+                entrantsToExport
         );
 
         if (csvFile != null) {
-            Toast.makeText(this,
+            Toast.makeText(
+                    this,
                     "CSV exported to:\n" + csvFile.getAbsolutePath(),
-                    Toast.LENGTH_LONG).show();
+                    Toast.LENGTH_LONG
+            ).show();
         } else {
-            Toast.makeText(this,
+            Toast.makeText(
+                    this,
                     "Failed to export CSV.",
-                    Toast.LENGTH_SHORT).show();
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
@@ -317,7 +346,7 @@ public class WaitingListActivity extends AppCompatActivity {
      * RecyclerView Adapter to display Entrant items.
      * This uses a placeholder Entrant view for demonstration.
      */
-    private static class EntrantsAdapter extends RecyclerView.Adapter<EntrantsAdapter.EntrantHolder> {
+    private class EntrantsAdapter extends RecyclerView.Adapter<EntrantsAdapter.EntrantHolder> {
         private List<Entrant> entrants;
 
         public EntrantsAdapter(List<Entrant> entrants) {
@@ -328,15 +357,20 @@ public class WaitingListActivity extends AppCompatActivity {
             this.entrants = newEntrants;
             notifyDataSetChanged();
         }
+        public List<Entrant> getEntrants() {
+            return new ArrayList<>(entrants); // copy so callers can’t mess with internal list
+        }
+
 
         @NonNull
         @Override
         public EntrantHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            // Assumes R.layout.item_entrant exists based on the XML snippet provided
             View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_entrant, parent, false);
+                    .inflate(R.layout.item_profile_admin, parent, false);
             return new EntrantHolder(view);
         }
+
+
 
         @Override
         public void onBindViewHolder(@NonNull EntrantHolder holder, int position) {
@@ -350,34 +384,175 @@ public class WaitingListActivity extends AppCompatActivity {
         }
 
         // ViewHolder class for the Entrant item
-        class EntrantHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+// ViewHolder class for the Entrant item (admin-style card)
+        class EntrantHolder extends RecyclerView.ViewHolder {
+
             private final TextView nameTextView;
             private final TextView emailTextView;
-            private final TextView statusChipTextView;
+            private final TextView roleTextView;
+            private final ImageButton deleteButton;
+
             private Entrant boundEntrant;
 
             public EntrantHolder(@NonNull View itemView) {
                 super(itemView);
-                // Assume IDs from item_entrant.xml
-                nameTextView = itemView.findViewById(R.id.name);
-                emailTextView = itemView.findViewById(R.id.email);
-                statusChipTextView = itemView.findViewById(R.id.status_chip); // Assuming this is used for the status chip
-                itemView.setOnClickListener(this);
+                // IDs from item_profile_admin.xml
+                nameTextView  = itemView.findViewById(R.id.profileName);
+                emailTextView = itemView.findViewById(R.id.profileEmail);
+                roleTextView  = itemView.findViewById(R.id.profileRole);
+                deleteButton  = itemView.findViewById(R.id.btnDeleteProfile);
             }
 
             public void bind(Entrant entrant) {
                 boundEntrant = entrant;
+
                 nameTextView.setText(entrant.getDisplayName());
                 emailTextView.setText(entrant.getEmail());
-                // The status will be set externally based on the current tab, but we use the adapter to display the name/email
-                statusChipTextView.setText("Status: " + entrant.getId().substring(0, 4)); // Placeholder status
-            }
+                roleTextView.setText("Waiting list entrant"); // or based on tab if you want
 
-            @Override
-            public void onClick(View v) {
-                // Handle item click, e.g., open entrant's detailed profile
-                Toast.makeText(v.getContext(), "Clicked Entrant: " + boundEntrant.getDisplayName(), Toast.LENGTH_SHORT).show();
+                deleteButton.setOnClickListener(v -> {
+                    int position = getAdapterPosition();
+                    if (position == RecyclerView.NO_POSITION) return;
+
+                    Entrant toDelete = entrants.get(position);
+                    String entrantId = toDelete.getId();
+
+                    // 0 = Selected, 1 = Enrolled, 2 = Cancelled, 3 = Waiting
+                    int tabPos = tabStatus.getSelectedTabPosition();
+
+                    String fromField;
+                    boolean moveToCancelled;
+                    String dialogTitle;
+                    String dialogMessage;
+
+                    switch (tabPos) {
+                        case 0: // Selected
+                            fromField = "selected";
+                            moveToCancelled = true;
+                            dialogTitle = "Cancel selected entrant";
+                            dialogMessage = "Move \"" + toDelete.getDisplayName()
+                                    + "\" from Selected to Cancelled?";
+                            break;
+                        case 1: // Enrolled
+                            fromField = "enrolled";
+                            moveToCancelled = true;
+                            dialogTitle = "Cancel enrolled entrant";
+                            dialogMessage = "Move \"" + toDelete.getDisplayName()
+                                    + "\" from Enrolled to Cancelled?";
+                            break;
+                        case 3: // Waiting
+                            fromField = "waitingList";
+                            moveToCancelled = true;
+                            dialogTitle = "Remove from waiting list";
+                            dialogMessage = "Move \"" + toDelete.getDisplayName()
+                                    + "\" from Waiting to Cancelled?";
+                            break;
+                        case 2: // Already in Cancelled
+                        default:
+                            fromField = "cancelled";
+                            moveToCancelled = false; // just remove from cancelled
+                            dialogTitle = "Remove from cancelled";
+                            dialogMessage = "Remove \"" + toDelete.getDisplayName()
+                                    + "\" from Cancelled?";
+                            break;
+                    }
+
+                    // 🔒 Make final copies for use inside lambdas/callbacks
+                    final int fTabPos = tabPos;
+                    final String fFromField = fromField;
+                    final boolean fMoveToCancelled = moveToCancelled;
+                    final String fDialogTitle = dialogTitle;
+                    final String fDialogMessage = dialogMessage;
+                    final String fEntrantId = entrantId;
+
+                    new AlertDialog.Builder(itemView.getContext())
+                            .setTitle(fDialogTitle)
+                            .setMessage(fDialogMessage)
+                            .setPositiveButton(
+                                    fMoveToCancelled ? "Cancel entrant" : "Remove",
+                                    (dialog, which) -> {
+
+                                        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+                                        if (fMoveToCancelled) {
+                                            // Remove from current list AND add to cancelled
+                                            db.collection("events")
+                                                    .document(eventId)
+                                                    .update(
+                                                            fFromField, FieldValue.arrayRemove(fEntrantId),
+                                                            "cancelled", FieldValue.arrayUnion(fEntrantId)
+                                                    )
+                                                    .addOnSuccessListener(unused -> {
+                                                        // Update local Event model
+                                                        if (currentEvent != null) {
+                                                            List<String> fromList = null;
+                                                            switch (fTabPos) {
+                                                                case 0: fromList = currentEvent.getSelected(); break;
+                                                                case 1: fromList = currentEvent.getEnrolled(); break;
+                                                                case 3: fromList = currentEvent.getWaitingList(); break;
+                                                            }
+                                                            if (fromList != null) {
+                                                                fromList.remove(fEntrantId);
+                                                            }
+                                                            if (currentEvent.getCancelled() != null &&
+                                                                    !currentEvent.getCancelled().contains(fEntrantId)) {
+                                                                currentEvent.getCancelled().add(fEntrantId);
+                                                            }
+
+                                                            updateEventDetails(currentEvent);
+                                                        }
+
+                                                        // Remove from current RecyclerView list
+                                                        entrants.remove(position);
+                                                        notifyItemRemoved(position);
+
+                                                        Toast.makeText(
+                                                                itemView.getContext(),
+                                                                "Moved to Cancelled.",
+                                                                Toast.LENGTH_SHORT
+                                                        ).show();
+                                                    })
+                                                    .addOnFailureListener(e -> Toast.makeText(
+                                                            itemView.getContext(),
+                                                            "Failed: " + e.getMessage(),
+                                                            Toast.LENGTH_LONG
+                                                    ).show());
+                                        } else {
+                                            // We’re already in Cancelled: just remove
+                                            db.collection("events")
+                                                    .document(eventId)
+                                                    .update(
+                                                            fFromField, FieldValue.arrayRemove(fEntrantId)
+                                                    )
+                                                    .addOnSuccessListener(unused -> {
+                                                        if (currentEvent != null &&
+                                                                currentEvent.getCancelled() != null) {
+                                                            currentEvent.getCancelled().remove(fEntrantId);
+                                                            updateEventDetails(currentEvent);
+                                                        }
+
+                                                        entrants.remove(position);
+                                                        notifyItemRemoved(position);
+
+                                                        Toast.makeText(
+                                                                itemView.getContext(),
+                                                                "Removed from Cancelled.",
+                                                                Toast.LENGTH_SHORT
+                                                        ).show();
+                                                    })
+                                                    .addOnFailureListener(e -> Toast.makeText(
+                                                            itemView.getContext(),
+                                                            "Failed: " + e.getMessage(),
+                                                            Toast.LENGTH_LONG
+                                                    ).show());
+                                        }
+                                    }
+                            )
+                            .setNegativeButton("Keep", null)
+                            .show();
+                });
             }
         }
+
     }
 }
