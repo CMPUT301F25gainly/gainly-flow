@@ -88,8 +88,7 @@ public class NotificationsActivity extends AppCompatActivity {
     private String getCurrentDeviceId() {
         return Settings.Secure.getString(
                 getContentResolver(),
-                Settings.Secure.ANDROID_ID
-        );
+                Settings.Secure.ANDROID_ID);
     }
 
     private void createEmptyStateView() {
@@ -97,8 +96,7 @@ public class NotificationsActivity extends AppCompatActivity {
         emptyStateText.setId(View.generateViewId());
         emptyStateText.setLayoutParams(new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
                 androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.WRAP_CONTENT
-        ));
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.WRAP_CONTENT));
         emptyStateText.setText("No notifications yet");
         emptyStateText.setTextSize(16f);
         emptyStateText.setTextColor(getResources().getColor(android.R.color.darker_gray));
@@ -107,8 +105,8 @@ public class NotificationsActivity extends AppCompatActivity {
         emptyStateText.setVisibility(View.GONE);
 
         androidx.constraintlayout.widget.ConstraintLayout layout = findViewById(R.id.notificationLayout);
-        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams params =
-                (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) emptyStateText.getLayoutParams();
+        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams params = (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) emptyStateText
+                .getLayoutParams();
         params.topToBottom = R.id.headerLayout;
         params.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         params.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
@@ -151,7 +149,8 @@ public class NotificationsActivity extends AppCompatActivity {
         // Method 2: Load from user's profile document (using user ID)
         loadUserProfileNotifications();
 
-        // Method 3: Load from device profile (using device ID) - for backward compatibility
+        // Method 3: Load from device profile (using device ID) - for backward
+        // compatibility
         if (currentDeviceId != null && !currentDeviceId.equals(currentUserId)) {
             loadDeviceProfileNotifications();
         }
@@ -216,7 +215,8 @@ public class NotificationsActivity extends AppCompatActivity {
     }
 
     /**
-     * Load from device profile (using device ID as document ID) - for backward compatibility
+     * Load from device profile (using device ID as document ID) - for backward
+     * compatibility
      */
     private void loadDeviceProfileNotifications() {
         Log.d(TAG, "Loading from device profile: " + currentDeviceId);
@@ -251,7 +251,8 @@ public class NotificationsActivity extends AppCompatActivity {
                             NotificationItem notification = convertMapToNotification(notificationData);
                             if (notification != null && !containsNotification(notificationList, notification)) {
                                 notificationList.add(notification);
-                                Log.d(TAG, "Added profile notification from " + source + ": " + notification.getTitle());
+                                Log.d(TAG,
+                                        "Added profile notification from " + source + ": " + notification.getTitle());
                             }
                         } catch (Exception e) {
                             Log.e(TAG, "Error converting notification data: " + e.getMessage());
@@ -284,14 +285,22 @@ public class NotificationsActivity extends AppCompatActivity {
         try {
             NotificationItem notification = new NotificationItem();
 
-            if (data.containsKey("id")) notification.setId((String) data.get("id"));
-            if (data.containsKey("title")) notification.setTitle((String) data.get("title"));
-            if (data.containsKey("message")) notification.setMessage((String) data.get("message"));
-            if (data.containsKey("description")) notification.setDescription((String) data.get("description"));
-            if (data.containsKey("eventId")) notification.setEventId((String) data.get("eventId"));
-            if (data.containsKey("eventName")) notification.setEventName((String) data.get("eventName"));
-            if (data.containsKey("type")) notification.setType((String) data.get("type"));
-            if (data.containsKey("recipientId")) notification.setRecipientId((String) data.get("recipientId"));
+            if (data.containsKey("id"))
+                notification.setId((String) data.get("id"));
+            if (data.containsKey("title"))
+                notification.setTitle((String) data.get("title"));
+            if (data.containsKey("message"))
+                notification.setMessage((String) data.get("message"));
+            if (data.containsKey("description"))
+                notification.setDescription((String) data.get("description"));
+            if (data.containsKey("eventId"))
+                notification.setEventId((String) data.get("eventId"));
+            if (data.containsKey("eventName"))
+                notification.setEventName((String) data.get("eventName"));
+            if (data.containsKey("type"))
+                notification.setType((String) data.get("type"));
+            if (data.containsKey("recipientId"))
+                notification.setRecipientId((String) data.get("recipientId"));
 
             // Handle timestamp
             if (data.containsKey("timestamp")) {
@@ -333,9 +342,12 @@ public class NotificationsActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             // Sort by timestamp (newest first)
             notificationList.sort((n1, n2) -> {
-                if (n1.getTimestamp() == null && n2.getTimestamp() == null) return 0;
-                if (n1.getTimestamp() == null) return 1;
-                if (n2.getTimestamp() == null) return -1;
+                if (n1.getTimestamp() == null && n2.getTimestamp() == null)
+                    return 0;
+                if (n1.getTimestamp() == null)
+                    return 1;
+                if (n2.getTimestamp() == null)
+                    return -1;
                 return n2.getTimestamp().compareTo(n1.getTimestamp());
             });
 
@@ -372,7 +384,8 @@ public class NotificationsActivity extends AppCompatActivity {
         }
     }
 
-    // ... rest of your methods (handleAcceptAction, handleDeclineAction, etc.) remain the same
+    // ... rest of your methods (handleAcceptAction, handleDeclineAction, etc.)
+    // remain the same
     private void handleAcceptAction(NotificationItem item) {
         Log.d(TAG, "Accepting notification: " + item.getId());
         if (item.getType() != null && item.getType().equals(NotificationItem.NotificationType.WIN.name())) {
@@ -408,8 +421,7 @@ public class NotificationsActivity extends AppCompatActivity {
         db.collection("events").document(item.getEventId())
                 .update(
                         "selected", com.google.firebase.firestore.FieldValue.arrayRemove(userId),
-                        "enrolled", com.google.firebase.firestore.FieldValue.arrayUnion(userId)
-                )
+                        "enrolled", com.google.firebase.firestore.FieldValue.arrayUnion(userId))
                 .addOnSuccessListener(aVoid -> {
                     markNotificationAsRead(item);
                     Toast.makeText(this, "Successfully enrolled in " + item.getEventName(), Toast.LENGTH_LONG).show();
@@ -437,8 +449,7 @@ public class NotificationsActivity extends AppCompatActivity {
         db.collection("events").document(item.getEventId())
                 .update(
                         "selected", com.google.firebase.firestore.FieldValue.arrayRemove(userId),
-                        "cancelled", com.google.firebase.firestore.FieldValue.arrayUnion(userId)
-                )
+                        "cancelled", com.google.firebase.firestore.FieldValue.arrayUnion(userId))
                 .addOnSuccessListener(aVoid -> {
                     markNotificationAsRead(item);
                     Toast.makeText(this, "Declined spot for " + item.getEventName(), Toast.LENGTH_LONG).show();
@@ -456,13 +467,49 @@ public class NotificationsActivity extends AppCompatActivity {
         item.setActionRequired(false);
         adapter.notifyDataSetChanged();
         Log.d(TAG, "Notification marked as read: " + item.getId());
+
+        persistNotificationUpdate(item);
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (notificationsListener != null) {
-            notificationsListener.remove();
+    private void persistNotificationUpdate(NotificationItem item) {
+        // 1. Update global notification
+        if (item.getId() != null) {
+            db.collection("notifications").document(item.getId())
+                    .update(
+                            "isRead", true,
+                            "actionRequired", false)
+                    .addOnFailureListener(e -> Log.e(TAG, "Failed to update global notification: " + e.getMessage()));
+        }
+
+        // 2. Update user profile notification
+        if (currentUserId != null) {
+            db.collection("profiles").document(currentUserId)
+                    .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            Object notificationsObj = documentSnapshot.get("notifications");
+                            if (notificationsObj instanceof List) {
+                                List<Map<String, Object>> notifications = (List<Map<String, Object>>) notificationsObj;
+                                boolean changed = false;
+                                for (Map<String, Object> notifMap : notifications) {
+                                    String id = (String) notifMap.get("id");
+                                    if (id != null && id.equals(item.getId())) {
+                                        notifMap.put("isRead", true);
+                                        notifMap.put("actionRequired", false);
+                                        changed = true;
+                                        break;
+                                    }
+                                }
+                                if (changed) {
+                                    db.collection("profiles").document(currentUserId)
+                                            .update("notifications", notifications)
+                                            .addOnSuccessListener(aVoid -> Log.d(TAG, "Updated profile notification"))
+                                            .addOnFailureListener(e -> Log.e(TAG,
+                                                    "Failed to update profile notification: " + e.getMessage()));
+                                }
+                            }
+                        }
+                    });
         }
     }
 

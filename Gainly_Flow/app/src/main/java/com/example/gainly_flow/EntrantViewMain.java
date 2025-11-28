@@ -472,15 +472,21 @@ public class EntrantViewMain extends AppCompatActivity {
 
     private void showLotteryGuidelines() {
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Lottery Selection Process")
-                .setMessage("1. All entrants must register before the deadline.\n" +
-                        "2. Lottery is random and fair.\n" +
-                        "3. Only registered entrants are eligible.\n" +
-                        "4. Winners will be notified via email or app notification.\n" +
-                        "5. Each entrant can only win one spot per event.\n\nFor more details, contact support.")
+                .setTitle("Lottery Guidelines & Process")
+                .setMessage(
+                        "1. Register for the event before the deadline.\n" +
+                                "2. Join the event waiting list by scanning the QR code or using the app.\n" +
+                                "3. After registration closes, the system randomly selects winners.\n" +
+                                "4. Winners are notified via app notification or email.\n" +
+                                "5. If a winner declines or does not confirm, a replacement is drawn from the waiting list.\n" +
+                                "6. Confirm your spot to complete registration.\n" +
+                                "7. If not selected, you will be notified and may have another chance if spots open.\n\n" +
+                                "All selections are fair and random. For questions, contact support."
+                )
                 .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                 .show();
     }
+
 
     @Override
     protected void onResume() {
