@@ -43,7 +43,7 @@ import android.net.Uri;
 
 public class CreateEvent extends AppCompatActivity {
 
-    // UI Components
+    // UI ComponentS
     private ImageView posterPreview, uploadIcon;
     private EditText eventNameInput, eventDescriptionInput, eventStartDateInput,
             scheduleDetailsInput, capacityInput, locationInput, priceInput, waitingListInput;
