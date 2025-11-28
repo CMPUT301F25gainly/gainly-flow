@@ -29,6 +29,7 @@ import java.util.Locale;
 
 import com.bumptech.glide.Glide;
 import com.google.firebase.storage.StorageReference;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class EventDetailActivity extends AppCompatActivity {
 
@@ -52,6 +53,10 @@ public class EventDetailActivity extends AppCompatActivity {
     private String currentUserId;
     private FirebaseFirestore db;
 
+    private BottomNavigationView bottomNav;
+    private Entrant currentEntrant;
+    private Profile currentProfile;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,6 +68,10 @@ public class EventDetailActivity extends AppCompatActivity {
         // Get current user ID
         currentUserId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
+        // Get entrant/profile from intent
+        currentEntrant = (Entrant) getIntent().getSerializableExtra("entrant");
+        currentProfile = (Profile) getIntent().getSerializableExtra("profile");
+
         // Get event ID from intent
         eventId = getIntent().getStringExtra("event_id");
         if (eventId == null || eventId.isEmpty()) {
@@ -73,7 +82,6 @@ public class EventDetailActivity extends AppCompatActivity {
 
         initializeViews();
         setupButtonListeners();
-        loadEvent(eventId);
         loadEvent(eventId);
     }
 
@@ -103,10 +111,14 @@ public class EventDetailActivity extends AppCompatActivity {
         btnLeave = findViewById(R.id.btnLeave);
         btnShareQr = findViewById(R.id.btn_share_qr);
         btnViewWaitingList = findViewById(R.id.btnViewWaitingList);
+
+        bottomNav = findViewById(R.id.bottomNav);
+        BottomNavHelper.setupBottomNav(this, bottomNav, currentEntrant, currentProfile);
     }
 
     public void loadEvent(String eventId) {
-        if (eventId == null || eventId.isEmpty()) return;
+        if (eventId == null || eventId.isEmpty())
+            return;
 
         db.collection("events").document(eventId).get()
                 .addOnSuccessListener(documentSnapshot -> {
@@ -135,7 +147,8 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void updateUIWithEventData() {
-        if (event == null) return;
+        if (event == null)
+            return;
 
         // Basic event info
         titleEvent.setText(event.getName() != null ? event.getName() : "Event Name");
@@ -198,44 +211,45 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void updateRegistrationStatus() {
-        if (event == null) return;
+        if (event == null)
+            return;
 
         String status = event.getRegistrationStatus();
         boolean isOpen = "OPEN".equals(status);
 
         eventStatus.setText(status);
         eventStatus.setTextColor(getResources().getColor(
-                isOpen ? android.R.color.holo_green_dark : android.R.color.holo_red_dark
-        ));
+                isOpen ? android.R.color.holo_green_dark : android.R.color.holo_red_dark));
 
         btnJoin.setEnabled(isOpen);
         btnJoin.setAlpha(isOpen ? 1f : 0.5f);
     }
 
     private void updateScheduleSection() {
-        if (event == null) return;
+        if (event == null)
+            return;
 
         // Event date
         Date eventDate = event.getEventDate();
-        eventDuration.setText(eventDate != null ?
-                "Event Date: " + dateFormat.format(eventDate) : "Event Date: Not specified");
+        eventDuration.setText(
+                eventDate != null ? "Event Date: " + dateFormat.format(eventDate) : "Event Date: Not specified");
 
         // Registration dates
         Date regOpen = event.getRegistrationOpen();
         Date regClose = event.getRegistrationClose();
 
-        registrationOpen.setText(regOpen != null ?
-                "Registration Opens: " + dateFormat.format(regOpen) + " at " + timeFormat.format(regOpen) :
-                "Registration Opens: Not specified");
+        registrationOpen.setText(regOpen != null
+                ? "Registration Opens: " + dateFormat.format(regOpen) + " at " + timeFormat.format(regOpen)
+                : "Registration Opens: Not specified");
 
-        registrationClose.setText(regClose != null ?
-                "Registration Closes: " + dateFormat.format(regClose) + " at " + timeFormat.format(regClose) :
-                "Registration Closes: Not specified");
+        registrationClose.setText(regClose != null
+                ? "Registration Closes: " + dateFormat.format(regClose) + " at " + timeFormat.format(regClose)
+                : "Registration Closes: Not specified");
 
         // Event time
         String eventTimeString = event.getTimeString();
-        eventTime.setText(eventTimeString != null && !eventTimeString.isEmpty() ?
-                "Event Time: " + eventTimeString : "Event Time: Not specified");
+        eventTime.setText(eventTimeString != null && !eventTimeString.isEmpty() ? "Event Time: " + eventTimeString
+                : "Event Time: Not specified");
     }
 
     private void updateQrCode() {
@@ -288,7 +302,8 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void joinWaitingList() {
-        if (event == null || currentUserId == null) return;
+        if (event == null || currentUserId == null)
+            return;
 
         // Check if user is already in waiting list
         if (waitingList.contains(currentUserId)) {
@@ -364,7 +379,8 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void addEventToUserHistory() {
-        if (currentUserId == null || eventId == null) return;
+        if (currentUserId == null || eventId == null)
+            return;
 
         // Add event to user's event history
         db.collection("profiles").document(currentUserId)
@@ -385,10 +401,11 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void loadWaitingListEntrantsDetails(List<String> entrantIds) {
-        if (entrantIds.isEmpty()) return;
+        if (entrantIds.isEmpty())
+            return;
 
         StringBuilder message = new StringBuilder();
-        final int[] loadedCount = {0};
+        final int[] loadedCount = { 0 };
 
         for (int i = 0; i < entrantIds.size(); i++) {
             final int position = i;
@@ -399,8 +416,8 @@ public class EventDetailActivity extends AppCompatActivity {
                         String name;
                         if (documentSnapshot.exists()) {
                             Profile profile = documentSnapshot.toObject(Profile.class);
-                            name = profile != null && profile.getDisplayName() != null ?
-                                    profile.getDisplayName() : "User " + entrantId;
+                            name = profile != null && profile.getDisplayName() != null ? profile.getDisplayName()
+                                    : "User " + entrantId;
                         } else {
                             name = "User " + entrantId;
                         }
@@ -435,7 +452,8 @@ public class EventDetailActivity extends AppCompatActivity {
 
     private void shareQrCode() {
         // TODO: Implement QR code sharing
-        // This would use Android's share intent to share the QR code image or event link
+        // This would use Android's share intent to share the QR code image or event
+        // link
         Toast.makeText(this, "Share QR feature coming soon", Toast.LENGTH_SHORT).show();
     }
 
@@ -461,8 +479,7 @@ public class EventDetailActivity extends AppCompatActivity {
                             EventDetailActivity.this,
                             eventId,
                             currentUserId,
-                            entrantName
-                    );
+                            entrantName);
                 })
                 .addOnFailureListener(e -> {
                     // Even if we can't get the name, save the location with user ID
@@ -470,9 +487,14 @@ public class EventDetailActivity extends AppCompatActivity {
                             EventDetailActivity.this,
                             eventId,
                             currentUserId,
-                            "User " + currentUserId
-                    );
+                            "User " + currentUserId);
                 });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        BottomNavHelper.setSelectedItem(this, bottomNav);
     }
 
 }

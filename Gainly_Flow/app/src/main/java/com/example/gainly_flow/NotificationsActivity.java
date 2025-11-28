@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -31,11 +32,15 @@ public class NotificationsActivity extends AppCompatActivity {
     private List<NotificationItem> notificationList = new ArrayList<>();
     private ImageButton backButton;
     private TextView emptyStateText;
+    private BottomNavigationView bottomNav;
 
     private FirebaseFirestore db;
     private String currentUserId;
     private String currentDeviceId;
     private ListenerRegistration notificationsListener;
+
+    private Entrant currentEntrant;
+    private Profile currentProfile;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -50,12 +55,15 @@ public class NotificationsActivity extends AppCompatActivity {
     private void initializeViews() {
         recyclerView = findViewById(R.id.recyclerViewNotifications);
         backButton = findViewById(R.id.backButton_notification);
+        bottomNav = findViewById(R.id.bottomNav);
 
         createEmptyStateView();
         db = FirebaseFirestore.getInstance();
         initializeUserData();
 
         backButton.setOnClickListener(v -> onBackPressed());
+
+        BottomNavHelper.setupBottomNav(this, bottomNav, currentEntrant, currentProfile);
     }
 
     private void initializeUserData() {
@@ -65,15 +73,16 @@ public class NotificationsActivity extends AppCompatActivity {
 
         // Try to get user data from intent
         currentUserId = getIntent().getStringExtra("userId");
-        if (currentUserId == null) {
-            Profile profile = (Profile) getIntent().getSerializableExtra("profile");
-            Entrant entrant = (Entrant) getIntent().getSerializableExtra("entrant");
 
-            if (entrant != null) {
-                currentUserId = entrant.getId();
+        currentProfile = (Profile) getIntent().getSerializableExtra("profile");
+        currentEntrant = (Entrant) getIntent().getSerializableExtra("entrant");
+
+        if (currentUserId == null) {
+            if (currentEntrant != null) {
+                currentUserId = currentEntrant.getId();
                 Log.d(TAG, "Got user ID from entrant: " + currentUserId);
-            } else if (profile != null) {
-                currentUserId = profile.getId();
+            } else if (currentProfile != null) {
+                currentUserId = currentProfile.getId();
                 Log.d(TAG, "Got user ID from profile: " + currentUserId);
             } else {
                 // Fallback: use device ID as user ID
@@ -517,5 +526,6 @@ public class NotificationsActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         loadNotifications();
+        BottomNavHelper.setSelectedItem(this, bottomNav);
     }
 }
