@@ -5,10 +5,9 @@ import static android.content.ContentValues.TAG;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.firebase.firestore.DocumentSnapshot;
+
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.*;
@@ -22,7 +21,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
     // Quick Actions Buttons
     private Button btnViewWaitingList;
-    private Button btnExportCsv;
+    private Button btnUpdate;        // <- was btnExportCsv
 
     // Lottery Draw Section
     private EditText etNumberToSelect;
@@ -80,7 +79,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
         // Quick Actions
         btnViewWaitingList = findViewById(R.id.btn_view_waiting_list);
-        btnExportCsv = findViewById(R.id.btn_export_csv);
+        btnUpdate       = findViewById(R.id.btn_update_poster);   // <- hook to "Update poster" button
 
         // Lottery Draw Section
         etNumberToSelect = findViewById(R.id.et_number_to_select);
@@ -103,7 +102,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
     private void setupEventListeners() {
         // Quick Actions
         btnViewWaitingList.setOnClickListener(v -> viewWaitingList());
-        btnExportCsv.setOnClickListener(v -> exportToCsv());
+        btnUpdate.setOnClickListener(v -> openUpdatePoster());     // <- new behaviour
 
         // Lottery Draw
         btnRunLottery.setOnClickListener(v -> runLotteryDraw());
@@ -190,11 +189,26 @@ public class OrganizerEventActivity extends AppCompatActivity {
         }
     }
 
-    // Quick Actions Methods
+    // =====================
+    // Quick Actions
+    // =====================
+
     private void viewWaitingList() {
-        // Use the helper so the key matches EXTRA_EVENT_ID
         Intent intent = WaitingListActivity.newIntent(this, eventId);
-        intent.putExtra("event_name", currentEvent.getName()); // optional, keep if you use it
+        intent.putExtra("event_name", currentEvent.getName());
+        startActivity(intent);
+    }
+
+    /** NEW: open CreateEvent in “update poster only” mode */
+    private void openUpdatePoster() {
+        if (currentEvent == null) {
+            Toast.makeText(this, "Event not loaded yet", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, CreateEvent.class);
+        intent.putExtra("event_id", eventId);
+        intent.putExtra("mode", "update_poster");   // flag so CreateEvent knows it’s edit-poster mode
         startActivity(intent);
     }
 
@@ -207,7 +221,6 @@ public class OrganizerEventActivity extends AppCompatActivity {
                 if (!winners.isEmpty()) {
                     String message = "Replacement drawn successfully!";
                     Toast.makeText(OrganizerEventActivity.this, message, Toast.LENGTH_LONG).show();
-                    // Reload event data to update counts
                     loadEventData();
                 } else {
                     Toast.makeText(OrganizerEventActivity.this, "No replacements available", Toast.LENGTH_SHORT).show();
@@ -222,44 +235,12 @@ public class OrganizerEventActivity extends AppCompatActivity {
         });
     }
 
-    private void exportToCsv() {
-        if (currentEvent == null) return;
+    // (exportToCsv() left out on purpose – button is now “Update poster”)
 
-        // Simple CSV generation - in real app, you'd fetch user details
-        StringBuilder csv = new StringBuilder();
-        csv.append("User ID,Status\n");
-
-        // Add waiting list users
-        for (String userId : currentEvent.getWaitingList()) {
-            csv.append(userId).append(",WAITING\n");
-        }
-
-        // Add selected users
-        for (String userId : currentEvent.getSelected()) {
-            csv.append(userId).append(",SELECTED\n");
-        }
-
-        // Add enrolled users
-        for (String userId : currentEvent.getEnrolled()) {
-            csv.append(userId).append(",ENROLLED\n");
-        }
-
-        // Add cancelled users
-        for (String userId : currentEvent.getCancelled()) {
-            csv.append(userId).append(",CANCELLED\n");
-        }
-
-        // In real implementation, save to file or share
-        String csvData = csv.toString();
-        Toast.makeText(this, "CSV data ready for " +
-                (currentEvent.getWaitingListSize() + currentEvent.getSelectedCount() +
-                        currentEvent.getEnrolledCount() + currentEvent.getCancelled().size()) +
-                " users", Toast.LENGTH_LONG).show();
-
-        // You could implement file sharing here
-    }
-
+    // =====================
     // Lottery Methods
+    // =====================
+
     private void runLotteryDraw() {
         if (!validateNumberInput()) {
             return;
@@ -277,11 +258,9 @@ public class OrganizerEventActivity extends AppCompatActivity {
                 Toast.makeText(OrganizerEventActivity.this, message, Toast.LENGTH_LONG).show();
 
                 if (autoNotify) {
-                    // Notifications are automatically sent by LotterySystem
                     Toast.makeText(OrganizerEventActivity.this, "Notifications sent to winners", Toast.LENGTH_SHORT).show();
                 }
 
-                // Reload event data to update counts
                 loadEventData();
             }
 
@@ -293,7 +272,10 @@ public class OrganizerEventActivity extends AppCompatActivity {
         });
     }
 
+    // =====================
     // Notification Methods
+    // =====================
+
     private void sendNotification() {
         String recipientGroup = getSelectedRecipientGroup();
         String message = etMessage.getText().toString().trim();
@@ -331,10 +313,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
     private void sendNotificationsToUsers(List<String> userIds, String message, String recipientGroup) {
         for (String userId : userIds) {
-            // Save to global notifications collection
             saveNotificationToGlobalCollection(userId, message);
-
-            // Also save to user's profile if needed
             saveNotificationToUserProfile(userId, message);
         }
 
@@ -364,7 +343,6 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void saveNotificationToUserProfile(String userId, String message) {
-        // This adds the notification to the user's profile document
         NotificationItem notification = new NotificationItem(
                 "Message from " + currentEvent.getName(),
                 message,
@@ -374,7 +352,6 @@ public class OrganizerEventActivity extends AppCompatActivity {
                 currentEvent.getName()
         );
 
-        // Convert to map
         Map<String, Object> notificationMap = new HashMap<>();
         notificationMap.put("id", notification.getId());
         notificationMap.put("title", notification.getTitle());
@@ -387,32 +364,10 @@ public class OrganizerEventActivity extends AppCompatActivity {
         notificationMap.put("actionRequired", notification.isActionRequired());
         notificationMap.put("isRead", notification.isRead());
 
-        // Add to user's profile notifications array
-        db.collection("profiles").document(userId) // Using userId as document ID
+        db.collection("profiles").document(userId)
                 .update("notifications", com.google.firebase.firestore.FieldValue.arrayUnion(notificationMap))
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Notification added to user profile"))
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to add notification to profile: " + e.getMessage()));
-    }
-
-    private void saveNotificationToFirestore(NotificationItem notification) {
-        String notificationId = db.collection("notifications").document().getId();
-
-        Map<String, Object> notificationData = new HashMap<>();
-        notificationData.put("title", notification.getTitle());
-        notificationData.put("message", notification.getMessage());
-        notificationData.put("type", notification.getType());
-        notificationData.put("recipientId", notification.getRecipientId());
-        notificationData.put("eventId", notification.getEventId());
-        notificationData.put("eventName", notification.getEventName());
-        notificationData.put("timestamp", new Date());
-        notificationData.put("actionRequired", false);
-        notificationData.put("isRead", false);
-
-        db.collection("notifications").document(notificationId)
-                .set(notificationData)
-                .addOnFailureListener(e -> {
-                    Log.e("OrganizerEventActivity", "Failed to save notification: " + e.getMessage());
-                });
     }
 
     private String getSelectedRecipientGroup() {
@@ -438,7 +393,10 @@ public class OrganizerEventActivity extends AppCompatActivity {
         etMessage.setHint(hint);
     }
 
-    // Utility Methods
+    // =====================
+    // Utility
+    // =====================
+
     private boolean validateNumberInput() {
         String input = etNumberToSelect.getText().toString();
         if (input.isEmpty()) {
@@ -476,18 +434,16 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void showLoading(boolean show) {
-        // Disable interactive elements while loading
         btnRunLottery.setEnabled(!show);
         btnDrawReplacement.setEnabled(!show);
         btnSendNotification.setEnabled(!show);
         btnViewWaitingList.setEnabled(!show);
-        btnExportCsv.setEnabled(!show);
+        btnUpdate.setEnabled(!show);          // <- updated
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh event data when returning to this activity
         if (eventId != null) {
             loadEventData();
         }

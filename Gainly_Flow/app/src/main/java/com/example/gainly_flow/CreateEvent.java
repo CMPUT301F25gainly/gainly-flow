@@ -1,5 +1,6 @@
 package com.example.gainly_flow;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.text.Editable;
@@ -68,6 +69,10 @@ public class CreateEvent extends AppCompatActivity {
     private final SimpleDateFormat dateFmt;
     private final SimpleDateFormat firestoreDateFormat;
 
+    private boolean isUpdatePosterOnly = false;
+    private String existingEventId = null;
+
+
     {
         dateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
         dateFmt.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
@@ -92,6 +97,27 @@ public class CreateEvent extends AppCompatActivity {
         setupImagePicker();
 
         bindViews();
+
+// NEW: check if we are in update-poster-only mode
+        Intent intent = getIntent();
+        if (intent != null) {
+            String mode = intent.getStringExtra("mode");
+            existingEventId = intent.getStringExtra("event_id");
+            isUpdatePosterOnly = "update_poster".equals(mode) && existingEventId != null;
+        }
+
+        if (isUpdatePosterOnly) {
+            setupUpdatePosterOnlyMode();
+        }
+
+        applyEdgeToEdgeInsets();
+        setupCategoryDropdown();
+        configureTapOnlyInputs();
+        wirePickers();
+        wireButtons();
+        wireUploadArea();
+        setupFormValidation();
+
         applyEdgeToEdgeInsets();
         setupCategoryDropdown();
         configureTapOnlyInputs();
@@ -172,6 +198,27 @@ public class CreateEvent extends AppCompatActivity {
         saveEventButton = findViewById(R.id.saveEventButton);
         cancelButton = findViewById(R.id.cancelButton);
     }
+    private void setupUpdatePosterOnlyMode() {
+        // Change button text so it’s clear
+        saveEventButton.setText("Update Poster");
+
+        // Disable all non-poster inputs
+        eventNameInput.setEnabled(false);
+        eventDescriptionInput.setEnabled(false);
+        eventStartDateInput.setEnabled(false);
+        scheduleDetailsInput.setEnabled(false);
+        capacityInput.setEnabled(false);
+        locationInput.setEnabled(false);
+        priceInput.setEnabled(false);
+        waitingListInput.setEnabled(false);
+        registrationOpenInput.setEnabled(false);
+        registrationCloseInput.setEnabled(false);
+        geolocationCheckbox.setEnabled(false);
+        categoryDropdown.setEnabled(false);
+
+        // The upload card & posterPreview stay enabled so user can pick a new image
+    }
+
 
     private void setupCategoryDropdown() {
         String[] categories = new String[]{
@@ -264,6 +311,11 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     private void saveEvent() {
+        // If we are only updating the poster for an existing event, follow a simpler path
+        if (isUpdatePosterOnly) {
+            updatePosterForExistingEvent();
+            return;
+        }
         // Collect and validate input data
         final String name = text(eventNameInput);
         final String desc = text(eventDescriptionInput);
@@ -394,6 +446,54 @@ public class CreateEvent extends AppCompatActivity {
             saveEventToFirestore(event);
         }
     }
+    private void updatePosterForExistingEvent() {
+        if (existingEventId == null) {
+            Toast.makeText(this, "Error: missing event ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (selectedImageUri == null) {
+            Toast.makeText(this, "Please choose a new poster image", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Toast.makeText(this, "Uploading new poster...", Toast.LENGTH_SHORT).show();
+        saveEventButton.setEnabled(false);
+
+        imageManager.uploadPoster(selectedImageUri,
+                imageId -> {
+                    // Only update the poster field on the existing event
+                    HashMap<String, Object> updates = new HashMap<>();
+                    updates.put("posterImageId", imageId);
+                    updates.put("updatedAt", new Date());
+                    updates.put("updatedAtTimestamp", System.currentTimeMillis());
+
+                    db.collection("events")
+                            .document(existingEventId)
+                            .update(updates)
+                            .addOnSuccessListener(unused -> {
+                                saveEventButton.setEnabled(true);
+                                Toast.makeText(CreateEvent.this,
+                                        "Poster updated successfully",
+                                        Toast.LENGTH_SHORT).show();
+                                setResult(RESULT_OK);
+                                finish();   // go back to OrganizerEventActivity
+                            })
+                            .addOnFailureListener(e -> {
+                                saveEventButton.setEnabled(true);
+                                Toast.makeText(CreateEvent.this,
+                                        "Failed to update poster: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
+                            });
+                },
+                e -> {
+                    saveEventButton.setEnabled(true);
+                    Toast.makeText(this,
+                            "Failed to upload poster: " + e.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                });
+    }
+
 
     private void saveEventToFirestore(Event event) {
         // Convert event to map for Firestore

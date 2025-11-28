@@ -90,7 +90,7 @@ public class WaitingListActivity extends AppCompatActivity {
         recyclerEntrants = findViewById(R.id.recycler_entrants);
 
         // 2. Initialize buttons
-        btnExportCsv = findViewById(R.id.btn_export_csv);
+        btnExportCsv = findViewById(R.id.btn_update_poster);
         btnViewMap = findViewById(R.id.btn_view_map);
 
         // 3. Setup RecyclerView

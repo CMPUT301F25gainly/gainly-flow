@@ -137,12 +137,12 @@
 
 
             <Button
-                android:id="@+id/btn_export_csv"
+                android:id="@+id/btn_update_poster"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Export as CSV"
-                android:textAllCaps="false"
                 android:background="#FFFFFF"
+                android:text="Update Event Poster"
+                android:textAllCaps="false"
                 android:textColor="@color/white" />
         </LinearLayout>
 
