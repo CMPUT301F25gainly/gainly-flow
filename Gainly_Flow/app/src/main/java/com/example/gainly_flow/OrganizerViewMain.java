@@ -107,8 +107,11 @@ public class OrganizerViewMain extends AppCompatActivity {
     }
 
     private void setupButtonListeners() {
-        backButton.setOnClickListener(v -> onBackPressed());
-
+        backButton.setOnClickListener(v -> {
+            Intent intent = new Intent(OrganizerViewMain.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
         Button createEventButton = findViewById(R.id.createEventButton);
         createEventButton.setOnClickListener(v -> {
             Intent toCreateEvent = new Intent(OrganizerViewMain.this, CreateEvent.class);

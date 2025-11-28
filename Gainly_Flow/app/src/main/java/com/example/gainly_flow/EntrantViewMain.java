@@ -146,7 +146,11 @@ public class EntrantViewMain extends AppCompatActivity {
             startActivity(intent);
         });
 
-        backButton.setOnClickListener(v -> onBackPressed());
+        backButton.setOnClickListener(v -> {
+            Intent intent = new Intent(EntrantViewMain.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
 
         // Filter toggle
