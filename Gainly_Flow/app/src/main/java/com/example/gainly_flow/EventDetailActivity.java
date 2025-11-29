@@ -2,6 +2,7 @@ package com.example.gainly_flow;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -179,21 +180,41 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void updatePoster() {
-        if (event == null || event.getPosterImageId() == null || event.getPosterImageId().isEmpty()) {
+        if (event == null) {
             eventPosterImage.setVisibility(View.GONE);
             return;
         }
 
+        String posterId = event.getPosterImageId();
+        if (posterId == null || posterId.trim().isEmpty()) {
+            eventPosterImage.setVisibility(View.GONE);
+            return;
+        }
+
+        posterId = posterId.trim();
+        eventPosterImage.setVisibility(View.VISIBLE);
+
+        // Support both raw download URLs and storage IDs
+        if (posterId.startsWith("http")) {
+            Glide.with(this)
+                    .load(posterId)
+                    .centerCrop()
+                    .placeholder(R.drawable.blue_gradient_bg)
+                    .into(eventPosterImage);
+            return;
+        }
+
         ImageManager imageManager = new ImageManager();
-        StorageReference posterRef = imageManager.getPosterReference(event.getPosterImageId());
+        StorageReference posterRef = imageManager.getPosterReference(posterId);
 
         if (posterRef != null) {
-            eventPosterImage.setVisibility(View.VISIBLE);
             Glide.with(this)
                     .load(posterRef)
                     .centerCrop()
-                    .placeholder(R.drawable.blue_gradient_bg) // Use gradient as placeholder
+                    .placeholder(R.drawable.blue_gradient_bg)
                     .into(eventPosterImage);
+        } else {
+            eventPosterImage.setVisibility(View.GONE);
         }
     }
 
@@ -239,14 +260,24 @@ public class EventDetailActivity extends AppCompatActivity {
     }
 
     private void updateQrCode() {
-        if (event == null || event.getQrUrl() == null) {
+        if (event == null) {
             qrSection.setVisibility(View.GONE);
             return;
         }
 
-        qrSection.setVisibility(View.VISIBLE);
-        // TODO: Load QR code image using Glide or similar library
-        // Glide.with(this).load(event.getQrUrl()).into(qrCodeImage);
+        String qrUrl = event.getQrUrl();
+        if (qrUrl == null || qrUrl.trim().isEmpty()) {
+            qrSection.setVisibility(View.GONE);
+            return;
+        }
+
+        Bitmap qrBitmap = QRImage.bitmapFromUrl(qrUrl, 512);
+        if (qrBitmap != null) {
+            qrSection.setVisibility(View.VISIBLE);
+            qrCodeImage.setImageBitmap(qrBitmap);
+        } else {
+            qrSection.setVisibility(View.GONE);
+        }
     }
 
     private void updateWaitingListUI() {
