@@ -10,13 +10,17 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.*;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -31,6 +35,12 @@ public class EntrantViewMain extends AppCompatActivity {
     private EditText searchInput;
     private Spinner categorySpinner;
     private RadioGroup availabilityRadioGroup;
+
+    // Role switch UI
+    private MaterialSwitch roleSwitch;
+    private TextView entrantLabel, organizerLabel;
+    private boolean isChangingModeProgrammatically = false;
+    private boolean fromRoleSwitch = false;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
     private final SimpleDateFormat filterDateFormat = new SimpleDateFormat("MMM dd", Locale.getDefault());
@@ -55,9 +65,13 @@ public class EntrantViewMain extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_entrant_home);
 
+        // Check if we came here via role switch
+        fromRoleSwitch = getIntent().getBooleanExtra("fromRoleSwitch", false);
+
         initializeProfileData();
         initializeViews();
         setupFilters();
+        setupRoleSwitchEntrant();
         loadEventsFromFirebase();
     }
 
@@ -80,7 +94,39 @@ public class EntrantViewMain extends AppCompatActivity {
         clearFiltersButton = findViewById(R.id.clearFiltersButton);
         availabilityRadioGroup = findViewById(R.id.availabilityRadioGroup);
 
+        // Role switch bits
+        roleSwitch = findViewById(R.id.roleSwitch);
+        entrantLabel = findViewById(R.id.entrantLabel);
+        organizerLabel = findViewById(R.id.organizerLabel);
+
         setupButtonListeners();
+    }
+
+    private void setupRoleSwitchEntrant() {
+        if (roleSwitch == null) return;
+
+        // Entrant screen = switch OFF by default
+        isChangingModeProgrammatically = true;
+        roleSwitch.setChecked(false);
+        if (entrantLabel != null) entrantLabel.setAlpha(1f);
+        if (organizerLabel != null) organizerLabel.setAlpha(0.7f);
+        isChangingModeProgrammatically = false;
+
+        roleSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChangingModeProgrammatically) return;
+
+            if (isChecked) {
+                // User flipped to Organizer → open OrganizerViewMain
+                Intent intent = new Intent(EntrantViewMain.this, OrganizerViewMain.class);
+
+                // If you later want to pass profile/entrant, you can uncomment:
+                // if (currentEntrant != null) intent.putExtra("entrant", currentEntrant);
+                // else if (currentProfile != null) intent.putExtra("profile", currentProfile);
+
+                startActivity(intent);
+                // Optional: finish();  // keep commented so back still works
+            }
+        });
     }
 
     private void setupButtonListeners() {
@@ -100,7 +146,11 @@ public class EntrantViewMain extends AppCompatActivity {
             startActivity(intent);
         });
 
-        backButton.setOnClickListener(v -> onBackPressed());
+        backButton.setOnClickListener(v -> {
+            Intent intent = new Intent(EntrantViewMain.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
 
         // Filter toggle
@@ -314,6 +364,9 @@ public class EntrantViewMain extends AppCompatActivity {
 
     // Keep your existing helper methods for profile data, event creation, etc.
     private void initializeProfileData() {
+        // Make sure we have the latest fromRoleSwitch value
+        fromRoleSwitch = getIntent().getBooleanExtra("fromRoleSwitch", fromRoleSwitch);
+
         currentEntrant = (Entrant) getIntent().getSerializableExtra("entrant");
         if (currentEntrant != null) {
             currentProfile = currentEntrant;
@@ -323,7 +376,8 @@ public class EntrantViewMain extends AppCompatActivity {
         currentProfile = (Profile) getIntent().getSerializableExtra("profile");
         if (currentProfile != null && "Entrant".equals(currentProfile.getRole())) {
             currentEntrant = convertProfileToEntrant(currentProfile);
-        } else if (currentProfile == null) {
+        } else if (currentProfile == null && !fromRoleSwitch) {
+            // Only redirect to MainActivity if we weren't launched from the role switch
             Toast.makeText(this, "Profile data not available", Toast.LENGTH_LONG).show();
             Intent intent = new Intent(this, MainActivity.class);
             startActivity(intent);
@@ -375,7 +429,6 @@ public class EntrantViewMain extends AppCompatActivity {
 
         // Category handling
         String category = doc.getString("category");
-
 
         // Add other event fields as needed...
         return event;
@@ -490,7 +543,6 @@ public class EntrantViewMain extends AppCompatActivity {
                 .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                 .show();
     }
-
 
     @Override
     protected void onResume() {

@@ -12,6 +12,7 @@ import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
@@ -39,6 +40,7 @@ public class ProfileActivity extends AppCompatActivity {
     private MaterialButton buttonDeleteAccount;
     private ImageButton backButton;
     private ImageView profileIcon;
+    private BottomNavigationView bottomNav;
 
     // Firebase
     private FirebaseFirestore db;
@@ -84,6 +86,8 @@ public class ProfileActivity extends AppCompatActivity {
 
         // Setup modern back press handling
         setupBackPressHandler();
+
+        setupBottomNavigation();
     }
 
     private void initializeViews() {
@@ -98,6 +102,17 @@ public class ProfileActivity extends AppCompatActivity {
         buttonDeleteAccount = findViewById(R.id.button_delete_account);
         backButton = findViewById(R.id.back_button_profile);
         profileIcon = findViewById(R.id.profile_icon);
+        bottomNav = findViewById(R.id.bottomNav);
+    }
+
+    private void setupBottomNavigation() {
+        if ("Entrant".equals(userType) || profile instanceof Entrant) {
+            bottomNav.setVisibility(View.VISIBLE);
+            Entrant entrant = (profile instanceof Entrant) ? (Entrant) profile : null;
+            BottomNavHelper.setupBottomNav(this, bottomNav, entrant, profile);
+        } else {
+            bottomNav.setVisibility(View.GONE);
+        }
     }
 
     private void setupButtonListeners() {
@@ -386,5 +401,11 @@ public class ProfileActivity extends AppCompatActivity {
 
         startActivity(intent);
         finish();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        BottomNavHelper.setSelectedItem(this, bottomNav);
     }
 }
