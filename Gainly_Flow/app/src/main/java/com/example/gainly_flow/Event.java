@@ -318,7 +318,12 @@ public class Event {
             this.category = categoryStr != null ? Category.valueOf(categoryStr) : Category.ALL;
         }
         if (doc.contains("isActive")) this.isActive = Boolean.TRUE.equals(doc.getBoolean("isActive"));
-        if (doc.contains("posterImageId")) this.posterImageId = doc.getString("posterImageId");
+        String posterId = null;
+        if (doc.contains("posterImageId")) posterId = doc.getString("posterImageId");
+        if ((posterId == null || posterId.isEmpty()) && doc.contains("posterUri")) {
+            posterId = doc.getString("posterUri");
+        }
+        if (posterId != null && !posterId.trim().isEmpty()) this.posterImageId = posterId.trim();
         if (doc.contains("organizerId")) this.organizerId = doc.getString("organizerId");
         if (doc.contains("qrUrl")) this.qrUrl = doc.getString("qrUrl");
         if (doc.contains("waitingList")) this.waitingList = (List<String>) doc.get("waitingList");

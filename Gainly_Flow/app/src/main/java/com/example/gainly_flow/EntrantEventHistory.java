@@ -276,7 +276,11 @@ public class EntrantEventHistory extends AppCompatActivity {
 
         event.setName(doc.getString("name"));
         event.setDescription(doc.getString("description"));
-        event.setPosterImageId(doc.getString("posterImageId"));
+        String posterId = doc.getString("posterImageId");
+        if (posterId == null || posterId.isEmpty()) {
+            posterId = doc.getString("posterUri");
+        }
+        event.setPosterImageId(posterId);
         event.setLocation(doc.getString("location"));
         event.setTimeString(doc.getString("timeString"));
 

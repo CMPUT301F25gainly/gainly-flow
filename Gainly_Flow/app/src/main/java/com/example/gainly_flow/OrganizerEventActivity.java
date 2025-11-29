@@ -44,6 +44,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private Event currentEvent;
     private String eventId;
+    private String currentDeviceId;
 
     // Lottery System
     private LotterySystem lotterySystem;
@@ -59,6 +60,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
         // Get event ID from intent
         Intent intent = getIntent();
         eventId = intent.getStringExtra("event_id");
+        currentDeviceId = DeviceIdManager.getDeviceId(this);
 
         if (eventId == null) {
             Toast.makeText(this, "Error: No event ID provided", Toast.LENGTH_SHORT).show();
@@ -133,6 +135,13 @@ public class OrganizerEventActivity extends AppCompatActivity {
                     if (documentSnapshot.exists()) {
                         currentEvent = new Event();
                         currentEvent.fromDocument(documentSnapshot);
+
+                        if (!isCurrentOrganizer()) {
+                            Toast.makeText(this, "You can only manage your own events.", Toast.LENGTH_LONG).show();
+                            finish();
+                            return;
+                        }
+
                         updateUIWithEventData();
                         showLoading(false);
                     } else {
@@ -439,6 +448,12 @@ public class OrganizerEventActivity extends AppCompatActivity {
         btnSendNotification.setEnabled(!show);
         btnViewWaitingList.setEnabled(!show);
         btnUpdate.setEnabled(!show);          // <- updated
+    }
+
+    private boolean isCurrentOrganizer() {
+        return currentEvent != null &&
+                currentEvent.getOrganizerId() != null &&
+                currentEvent.getOrganizerId().equals(currentDeviceId);
     }
 
     @Override

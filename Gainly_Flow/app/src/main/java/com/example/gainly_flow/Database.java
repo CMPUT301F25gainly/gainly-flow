@@ -156,8 +156,11 @@ public class Database {
 
                         e.setGeolocationRequired(Boolean.TRUE.equals(doc.getBoolean("geolocationRequired")));
 
-                        String poster = doc.getString("posterUri");
-                        if (poster != null) e.setPosterImageId(poster);
+                        String poster = doc.getString("posterImageId");
+                        if (poster == null || poster.isEmpty()) {
+                            poster = doc.getString("posterUri");
+                        }
+                        if (poster != null && !poster.isEmpty()) e.setPosterImageId(poster);
 
                         Long ro = getLong(doc, "registrationOpen");
                         Long rc = getLong(doc, "registrationClose");
