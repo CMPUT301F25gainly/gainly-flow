@@ -48,6 +48,8 @@ public class Event {
     private List<String> selected; // Store entrant IDs
     private List<String> cancelled; // Store entrant IDs
     private List<String> enrolled; // Store entrant IDs
+    private List<String> tags; // Interest tags for filtering
+    private Integer waitingListLimit; // Optional limit for waiting list size
 
     // --- Constructors ---
     public Event() {
@@ -55,6 +57,8 @@ public class Event {
         this.selected = new ArrayList<>();
         this.cancelled = new ArrayList<>();
         this.enrolled = new ArrayList<>();
+        this.tags = new ArrayList<>();
+        this.waitingListLimit = null;
         this.category = Category.ALL; // Default category
     }
 
@@ -99,6 +103,8 @@ public class Event {
     public void setSelected(List<String> selected) { this.selected = selected != null ? selected : new ArrayList<>(); }
     public void setCancelled(List<String> cancelled) { this.cancelled = cancelled != null ? cancelled : new ArrayList<>(); }
     public void setEnrolled(List<String> enrolled) { this.enrolled = enrolled != null ? enrolled : new ArrayList<>(); }
+    public void setTags(List<String> tags) { this.tags = tags != null ? tags : new ArrayList<>(); }
+    public void setWaitingListLimit(Integer waitingListLimit) { this.waitingListLimit = waitingListLimit; }
 
     // --- Getters ---
     public String getId() { return id; }
@@ -123,6 +129,8 @@ public class Event {
     public List<String> getSelected() { return selected; }
     public List<String> getCancelled() { return cancelled; }
     public List<String> getEnrolled() { return enrolled; }
+    public List<String> getTags() { return tags; }
+    public Integer getWaitingListLimit() { return waitingListLimit; }
 
     // --- Firestore Helper Methods ---
 
@@ -330,12 +338,18 @@ public class Event {
         if (doc.contains("selected")) this.selected = (List<String>) doc.get("selected");
         if (doc.contains("cancelled")) this.cancelled = (List<String>) doc.get("cancelled");
         if (doc.contains("enrolled")) this.enrolled = (List<String>) doc.get("enrolled");
+        if (doc.contains("tags")) this.tags = (List<String>) doc.get("tags");
+        if (doc.contains("waitingListLimit")) {
+            Long limit = doc.getLong("waitingListLimit");
+            this.waitingListLimit = limit != null ? limit.intValue() : null;
+        }
 
         // Initialize lists if they're null
         if (this.waitingList == null) this.waitingList = new ArrayList<>();
         if (this.selected == null) this.selected = new ArrayList<>();
         if (this.cancelled == null) this.cancelled = new ArrayList<>();
         if (this.enrolled == null) this.enrolled = new ArrayList<>();
+        if (this.tags == null) this.tags = new ArrayList<>();
     }
 
     /**
@@ -367,6 +381,8 @@ public class Event {
                 ", enrolled=" + getEnrolledCount() +
                 ", cancelled=" + (cancelled != null ? cancelled.size() : 0) +
                 ", isActive=" + isActive +
+                ", waitingListLimit=" + waitingListLimit +
+                ", tags=" + (tags != null ? tags : new ArrayList<>()) +
                 '}';
     }
 }

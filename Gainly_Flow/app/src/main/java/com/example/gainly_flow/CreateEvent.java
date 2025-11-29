@@ -48,6 +48,7 @@ public class CreateEvent extends AppCompatActivity {
     private EditText eventNameInput, eventDescriptionInput, eventStartDateInput,
             scheduleDetailsInput, capacityInput, locationInput, priceInput, waitingListInput;
     private EditText registrationOpenInput, registrationCloseInput;
+    private EditText tagsInput;
     private CheckBox geolocationCheckbox;
     private AutoCompleteTextView categoryDropdown;
     private Button saveEventButton, cancelButton;
@@ -170,6 +171,7 @@ public class CreateEvent extends AppCompatActivity {
         eventDescriptionInput = findViewById(R.id.eventDescriptionInput);
         locationInput = findViewById(R.id.eventLocationInput);
         priceInput = findViewById(R.id.eventPriceInput);
+        tagsInput = findViewById(R.id.eventTagsInput);
 
         // Event Schedule
         eventStartDateInput = findViewById(R.id.eventStartDateInput);
@@ -215,6 +217,7 @@ public class CreateEvent extends AppCompatActivity {
         registrationCloseInput.setEnabled(false);
         geolocationCheckbox.setEnabled(false);
         categoryDropdown.setEnabled(false);
+        tagsInput.setEnabled(false);
 
         // The upload card & posterPreview stay enabled so user can pick a new image
     }
@@ -328,6 +331,7 @@ public class CreateEvent extends AppCompatActivity {
         final String regOpenStr = text(registrationOpenInput);
         final String regCloseStr = text(registrationCloseInput);
         final String category = text(categoryDropdown);
+        final String tagsStr = text(tagsInput);
         final boolean geoEnabled = geolocationCheckbox.isChecked();
 
         // Validation
@@ -421,6 +425,8 @@ public class CreateEvent extends AppCompatActivity {
         event.setCategory(eventCategory);
         event.setActive(true);
         event.setOrganizerId(currentOrganizerId); // Set the organizer ID
+        event.setTags(parseTags(tagsStr));
+        event.setWaitingListLimit(waitingListLimit);
 
         if (regOpen != null && regClose != null) {
             event.setRegistrationOpen(regOpen);
@@ -513,6 +519,10 @@ public class CreateEvent extends AppCompatActivity {
         data.put("category", event.getCategory().name());
         data.put("isActive", event.isActive());
         data.put("organizerId", event.getOrganizerId());
+        data.put("tags", event.getTags());
+        if (event.getWaitingListLimit() != null) {
+            data.put("waitingListLimit", event.getWaitingListLimit());
+        }
 
         // Save poster image ID if present
         if (event.getPosterImageId() != null && !event.getPosterImageId().isEmpty()) {
@@ -628,6 +638,20 @@ public class CreateEvent extends AppCompatActivity {
         actv.setFocusableInTouchMode(false);
         actv.setClickable(true);
         actv.setLongClickable(false);
+    }
+
+    private static ArrayList<String> parseTags(String tagsStr) {
+        ArrayList<String> tags = new ArrayList<>();
+        if (tagsStr == null || tagsStr.trim().isEmpty()) return tags;
+
+        String[] parts = tagsStr.split(",");
+        for (String p : parts) {
+            String tag = p.trim();
+            if (!tag.isEmpty()) {
+                tags.add(tag);
+            }
+        }
+        return tags;
     }
 
     private static boolean require(String value, EditText field) {

@@ -32,7 +32,7 @@ public class EntrantViewMain extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private LinearLayout eventListContainer, filterOptionsLayout;
     private ImageButton backButton, filterToggleButton;
-    private EditText searchInput;
+    private EditText searchInput, tagsFilterInput;
     private Spinner categorySpinner;
     private RadioGroup availabilityRadioGroup;
 
@@ -56,6 +56,7 @@ public class EntrantViewMain extends AppCompatActivity {
     private Date startDateFilter = null;
     private Date endDateFilter = null;
     private String availabilityFilter = "all";
+    private String tagsFilter = "";
 
     // Date picker
     private Calendar calendar = Calendar.getInstance();
@@ -93,6 +94,7 @@ public class EntrantViewMain extends AppCompatActivity {
         applyFiltersButton = findViewById(R.id.applyFiltersButton);
         clearFiltersButton = findViewById(R.id.clearFiltersButton);
         availabilityRadioGroup = findViewById(R.id.availabilityRadioGroup);
+        tagsFilterInput = findViewById(R.id.tagsFilterInput);
 
         // Role switch bits
         roleSwitch = findViewById(R.id.roleSwitch);
@@ -194,6 +196,15 @@ public class EntrantViewMain extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
 
+        tagsFilterInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tagsFilter = s.toString();
+                applyFilters();
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
         // Setup availability radio group
         availabilityRadioGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == R.id.radioAll) availabilityFilter = "all";
@@ -244,6 +255,7 @@ public class EntrantViewMain extends AppCompatActivity {
         startDateFilter = null;
         endDateFilter = null;
         availabilityFilter = "all";
+        tagsFilter = "";
 
         // Reset UI
         searchInput.setText("");
@@ -251,6 +263,7 @@ public class EntrantViewMain extends AppCompatActivity {
         startDateButton.setText("Start Date");
         endDateButton.setText("End Date");
         availabilityRadioGroup.check(R.id.radioAll);
+        tagsFilterInput.setText("");
         filterOptionsLayout.setVisibility(View.GONE);
 
         // Apply cleared filters
@@ -264,7 +277,8 @@ public class EntrantViewMain extends AppCompatActivity {
             if (matchesSearchQuery(event) &&
                     matchesCategory(event) &&
                     matchesDateRange(event) &&
-                    matchesAvailability(event)) {
+                    matchesAvailability(event) &&
+                    matchesInterests(event)) {
                 filteredEvents.add(event);
             }
         }
@@ -278,7 +292,8 @@ public class EntrantViewMain extends AppCompatActivity {
         String searchLower = currentSearchQuery.toLowerCase();
         return (event.getName() != null && event.getName().toLowerCase().contains(searchLower)) ||
                 (event.getDescription() != null && event.getDescription().toLowerCase().contains(searchLower)) ||
-                (event.getLocation() != null && event.getLocation().toLowerCase().contains(searchLower));
+                (event.getLocation() != null && event.getLocation().toLowerCase().contains(searchLower)) ||
+                tagsContain(event, searchLower);
     }
 
     private boolean matchesCategory(Event event) {
@@ -311,6 +326,30 @@ public class EntrantViewMain extends AppCompatActivity {
             default:
                 return true;
         }
+    }
+
+    private boolean matchesInterests(Event event) {
+        if (tagsFilter.trim().isEmpty()) return true;
+
+        String[] desiredTags = tagsFilter.split(",");
+        for (String t : desiredTags) {
+            String trimmed = t.trim().toLowerCase();
+            if (trimmed.isEmpty()) continue;
+            if (tagsContain(event, trimmed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean tagsContain(Event event, String query) {
+        if (event.getTags() == null || event.getTags().isEmpty() || query == null) return false;
+        for (String tag : event.getTags()) {
+            if (tag != null && tag.toLowerCase().contains(query)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void displayFilteredEvents() {
@@ -400,37 +439,36 @@ public class EntrantViewMain extends AppCompatActivity {
     }
 
     private Event createEventFromDocument(DocumentSnapshot doc) {
-        Event event = new Event(doc.getId());
-        event.setName(doc.getString("name"));
-        event.setDescription(doc.getString("description"));
-        String posterId = doc.getString("posterImageId");
-        if (posterId == null || posterId.isEmpty()) {
-            posterId = doc.getString("posterUri");
-        }
-        event.setPosterImageId(posterId);
-        event.setLocation(doc.getString("location"));
-        event.setTimeString(doc.getString("timeString"));
+        // Use the shared mapper so registration windows and status are accurate
+        Event event = new Event();
+        event.fromDocument(doc);
 
-        Long capLong = doc.getLong("capacity");
-        event.setCapacity(capLong != null ? capLong.intValue() : 20);
-
-        Long currentLong = doc.getLong("currentParticipants");
-        event.setCurrentParticipants(currentLong != null ? currentLong.intValue() : 0);
-
-        Boolean geo = doc.getBoolean("geolocationRequired");
-        event.setGeolocationRequired(Boolean.TRUE.equals(geo));
-
-        Object eventDateObj = doc.get("eventDate");
-        if (eventDateObj instanceof Date) {
-            event.setEventDate((Date) eventDateObj);
-        } else if (eventDateObj instanceof Long) {
-            event.setEventDate(new Date((Long) eventDateObj));
+        // Legacy support: if dates were stored as raw timestamps, convert them
+        if (event.getRegistrationOpen() == null) {
+            Object openObj = doc.get("registrationOpen");
+            if (openObj instanceof Long) {
+                event.setRegistrationOpen(new Date((Long) openObj));
+            } else {
+                Object openTs = doc.get("registrationOpenTimestamp");
+                if (openTs instanceof Long) event.setRegistrationOpen(new Date((Long) openTs));
+            }
         }
 
-        // Category handling
-        String category = doc.getString("category");
+        if (event.getRegistrationClose() == null) {
+            Object closeObj = doc.get("registrationClose");
+            if (closeObj instanceof Long) {
+                event.setRegistrationClose(new Date((Long) closeObj));
+            } else {
+                Object closeTs = doc.get("registrationCloseTimestamp");
+                if (closeTs instanceof Long) event.setRegistrationClose(new Date((Long) closeTs));
+            }
+        }
 
-        // Add other event fields as needed...
+        // Provide sensible defaults for legacy documents missing capacity
+        if (!doc.contains("capacity")) {
+            event.setCapacity(20);
+        }
+
         return event;
     }
 

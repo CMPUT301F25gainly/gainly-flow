@@ -50,6 +50,7 @@ public class ProfileActivity extends AppCompatActivity {
     private Profile profile;
     private String userType;
     private String deviceId;
+    private boolean isExistingProfile = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -152,8 +153,10 @@ public class ProfileActivity extends AppCompatActivity {
         profileRef.get()
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists()) {
+                        isExistingProfile = true;
                         loadProfileFromFirestore(snapshot);
                     } else {
+                        isExistingProfile = false;
                         // Create new profile in Firestore with appropriate class
                         createProfileInFirestore();
                     }
@@ -197,6 +200,7 @@ public class ProfileActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Profile created successfully!", Toast.LENGTH_SHORT).show();
                     this.profile = finalProfileToSave;
+                    isExistingProfile = true;
                     updateUIWithProfile();
                 })
                 .addOnFailureListener(e -> {
@@ -264,17 +268,19 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void updateUIWithProfile() {
         String displayName = profile.getDisplayName();
-        if (displayName == null || displayName.isEmpty()) {
-            displayName = "New User";
+        if (displayName == null) {
+            displayName = "";
         }
 
-        textUserName.setText(displayName);
+        String headerName = displayName.isEmpty() ? "Create Profile" : displayName;
+        textUserName.setText(headerName);
         textDeviceId.setText("Device ID: " + deviceId);
         editFullName.setText(displayName);
         editEmail.setText(profile.getEmail());
         editPhoneNumber.setText(profile.getPhone());
         switchNotifications.setChecked(profile.isReceiveNotifications());
         switchLocation.setChecked(profile.isEnableLocationService());
+        updatePrimaryButtonLabel();
 
         // Show role in the title or user name if needed
         // You can append role to the user name or show it in a toast
@@ -282,9 +288,13 @@ public class ProfileActivity extends AppCompatActivity {
             // Optionally show role in user name text
             String roleText = " (" + profile.getDisplayRole() + ")";
             if (!textUserName.getText().toString().contains(roleText)) {
-                textUserName.setText(displayName + roleText);
+                textUserName.setText(headerName + roleText);
             }
         }
+    }
+
+    private void updatePrimaryButtonLabel() {
+        buttonUpdateProfile.setText(isExistingProfile ? "Update Profile" : "Create Profile");
     }
 
     private void updateProfile() {
