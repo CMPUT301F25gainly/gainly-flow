@@ -66,6 +66,13 @@ public class ImageManager {
      */
     public StorageReference getPosterReference(String imageId) {
         if (imageId == null || imageId.isEmpty()) return null;
+
+        // If caller already passed a path (e.g., "posters/abc" or "some/folder/abc"), respect it.
+        if (imageId.contains("/")) {
+            return storageRef.child(imageId);
+        }
+
+        // Default to posters folder
         return storageRef.child("posters/" + imageId);
     }
 }

@@ -207,15 +207,22 @@ public class EventDetailActivity extends AppCompatActivity {
         ImageManager imageManager = new ImageManager();
         StorageReference posterRef = imageManager.getPosterReference(posterId);
 
-        if (posterRef != null) {
-            Glide.with(this)
-                    .load(posterRef)
-                    .centerCrop()
-                    .placeholder(R.drawable.blue_gradient_bg)
-                    .into(eventPosterImage);
-        } else {
+        if (posterRef == null) {
             eventPosterImage.setVisibility(View.GONE);
+            return;
         }
+
+        // Fetch download URL because Glide (without FirebaseUI) cannot load StorageReference directly.
+        posterRef.getDownloadUrl()
+                .addOnSuccessListener(uri -> Glide.with(this)
+                        .load(uri)
+                        .centerCrop()
+                        .placeholder(R.drawable.blue_gradient_bg)
+                        .into(eventPosterImage))
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load poster: " + e.getMessage());
+                    eventPosterImage.setVisibility(View.GONE);
+                });
     }
 
     private void updateRegistrationStatus() {
