@@ -61,7 +61,7 @@ public class EventDetailActivity extends AppCompatActivity {
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
 
-        // Get current user ID
+        // Get current user Id
         currentUserId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
         // Get event ID from intent
