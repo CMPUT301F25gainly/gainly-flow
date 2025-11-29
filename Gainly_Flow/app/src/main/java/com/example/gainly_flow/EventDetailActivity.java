@@ -260,10 +260,17 @@ public class EventDetailActivity extends AppCompatActivity {
         int count = waitingList.size();
         tvEntrants.setText(String.valueOf(count));
 
+        boolean isOrganizer = isCurrentUserOrganizer();
         boolean isUserInList = waitingList.contains(currentUserId);
 
-        btnJoin.setVisibility(isUserInList ? View.GONE : View.VISIBLE);
-        btnLeave.setVisibility(isUserInList ? View.VISIBLE : View.GONE);
+        if (isOrganizer) {
+            // Organizers cannot join their own waiting lists; allow leave only if legacy data has them enrolled
+            btnJoin.setVisibility(View.GONE);
+            btnLeave.setVisibility(isUserInList ? View.VISIBLE : View.GONE);
+        } else {
+            btnJoin.setVisibility(isUserInList ? View.GONE : View.VISIBLE);
+            btnLeave.setVisibility(isUserInList ? View.VISIBLE : View.GONE);
+        }
 
         // Update available spots
         int currentParticipants = event.getCurrentParticipants();
@@ -289,6 +296,11 @@ public class EventDetailActivity extends AppCompatActivity {
 
     private void joinWaitingList() {
         if (event == null || currentUserId == null) return;
+
+        if (isCurrentUserOrganizer()) {
+            Toast.makeText(this, "Organizers cannot join their own waiting list.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         // Check if user is already in waiting list
         if (waitingList.contains(currentUserId)) {
@@ -475,4 +487,9 @@ public class EventDetailActivity extends AppCompatActivity {
                 });
     }
 
+    private boolean isCurrentUserOrganizer() {
+        return event != null &&
+                event.getOrganizerId() != null &&
+                event.getOrganizerId().equals(currentUserId);
+    }
 }

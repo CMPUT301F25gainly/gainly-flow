@@ -40,32 +40,20 @@ public class OrganizerViewMain extends AppCompatActivity {
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
 
-        // Get current organizer ID
-        currentOrganizerId = getCurrentOrganizerId();
+        // Get current organizer ID from device
+        currentOrganizerId = DeviceIdManager.getDeviceId(this);
         Log.d(TAG, "Current Organizer ID: " + currentOrganizerId);
 
         // Setup button listeners
         setupButtonListeners();
 
-        // Load ALL events (not just current organizer's events)
-        loadAllEvents();
+        // Load only this organizer's events
+        loadOrganizerEvents();
     }
 
     private void initializeViews() {
         eventListContainer = findViewById(R.id.eventListContainer);
         backButton = findViewById(R.id.backButton_organizer);
-    }
-
-    private String getCurrentOrganizerId() {
-        // TODO: Replace with your actual organizer ID retrieval logic
-        String organizerId = "org_default"; // Change this to match your actual organizer IDs
-
-        // If you need to get from Intent extras:
-        // if (getIntent() != null && getIntent().hasExtra("organizer_id")) {
-        //     organizerId = getIntent().getStringExtra("organizer_id");
-        // }
-
-        return organizerId;
     }
 
     private void setupButtonListeners() {
@@ -78,17 +66,24 @@ public class OrganizerViewMain extends AppCompatActivity {
         });
     }
 
-    private void loadAllEvents() {
+    private void loadOrganizerEvents() {
         // Show loading state
         showLoadingState();
 
-        Log.d(TAG, "Loading ALL events from database");
+        if (currentOrganizerId == null || currentOrganizerId.isEmpty()) {
+            Toast.makeText(this, "Unable to load organizer profile", Toast.LENGTH_LONG).show();
+            showEmptyState();
+            return;
+        }
 
-        // Query ALL events without filtering by organizerId
+        Log.d(TAG, "Loading events for organizer: " + currentOrganizerId);
+
+        // Only load events created by this organizer
         db.collection("events")
+                .whereEqualTo("organizerId", currentOrganizerId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "Total events found: " + querySnapshot.size());
+                    Log.d(TAG, "Events found for organizer: " + querySnapshot.size());
 
                     List<Event> events = new ArrayList<>();
 
@@ -97,13 +92,6 @@ public class OrganizerViewMain extends AppCompatActivity {
                             Event event = new Event();
                             event.fromDocument(doc);
                             events.add(event);
-
-                            // Log event details including which organizer created it
-                            String eventOrganizerId = doc.getString("organizerId");
-                            Log.d(TAG, "Loaded event: " + event.getName() +
-                                    " (Organizer: " + eventOrganizerId +
-                                    ", Current Organizer: " + currentOrganizerId +
-                                    ", Is Mine: " + currentOrganizerId.equals(eventOrganizerId) + ")");
                         } catch (Exception e) {
                             Log.e(TAG, "Error parsing event document: " + e.getMessage());
                         }
@@ -145,7 +133,7 @@ public class OrganizerViewMain extends AppCompatActivity {
                 String eventName = event.getName() != null ? event.getName() : "Unnamed Event";
 
                 // Add indicator if this event belongs to current organizer
-                if (currentOrganizerId.equals(event.getOrganizerId())) {
+                if (currentOrganizerId != null && currentOrganizerId.equals(event.getOrganizerId())) {
                     eventName += " (My Event)";
                 }
                 eventTitle.setText(eventName);
@@ -233,7 +221,7 @@ public class OrganizerViewMain extends AppCompatActivity {
         intent.putExtra("event_location", event.getLocation());
         intent.putExtra("event_time_string", event.getTimeString());
         intent.putExtra("organizer_id", event.getOrganizerId());
-        intent.putExtra("is_my_event", currentOrganizerId.equals(event.getOrganizerId()));
+        intent.putExtra("is_my_event", currentOrganizerId != null && currentOrganizerId.equals(event.getOrganizerId()));
         startActivity(intent);
     }
 
@@ -268,6 +256,6 @@ public class OrganizerViewMain extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         // Refresh all events when returning from other activities
-        loadAllEvents();
+        loadOrganizerEvents();
     }
 }
