@@ -14,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -29,6 +30,11 @@ public class OrganizerViewMain extends AppCompatActivity {
     private ImageButton backButton;
     private String currentOrganizerId;
 
+    // Role switch UI
+    private MaterialSwitch roleSwitch;
+    private TextView entrantLabel, organizerLabel;
+    private boolean isChangingModeProgrammatically = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -36,6 +42,9 @@ public class OrganizerViewMain extends AppCompatActivity {
 
         // Initialize views
         initializeViews();
+
+        // Setup role switch
+        setupRoleSwitchOrganizer();
 
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
@@ -54,6 +63,35 @@ public class OrganizerViewMain extends AppCompatActivity {
     private void initializeViews() {
         eventListContainer = findViewById(R.id.eventListContainer);
         backButton = findViewById(R.id.backButton_organizer);
+
+        // Role switch bits
+        roleSwitch = findViewById(R.id.roleSwitch);
+        entrantLabel = findViewById(R.id.entrantLabel);
+        organizerLabel = findViewById(R.id.organizerLabel);
+    }
+
+    private void setupRoleSwitchOrganizer() {
+        if (roleSwitch == null) return;
+
+        // Organizer screen = switch ON by default
+        isChangingModeProgrammatically = true;
+        roleSwitch.setChecked(true);
+        if (entrantLabel != null) entrantLabel.setAlpha(0.7f);
+        if (organizerLabel != null) organizerLabel.setAlpha(1f);
+        isChangingModeProgrammatically = false;
+
+        roleSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChangingModeProgrammatically) return;
+
+            if (!isChecked) {
+                // User flipped to Entrant → open EntrantViewMain
+                Intent intent = new Intent(OrganizerViewMain.this, EntrantViewMain.class);
+                // Mark that this launch came from the role switch
+                intent.putExtra("fromRoleSwitch", true);
+                startActivity(intent);
+                // Optional: finish();  // keep commented so back works normally
+            }
+        });
     }
 
     private String getCurrentOrganizerId() {
@@ -69,8 +107,11 @@ public class OrganizerViewMain extends AppCompatActivity {
     }
 
     private void setupButtonListeners() {
-        backButton.setOnClickListener(v -> onBackPressed());
-
+        backButton.setOnClickListener(v -> {
+            Intent intent = new Intent(OrganizerViewMain.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
         Button createEventButton = findViewById(R.id.createEventButton);
         createEventButton.setOnClickListener(v -> {
             Intent toCreateEvent = new Intent(OrganizerViewMain.this, CreateEvent.class);
@@ -151,7 +192,6 @@ public class OrganizerViewMain extends AppCompatActivity {
                 eventTitle.setText(eventName);
             }
 
-
             if (eventWaiting != null) {
                 int waitingCount = event.getWaitingList() != null ? event.getWaitingList().size() : 0;
                 eventWaiting.setText(String.valueOf(waitingCount));
@@ -175,11 +215,6 @@ public class OrganizerViewMain extends AppCompatActivity {
 
             // Make the item clickable
             itemView.setOnClickListener(v -> openEventDetails(event));
-
-            // Optional: Change background color for events that don't belong to current organizer
-            /*if (!currentOrganizerId.equals(event.getOrganizerId())) {
-                itemView.setBackgroundColor(getResources().getColor(android.R.color.darker_gray));
-            }*/
 
             eventListContainer.addView(itemView);
         }
