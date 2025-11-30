@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * Represents a notification for the user.
+ * Represents a notification for the User.
  */
 @IgnoreExtraProperties
 public class NotificationItem implements Serializable { // Add Serializable here

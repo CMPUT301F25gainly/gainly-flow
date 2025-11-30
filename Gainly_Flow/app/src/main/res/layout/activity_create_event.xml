@@ -93,17 +93,32 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/basicInfoHeader" />
 
+                    <!-- Event Title label -->
+                    <TextView
+                        android:id="@+id/eventTitleLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:text="Event Title"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/basicInfoSubtitle" />
+
                     <!-- Event Title -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/nameInputLayout"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="24dp"
-                        android:hint="Event Title"
+                        android:layout_marginTop="8dp"
+                        android:hint=""
+                        app:hintEnabled="false"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/basicInfoSubtitle">
+                        app:layout_constraintTop_toBottomOf="@id/eventTitleLabel">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/eventNameInput"
@@ -111,9 +126,23 @@
                             android:layout_height="wrap_content"
                             android:inputType="textCapWords"
                             android:maxLines="1"
-                            android:text="e.g., Swimming Lessons for Beginners" />
+                            android:hint="e.g., Swimming Lessons for Beginners" />
 
                     </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Description label -->
+                    <TextView
+                        android:id="@+id/descriptionLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Description"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/nameInputLayout" />
 
                     <!-- Description -->
                     <com.google.android.material.textfield.TextInputLayout
@@ -121,11 +150,12 @@
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:hint="Description"
+                        android:layout_marginTop="8dp"
+                        android:hint=""
+                        app:hintEnabled="false"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/nameInputLayout">
+                        app:layout_constraintTop_toBottomOf="@id/descriptionLabel">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/eventDescriptionInput"
@@ -135,7 +165,7 @@
                             android:inputType="textMultiLine"
                             android:minHeight="120dp"
                             android:maxLines="5"
-                            android:text="Describe what your event is about, what participants will learn or experience..." />
+                            android:hint="Describe what your event is about, what participants will learn or experience..." />
 
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -208,9 +238,8 @@
                                 android:id="@+id/eventLocationInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Location/Venue"
                                 android:inputType="text"
-                                android:text="e.g., Community Center" />
+                                android:hint="e.g., Community Center" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
@@ -221,6 +250,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
+                            android:hint="Price"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintHorizontal_weight="1"
@@ -231,9 +261,8 @@
                                 android:id="@+id/eventPriceInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Price"
                                 android:inputType="numberDecimal"
-                                android:text="0.00" />
+                                android:hint="0.00" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
@@ -297,13 +326,12 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/scheduleSubtitle">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/eventStartDateInput"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Event Date"
-                            android:inputType="none"
-                            android:text="mm/dd/yyyy" />
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/eventStartDateInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="none"
+                                android:hint="mm/dd/yyyy" />
 
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -319,12 +347,12 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/startDateInputLayout">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/scheduleDetailsInput"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:text="e.g., Every Monday, 2:00 PM - 3:00 PM" />
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/scheduleDetailsInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text"
+                                android:hint="e.g., Every Monday, 2:00 PM - 3:00 PM" />
 
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -390,6 +418,7 @@
                             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:hint="Registration Opens"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toStartOf="@id/registrationCloseLayout"
                             app:layout_constraintHorizontal_weight="1"
@@ -400,9 +429,8 @@
                                 android:id="@+id/registrationOpenInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Registration Opens"
                                 android:inputType="none"
-                                android:text="mm/dd/yyyy" />
+                                android:hint="mm/dd/yyyy" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
@@ -413,6 +441,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
+                            android:hint="Registration Closes"
                             app:layout_constraintBottom_toBottomOf="parent"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintHorizontal_weight="1"
@@ -423,9 +452,8 @@
                                 android:id="@+id/registrationCloseInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:hint="Registration Closes"
                                 android:inputType="none"
-                                android:text="mm/dd/yyyy" />
+                                android:hint="mm/dd/yyyy" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
