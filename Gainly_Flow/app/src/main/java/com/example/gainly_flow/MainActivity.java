@@ -146,7 +146,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean isNewDeviceProfile(Profile profile) {
         return profile.getDisplayName() == null ||
                 profile.getDisplayName().isEmpty() ||
-                profile.getDisplayName().equals("New User") ||
                 profile.getEmail() == null ||
                 profile.getEmail().isEmpty();
     }

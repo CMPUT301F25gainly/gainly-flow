@@ -29,6 +29,46 @@ public class LotterySystem {
     private FirebaseFirestore db;
     private NotificationManager notificationManager;
 
+    static class ReplacementSelection {
+        private final List<String> replacements;
+        private final List<String> remainingWaiting;
+
+        ReplacementSelection(List<String> replacements, List<String> remainingWaiting) {
+            this.replacements = replacements;
+            this.remainingWaiting = remainingWaiting;
+        }
+
+        List<String> getReplacements() {
+            return replacements;
+        }
+
+        List<String> getRemainingWaiting() {
+            return remainingWaiting;
+        }
+    }
+
+    /**
+     * Helper used by replacement draws to select entrants deterministically for testing.
+     */
+    static ReplacementSelection selectReplacements(List<String> waitingList, int numberToSelect, int availableSpots, Random rng) {
+        List<String> safeWaiting = waitingList == null ? Collections.emptyList() : waitingList;
+
+        if (numberToSelect <= 0 || availableSpots <= 0 || safeWaiting.isEmpty()) {
+            return new ReplacementSelection(Collections.emptyList(), new ArrayList<>(safeWaiting));
+        }
+
+        int replacementsToDraw = Math.min(numberToSelect, safeWaiting.size());
+        replacementsToDraw = Math.min(replacementsToDraw, availableSpots);
+
+        List<String> shuffledWaiting = new ArrayList<>(safeWaiting);
+        Collections.shuffle(shuffledWaiting, rng);
+
+        List<String> replacements = new ArrayList<>(shuffledWaiting.subList(0, replacementsToDraw));
+        List<String> remainingWaiting = new ArrayList<>(shuffledWaiting.subList(replacementsToDraw, shuffledWaiting.size()));
+
+        return new ReplacementSelection(replacements, remainingWaiting);
+    }
+
     public LotterySystem(Event event) {
         this.event = event;
         this.db = FirebaseFirestore.getInstance();
@@ -91,11 +131,14 @@ public class LotterySystem {
             return;
         }
 
+        Log.d(TAG, "performInitialDraw: Requested=" + numberOfWinners + ", WaitingCount=" + waitingList.size());
+        Log.d(TAG, "performInitialDraw: WaitingList=" + waitingList);
+
         List<String> shuffledList = new ArrayList<>(waitingList);
         Collections.shuffle(shuffledList, random);
 
-        int actualWinners = Math.min(numberOfWinners, event.getAvailableSpots());
-        actualWinners = Math.min(actualWinners, shuffledList.size());
+        int actualWinners = Math.min(numberOfWinners, shuffledList.size());
+        Log.d(TAG, "performInitialDraw: Actual=" + actualWinners);
 
         List<String> winners = shuffledList.subList(0, actualWinners);
         List<String> remainingWaitingList = new ArrayList<>(shuffledList.subList(actualWinners, shuffledList.size()));
@@ -104,9 +147,17 @@ public class LotterySystem {
     }
 
     /**
-     * US 02.05.03 - Draw replacement when a selected entrant declines
+     * US 02.05.03 - Draw replacement when a selected entrant declines.
+     * Default single replacement for backward compatibility.
      */
     public void drawReplacement(final LotteryDrawCallback callback) {
+        drawReplacements(1, callback);
+    }
+
+    /**
+     * Draw the requested number of replacements, capped by available spots and waiting list size.
+     */
+    public void drawReplacements(final int numberToSelect, final LotteryDrawCallback callback) {
         if (event == null || event.getId() == null) {
             callback.onError("Event not loaded properly");
             return;
@@ -120,7 +171,7 @@ public class LotterySystem {
                     public void onSuccess(DocumentSnapshot documentSnapshot) {
                         if (documentSnapshot.exists()) {
                             event.fromDocument(documentSnapshot);
-                            performReplacementDraw(callback);
+                            performReplacementDraw(numberToSelect, callback);
                         } else {
                             callback.onError("Event not found in Firestore");
                         }
@@ -135,7 +186,7 @@ public class LotterySystem {
                 });
     }
 
-    private void performReplacementDraw(LotteryDrawCallback callback) {
+    private void performReplacementDraw(int numberToSelect, LotteryDrawCallback callback) {
         List<String> waitingList = event.getWaitingList();
 
         if (waitingList == null || waitingList.isEmpty()) {
@@ -148,12 +199,27 @@ public class LotterySystem {
             return;
         }
 
-        int randomIndex = random.nextInt(waitingList.size());
-        String replacement = waitingList.get(randomIndex);
+        if (numberToSelect <= 0) {
+            callback.onError("Invalid number of replacements requested");
+            return;
+        }
+
+        int availableSpots = event.getAvailableSpots();
+        if (availableSpots <= 0) {
+            callback.onError("No available spots to fill");
+            return;
+        }
+
+        int replacementsToDraw = Math.min(numberToSelect, waitingList.size());
+        replacementsToDraw = Math.min(replacementsToDraw, availableSpots);
+
+        ReplacementSelection selection = selectReplacements(waitingList, replacementsToDraw, availableSpots, random);
+        List<String> replacements = selection.getReplacements();
+        List<String> remainingWaiting = selection.getRemainingWaiting();
 
         Map<String, Object> updates = new HashMap<>();
-        updates.put("selected", FieldValue.arrayUnion(replacement));
-        updates.put("waitingList", FieldValue.arrayRemove(replacement));
+        updates.put("selected", FieldValue.arrayUnion(replacements.toArray()));
+        updates.put("waitingList", remainingWaiting);
 
         // Update directly in Firestore
         db.collection("events").document(event.getId())
@@ -161,16 +227,18 @@ public class LotterySystem {
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(Void aVoid) {
-                        Log.d(TAG, "Replacement drawn successfully: " + replacement);
+                        Log.d(TAG, "Replacement draw completed successfully. Winners: " + replacements.size());
 
                         // Update local event object
-                        event.getSelected().add(replacement);
-                        event.getWaitingList().remove(replacement);
+                        event.getSelected().addAll(replacements);
+                        event.setWaitingList(remainingWaiting);
 
-                        // Send notification
-                        sendWinnerNotification(replacement, true);
+                        // Send notifications
+                        for (String replacement : replacements) {
+                            sendWinnerNotification(replacement, true);
+                        }
 
-                        callback.onSuccess(Collections.singletonList(replacement));
+                        callback.onSuccess(replacements);
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
@@ -186,7 +254,7 @@ public class LotterySystem {
      * Process multiple declines and draw replacements in batch
      */
     public void processDeclinesAndDrawReplacements(final List<String> declinedEntrants,
-                                                   final LotteryDrawCallback callback) {
+            final LotteryDrawCallback callback) {
         if (event == null || event.getId() == null) {
             callback.onError("Event not loaded properly");
             return;
@@ -230,7 +298,8 @@ public class LotterySystem {
         List<String> shuffledWaiting = new ArrayList<>(waitingList);
         Collections.shuffle(shuffledWaiting, random);
         List<String> replacements = shuffledWaiting.subList(0, replacementsNeeded);
-        List<String> remainingWaiting = new ArrayList<>(shuffledWaiting.subList(replacementsNeeded, shuffledWaiting.size()));
+        List<String> remainingWaiting = new ArrayList<>(
+                shuffledWaiting.subList(replacementsNeeded, shuffledWaiting.size()));
 
         Map<String, Object> updates = new HashMap<>();
 
@@ -309,9 +378,9 @@ public class LotterySystem {
     }
 
     private void updateEventAfterDraw(List<String> winners, List<String> remainingWaitingList,
-                                      LotteryDrawCallback callback) {
+            LotteryDrawCallback callback) {
         Map<String, Object> updates = new HashMap<>();
-        updates.put("selected", winners);
+        updates.put("selected", FieldValue.arrayUnion(winners.toArray()));
         updates.put("waitingList", remainingWaitingList);
 
         // Update directly in Firestore
@@ -322,7 +391,7 @@ public class LotterySystem {
                     public void onSuccess(Void aVoid) {
                         Log.d(TAG, "Lottery draw completed successfully. Winners: " + winners.size());
 
-                        event.setSelected(winners);
+                        event.getSelected().addAll(winners);
                         event.setWaitingList(remainingWaitingList);
 
                         // Notify winners and losers
@@ -365,14 +434,13 @@ public class LotterySystem {
         checkAndSendNotification(entrantId, new NotificationCreator() {
             @Override
             public NotificationItem createNotification(String entrantId, String entrantName) {
-                String title = isReplacement ?
-                        "Great News! A Spot Opened Up" :
-                        "Congratulations! You've Been Selected";
+                String title = isReplacement ? "Great News! A Spot Opened Up" : "Congratulations! You've Been Selected";
 
-                String message = isReplacement ?
-                        String.format("Hello %s! A spot has opened up for %s and you've been selected! Please respond quickly.",
-                                entrantName != null ? entrantName : "there", event.getName()) :
-                        String.format("Hello %s! You've been selected for %s. Please accept your spot within the specified time.",
+                String message = isReplacement ? String.format(
+                        "Hello %s! A spot has opened up for %s and you've been selected! Please respond quickly.",
+                        entrantName != null ? entrantName : "there", event.getName())
+                        : String.format(
+                                "Hello %s! You've been selected for %s. Please accept your spot within the specified time.",
                                 entrantName != null ? entrantName : "there", event.getName());
 
                 return new NotificationItem(
@@ -381,8 +449,7 @@ public class LotterySystem {
                         NotificationItem.NotificationType.WIN.name(),
                         entrantId,
                         event.getId(),
-                        event.getName()
-                );
+                        event.getName());
             }
         });
     }
@@ -396,13 +463,13 @@ public class LotterySystem {
             public NotificationItem createNotification(String entrantId, String entrantName) {
                 return new NotificationItem(
                         "Lottery Results for " + event.getName(),
-                        String.format("Thank you for your interest in %s. Unfortunately, you were not selected in the initial draw, but you may still have a chance if spots open up.",
+                        String.format(
+                                "Thank you for your interest in %s. Unfortunately, you were not selected in the initial draw, but you may still have a chance if spots open up.",
                                 event.getName()),
                         NotificationItem.NotificationType.INFO.name(),
                         entrantId,
                         event.getId(),
-                        event.getName()
-                );
+                        event.getName());
             }
         });
     }
@@ -545,6 +612,7 @@ public class LotterySystem {
      */
     public interface LotteryDrawCallback {
         void onSuccess(List<String> winners);
+
         void onError(String errorMessage);
     }
 
@@ -553,6 +621,7 @@ public class LotterySystem {
      */
     public interface EventsReadyCallback {
         void onSuccess(List<Event> events);
+
         void onError(String errorMessage);
     }
 

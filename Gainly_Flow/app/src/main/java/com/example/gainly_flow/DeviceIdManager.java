@@ -91,13 +91,13 @@ public class DeviceIdManager {
                 newProfile = new Organizer(deviceId);
                 break;
             default:
-                newProfile = new Profile(deviceId, "New User", "");
+                newProfile = new Profile(deviceId, "", "");
                 newProfile.setRole(role);
         }
 
-        // Set device ID and default values
+        // Set device ID and default values (leave name empty so user must set it)
         newProfile.setDeviceId(deviceId);
-        newProfile.setDisplayName("New User");
+        newProfile.setDisplayName("");
         newProfile.setEmail("");
         newProfile.setPhone("");
         newProfile.setRole(role);
@@ -148,7 +148,7 @@ public class DeviceIdManager {
                             default:
                                 updatedProfile = documentSnapshot.toObject(Profile.class);
                                 if (updatedProfile == null) {
-                                    updatedProfile = new Profile(finalDeviceId, "New User", "");
+                                    updatedProfile = new Profile(finalDeviceId, "", "");
                                 }
                         }
 

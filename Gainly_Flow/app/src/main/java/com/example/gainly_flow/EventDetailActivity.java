@@ -42,6 +42,7 @@ public class EventDetailActivity extends AppCompatActivity {
     private ImageView backButton, qrCodeImage, eventPosterImage;
     private LinearLayout qrSection;
     private Button btnJoin, btnLeave, btnShareQr, btnViewWaitingList;
+    private com.google.android.material.bottomnavigation.BottomNavigationView bottomNav;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("h:mm a", Locale.getDefault());
@@ -52,6 +53,8 @@ public class EventDetailActivity extends AppCompatActivity {
     private int eventCapacity;
     private String currentUserId;
     private FirebaseFirestore db;
+    private Entrant currentEntrant;
+    private Profile currentProfile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,8 +75,23 @@ public class EventDetailActivity extends AppCompatActivity {
             return;
         }
 
+        // Capture user extras for bottom nav routing
+        if (getIntent().hasExtra("entrant")) {
+            Object extra = getIntent().getSerializableExtra("entrant");
+            if (extra instanceof Entrant) {
+                currentEntrant = (Entrant) extra;
+            }
+        }
+        if (getIntent().hasExtra("profile")) {
+            Object extra = getIntent().getSerializableExtra("profile");
+            if (extra instanceof Profile) {
+                currentProfile = (Profile) extra;
+            }
+        }
+
         initializeViews();
         setupButtonListeners();
+        setupBottomNav();
         loadEvent(eventId);
         loadEvent(eventId);
     }
@@ -104,6 +122,7 @@ public class EventDetailActivity extends AppCompatActivity {
         btnLeave = findViewById(R.id.btnLeave);
         btnShareQr = findViewById(R.id.btn_share_qr);
         btnViewWaitingList = findViewById(R.id.btnViewWaitingList);
+        bottomNav = findViewById(R.id.bottomNav);
     }
 
     public void loadEvent(String eventId) {
@@ -330,6 +349,11 @@ public class EventDetailActivity extends AppCompatActivity {
         });
 
         btnViewWaitingList.setOnClickListener(v -> showWaitingListDialog());
+    }
+
+    private void setupBottomNav() {
+        BottomNavHelper.setupBottomNav(this, bottomNav, currentEntrant, currentProfile);
+        BottomNavHelper.setSelectedItem(this, bottomNav);
     }
 
     private void joinWaitingList() {

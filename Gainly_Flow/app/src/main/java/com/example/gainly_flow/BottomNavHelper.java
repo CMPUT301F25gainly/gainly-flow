@@ -69,9 +69,11 @@ public class BottomNavHelper {
             id = R.id.menu_notifications;
         } else if (activity instanceof ProfileActivity) {
             id = R.id.menu_profile;
+        } else if (activity instanceof EventDetailActivity) {
+            id = R.id.menu_events;
         }
         // Add other activities if they map to a specific tab
-        // e.g. EventDetailActivity -> menu_events
+        // e.g. add more screens to preserve selection state
 
         if (id != -1) {
             bottomNav.getMenu().findItem(id).setChecked(true);
