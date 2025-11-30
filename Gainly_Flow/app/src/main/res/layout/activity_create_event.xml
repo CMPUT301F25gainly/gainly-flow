@@ -159,6 +159,29 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <!-- Tags -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tagsInputLayout"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="Tags (comma separated)"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/categoryDropdownLayout">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/eventTagsInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textCapWords|textMultiLine"
+                            android:maxLines="2"
+                            android:minLines="1"
+                            android:hint="e.g., music, jazz, live" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
                     <!-- Location and Price Row -->
                     <androidx.constraintlayout.widget.ConstraintLayout
                         android:id="@+id/locationPriceRow"
@@ -167,7 +190,7 @@
                         android:layout_marginTop="16dp"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/categoryDropdownLayout">
+                        app:layout_constraintTop_toBottomOf="@id/tagsInputLayout">
 
                         <!-- Location -->
                         <com.google.android.material.textfield.TextInputLayout

@@ -347,10 +347,7 @@ public class EventDetailActivity extends AppCompatActivity {
         }
 
         // Check if waiting list is full (using capacity as limit for simplicity)
-        if (waitingList.size() >= event.getCapacity()) {
-            Toast.makeText(this, "Waiting list is full.", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (isWaitingListFull()) return;
 
         // Check if registration is open
         if (!"OPEN".equals(event.getRegistrationStatus())) {
@@ -422,6 +419,20 @@ public class EventDetailActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to update user history: " + e.getMessage());
                 });
+    }
+
+    private boolean isWaitingListFull() {
+        if (waitingList == null) return false;
+        int size = waitingList.size();
+        Integer limit = event.getWaitingListLimit();
+
+        // Prefer organizer-specified waiting list limit when present; otherwise fall back to capacity
+        int effectiveLimit = (limit != null && limit > 0) ? limit : event.getCapacity();
+        if (effectiveLimit > 0 && size >= effectiveLimit) {
+            Toast.makeText(this, "Waiting list is full.", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        return false;
     }
 
     private void showWaitingListDialog() {

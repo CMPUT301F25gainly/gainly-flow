@@ -7,6 +7,7 @@ import android.text.method.PasswordTransformationMethod;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -24,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
 
         setupEntrantButton();
         setupOrganizerButton();
-        setupAdminButton();
+        setupHiddenAdminTrigger();
     }
 
     private void setupEntrantButton() {
@@ -150,11 +151,11 @@ public class MainActivity extends AppCompatActivity {
                 profile.getEmail().isEmpty();
     }
 
-    private void setupAdminButton() {
-        Button adminLogin = findViewById(R.id.btnAdminLogin);
-        adminLogin.setOnClickListener(v -> {
-            showAdminPasswordDialog();
-        });
+    private void setupHiddenAdminTrigger() {
+        TextView trigger = findViewById(R.id.adminHiddenTrigger);
+        if (trigger != null) {
+            trigger.setOnClickListener(v -> showAdminPasswordDialog());
+        }
     }
 
     private void showAdminPasswordDialog() {

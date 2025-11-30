@@ -290,6 +290,25 @@
                     app:strokeWidth="1dp" />
             </LinearLayout>
 
+            <!-- Tags / Interests Filter -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Interests / Tags"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/tagsFilterInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="e.g., music, art, outdoors"
+                android:padding="12dp"
+                android:background="@drawable/event_card_bg"
+                android:inputType="textCapWords|textMultiLine" />
+
             <!-- Availability Filter -->
             <TextView
                 android:layout_width="match_parent"

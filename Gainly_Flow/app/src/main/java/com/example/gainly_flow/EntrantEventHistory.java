@@ -332,6 +332,10 @@ public class EntrantEventHistory extends AppCompatActivity {
         event.setSelected((List<String>) doc.get("selected"));
         event.setEnrolled((List<String>) doc.get("enrolled"));
         event.setCancelled((List<String>) doc.get("cancelled"));
+        Object waitingLimit = doc.get("waitingListLimit");
+        if (waitingLimit instanceof Long) {
+            event.setWaitingListLimit(((Long) waitingLimit).intValue());
+        }
 
         return event;
     }
