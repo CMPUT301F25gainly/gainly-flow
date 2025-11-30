@@ -11,6 +11,9 @@ import static androidx.test.espresso.matcher.ViewMatchers.*;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,6 +46,29 @@ public class ProfileActivityUiTest {
     }
 
     @Test
+    public void blankProfile_showsCreateState() {
+        rule.getScenario().onActivity(activity -> {
+            try {
+                Entrant blank = new Entrant();
+                blank.setDisplayName("");
+                blank.setEmail("");
+                blank.setDeviceId("test-device");
+                setField(activity, "profile", blank);
+                setField(activity, "isExistingProfile", false);
+                Method m = ProfileActivity.class.getDeclaredMethod("updateUIWithProfile");
+                m.setAccessible(true);
+                m.invoke(activity);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        onView(withId(R.id.edit_full_name)).check(matches(withText("")));
+        onView(withId(R.id.button_update_profile)).check(matches(withText("Create Profile")));
+        onView(withId(R.id.text_user_name)).check(matches(withText("Create Profile")));
+    }
+
+    @Test
     public void updateProfile_editsValues_andClicksUpdate() {
         onView(withId(R.id.edit_full_name)).perform(clearText(), replaceText("Alice A."), closeSoftKeyboard());
         onView(withId(R.id.edit_email)).perform(clearText(), replaceText("alice@example.com"), closeSoftKeyboard());
@@ -58,5 +84,12 @@ public class ProfileActivityUiTest {
         onView(withId(R.id.edit_full_name)).check(matches(withText("Alice A.")));
         onView(withId(R.id.edit_email)).check(matches(withText("alice@example.com")));
         onView(withId(R.id.edit_phone_number)).check(matches(withText("1234567890")));
+    }
+
+    // Helpers
+    private static void setField(Object target, String fieldName, Object value) throws Exception {
+        Field f = target.getClass().getDeclaredField(fieldName);
+        f.setAccessible(true);
+        f.set(target, value);
     }
 }

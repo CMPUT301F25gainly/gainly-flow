@@ -275,14 +275,6 @@ public class OrganizerViewMain extends AppCompatActivity {
         LayoutInflater inflater = LayoutInflater.from(this);
         View emptyView = inflater.inflate(R.layout.empty_organizer_events, eventListContainer, false);
 
-        Button createFirstEvent = emptyView.findViewById(R.id.btnCreateFirstEvent);
-        if (createFirstEvent != null) {
-            createFirstEvent.setOnClickListener(v -> {
-                Intent toCreateEvent = new Intent(OrganizerViewMain.this, CreateEvent.class);
-                startActivity(toCreateEvent);
-            });
-        }
-
         eventListContainer.addView(emptyView);
         Log.d(TAG, "Showing empty state - no events found in database");
     }
