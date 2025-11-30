@@ -113,6 +113,7 @@ public class WaitingListActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             getSupportActionBar().setTitle("Waiting Lists");
         }
+        toolbar.setNavigationOnClickListener(v -> onBackPressed());
     }
 
     /**

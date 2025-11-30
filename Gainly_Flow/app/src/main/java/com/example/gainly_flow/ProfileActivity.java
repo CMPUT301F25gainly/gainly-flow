@@ -268,7 +268,7 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void updateUIWithProfile() {
         String displayName = profile.getDisplayName();
-        if (displayName == null) {
+        if (displayName == null || displayName.equals("New User")) {
             displayName = "";
         }
 
@@ -284,7 +284,7 @@ public class ProfileActivity extends AppCompatActivity {
 
         // Show role in the title or user name if needed
         // You can append role to the user name or show it in a toast
-        if (profile.getRole() != null && !profile.getRole().isEmpty()) {
+        if (profile.getRole() != null && !profile.getRole().isEmpty() && !headerName.equals("Create Profile")) {
             // Optionally show role in user name text
             String roleText = " (" + profile.getDisplayRole() + ")";
             if (!textUserName.getText().toString().contains(roleText)) {
@@ -294,7 +294,8 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void updatePrimaryButtonLabel() {
-        buttonUpdateProfile.setText(isExistingProfile ? "Update Profile" : "Create Profile");
+        boolean complete = profile != null && profile.isProfileComplete();
+        buttonUpdateProfile.setText(complete ? "Update Profile" : "Create Profile");
     }
 
     private void updateProfile() {

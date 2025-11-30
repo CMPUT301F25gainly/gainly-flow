@@ -21,7 +21,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
     // Quick Actions Buttons
     private Button btnViewWaitingList;
-    private Button btnUpdate;        // <- was btnExportCsv
+    private Button btnUpdate; // <- was btnExportCsv
 
     // Lottery Draw Section
     private EditText etNumberToSelect;
@@ -81,7 +81,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
         // Quick Actions
         btnViewWaitingList = findViewById(R.id.btn_view_waiting_list);
-        btnUpdate       = findViewById(R.id.btn_update_poster);   // <- hook to "Update poster" button
+        btnUpdate = findViewById(R.id.btn_update_poster); // <- hook to "Update poster" button
 
         // Lottery Draw Section
         etNumberToSelect = findViewById(R.id.et_number_to_select);
@@ -104,7 +104,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
     private void setupEventListeners() {
         // Quick Actions
         btnViewWaitingList.setOnClickListener(v -> viewWaitingList());
-        btnUpdate.setOnClickListener(v -> openUpdatePoster());     // <- new behaviour
+        btnUpdate.setOnClickListener(v -> openUpdatePoster()); // <- new behaviour
 
         // Lottery Draw
         btnRunLottery.setOnClickListener(v -> runLotteryDraw());
@@ -156,7 +156,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void updateUIWithEventData() {
-        if (currentEvent == null) return;
+        if (currentEvent == null)
+            return;
 
         // Basic event info
         textEventName.setText(currentEvent.getName());
@@ -175,7 +176,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void updateLotteryButtonState() {
-        if (currentEvent == null) return;
+        if (currentEvent == null)
+            return;
 
         boolean canRunLottery = !currentEvent.isRegistrationOpen() &&
                 currentEvent.getWaitingListSize() > 0 &&
@@ -217,18 +219,24 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, CreateEvent.class);
         intent.putExtra("event_id", eventId);
-        intent.putExtra("mode", "update_poster");   // flag so CreateEvent knows it’s edit-poster mode
+        intent.putExtra("mode", "update_poster"); // flag so CreateEvent knows it’s edit-poster mode
         startActivity(intent);
     }
 
     private void drawReplacement() {
+        if (!validateNumberInput()) {
+            return;
+        }
+
+        int numberToSelect = Integer.parseInt(etNumberToSelect.getText().toString());
+
         showLoading(true);
-        lotterySystem.drawReplacement(new LotterySystem.LotteryDrawCallback() {
+        lotterySystem.drawReplacements(numberToSelect, new LotterySystem.LotteryDrawCallback() {
             @Override
             public void onSuccess(List<String> winners) {
                 showLoading(false);
                 if (!winners.isEmpty()) {
-                    String message = "Replacement drawn successfully!";
+                    String message = String.format("Replacement drawn successfully! (%d selected)", winners.size());
                     Toast.makeText(OrganizerEventActivity.this, message, Toast.LENGTH_LONG).show();
                     loadEventData();
                 } else {
@@ -239,7 +247,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
             @Override
             public void onError(String errorMessage) {
                 showLoading(false);
-                Toast.makeText(OrganizerEventActivity.this, "Failed to draw replacement: " + errorMessage, Toast.LENGTH_LONG).show();
+                Toast.makeText(OrganizerEventActivity.this, "Failed to draw replacement: " + errorMessage,
+                        Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -258,6 +267,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
         int numberToSelect = Integer.parseInt(etNumberToSelect.getText().toString());
         boolean autoNotify = cbAutoNotify.isChecked();
 
+        Toast.makeText(this, "Requesting " + numberToSelect + " winners...", Toast.LENGTH_SHORT).show();
+
         showLoading(true);
         lotterySystem.drawInitialLottery(numberToSelect, new LotterySystem.LotteryDrawCallback() {
             @Override
@@ -267,7 +278,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
                 Toast.makeText(OrganizerEventActivity.this, message, Toast.LENGTH_LONG).show();
 
                 if (autoNotify) {
-                    Toast.makeText(OrganizerEventActivity.this, "Notifications sent to winners", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(OrganizerEventActivity.this, "Notifications sent to winners", Toast.LENGTH_SHORT)
+                            .show();
                 }
 
                 loadEventData();
@@ -276,7 +288,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
             @Override
             public void onError(String errorMessage) {
                 showLoading(false);
-                Toast.makeText(OrganizerEventActivity.this, "Lottery failed: " + errorMessage, Toast.LENGTH_LONG).show();
+                Toast.makeText(OrganizerEventActivity.this, "Lottery failed: " + errorMessage, Toast.LENGTH_LONG)
+                        .show();
             }
         });
     }
@@ -306,7 +319,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private List<String> getRecipientIdsForGroup(String recipientGroup) {
-        if (currentEvent == null) return new ArrayList<>();
+        if (currentEvent == null)
+            return new ArrayList<>();
 
         switch (recipientGroup) {
             case "All Waiting List":
@@ -358,8 +372,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
                 NotificationItem.NotificationType.INFO.name(),
                 userId,
                 currentEvent.getId(),
-                currentEvent.getName()
-        );
+                currentEvent.getName());
 
         Map<String, Object> notificationMap = new HashMap<>();
         notificationMap.put("id", notification.getId());
@@ -394,7 +407,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void updateMessageHintBasedOnRecipient() {
-        if (currentEvent == null) return;
+        if (currentEvent == null)
+            return;
 
         String recipientGroup = getSelectedRecipientGroup();
         int count = getRecipientIdsForGroup(recipientGroup).size();
@@ -427,10 +441,17 @@ public class OrganizerEventActivity extends AppCompatActivity {
                     return false;
                 }
 
-                if (number > currentEvent.getAvailableSpots()) {
-                    etNumberToSelect.setError("Cannot select more than available spots");
+                int availableSpots = currentEvent.getAvailableSpots();
+                if (availableSpots <= 0) {
+                    etNumberToSelect.setError("No available spots to fill");
                     return false;
                 }
+
+                if (number > availableSpots) {
+                    etNumberToSelect.setError("Cannot select more than available spots (" + availableSpots + ")");
+                    return false;
+                }
+
             }
 
             etNumberToSelect.setError(null);
@@ -447,7 +468,7 @@ public class OrganizerEventActivity extends AppCompatActivity {
         btnDrawReplacement.setEnabled(!show);
         btnSendNotification.setEnabled(!show);
         btnViewWaitingList.setEnabled(!show);
-        btnUpdate.setEnabled(!show);          // <- updated
+        btnUpdate.setEnabled(!show); // <- updated
     }
 
     private boolean isCurrentOrganizer() {

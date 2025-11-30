@@ -22,6 +22,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -96,6 +97,7 @@ public class CreateEvent extends AppCompatActivity {
 
         imageManager = new ImageManager();
         setupImagePicker();
+        wireToolbar();
 
         bindViews();
 
@@ -142,6 +144,14 @@ public class CreateEvent extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    private void wireToolbar() {
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            setSupportActionBar(toolbar);
+            toolbar.setNavigationOnClickListener(v -> onBackPressed());
+        }
     }
 
     private String getCurrentOrganizerId() {
