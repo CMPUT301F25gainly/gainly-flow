@@ -160,17 +160,7 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
                 .setTitle("Delete Profile")
                 .setMessage("Remove \"" + profile.getDisplayName() + "\"?")
                 .setPositiveButton("Delete", (dialog, which) -> {
-                    FirebaseFirestore.getInstance()
-                            .collection("profiles")
-                            .document(profile.getId())
-                            .delete()
-                            .addOnSuccessListener(unused -> {
-                                Toast.makeText(this, "Profile deleted", Toast.LENGTH_SHORT).show();
-                                loadProfilesFromFirebase();
-                            })
-                            .addOnFailureListener(e ->
-                                    Toast.makeText(this, "Failed: " + e.getMessage(),
-                                            Toast.LENGTH_LONG).show());
+                    deleteProfileAndAssociatedEvents(profile);
                 })
                 .setNegativeButton("Cancel", null)
                 .show());
@@ -207,5 +197,77 @@ public class AdminBrowseProfilesActivity extends AppCompatActivity {
         } else {
             for (Profile p : filtered) addProfileCard(p);
         }
+    }
+
+    /**
+     * Deletes a profile and all events created by that profile if the profile is an organizer.
+     * This method first queries for all events created by the organizer (using organizerId),
+     * deletes each event, and then deletes the profile itself.
+     *
+     * @param profile the {@link Profile} object to delete
+     */
+    private void deleteProfileAndAssociatedEvents(Profile profile) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String profileId = profile.getId();
+
+        // Query for all events created by this organizer
+        db.collection("events")
+                .whereEqualTo("organizerId", profileId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    // If there are events created by this organizer, delete them first
+                    if (!querySnapshot.isEmpty()) {
+                        int totalEvents = querySnapshot.size();
+                        int[] deletedCount = {0};
+
+                        for (DocumentSnapshot eventDoc : querySnapshot.getDocuments()) {
+                            db.collection("events")
+                                    .document(eventDoc.getId())
+                                    .delete()
+                                    .addOnSuccessListener(unused -> {
+                                        deletedCount[0]++;
+                                        // Once all events are deleted, delete the profile
+                                        if (deletedCount[0] == totalEvents) {
+                                            deleteProfile(profile, totalEvents);
+                                        }
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Toast.makeText(this, "Failed to delete event: " + e.getMessage(),
+                                                Toast.LENGTH_LONG).show();
+                                    });
+                        }
+                    } else {
+                        // No events to delete, just delete the profile
+                        deleteProfile(profile, 0);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to query events: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+    }
+
+    /**
+     * Deletes the profile from Firestore and displays a success message.
+     *
+     * @param profile the {@link Profile} object to delete
+     * @param deletedEventsCount the number of events that were deleted
+     */
+    private void deleteProfile(Profile profile, int deletedEventsCount) {
+        FirebaseFirestore.getInstance()
+                .collection("profiles")
+                .document(profile.getId())
+                .delete()
+                .addOnSuccessListener(unused -> {
+                    String message = "Profile deleted";
+                    if (deletedEventsCount > 0) {
+                        message += " along with " + deletedEventsCount + " event(s)";
+                    }
+                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                    loadProfilesFromFirebase();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to delete profile: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show());
     }
 }
