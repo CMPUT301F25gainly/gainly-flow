@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:background="@drawable/bg_lottery_guidelines_ad"
+        android:elevation="6dp">
+
+        <TextView
+            android:id="@+id/tv_tagline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/bg_lottery_chip"
+            android:text="FAIR &amp; RANDOM"
+            android:textColor="#4A3FFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_headline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Win Your Spot"
+            android:textColor="@android:color/white"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tv_subhead"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Your chance to join the next adventure"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="#F6F7FF"
+            android:clipToPadding="false"
+            android:clipChildren="false"
+            android:elevation="2dp">
+
+            <TextView
+                android:id="@+id/tv_points"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="- Register before the deadline\n- Join the waiting list via QR or in-app\n- Winners are notified instantly\n- Declines trigger replacements\n- Confirm quickly to lock your spot\n- Waiting? We will ping you if a spot opens"
+                android:textColor="#1F1F1F"
+                android:textSize="14sp"
+                android:lineSpacingExtra="4dp"
+                android:fontFamily="sans-serif" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_got_it"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Got it"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="#FFD166"
+            android:textColor="#2D1F7A" />
+
+        <TextView
+            android:id="@+id/tv_footer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Every draw is verified, fair, and random."
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:alpha="0.9"
+            android:fontFamily="sans-serif" />
+
+    </LinearLayout>
+
+</FrameLayout>
