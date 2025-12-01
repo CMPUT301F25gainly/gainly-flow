@@ -30,10 +30,11 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.DocumentSnapshot;
 
-
 /**
- * Activity for organizers to view and manage entrant lists (Selected, Enrolled, Cancelled, Waiting)
- * For a specific event. This activity implements the new vertically stacked button UI.
+ * Activity for organizers to view and manage entrant lists (Selected, Enrolled,
+ * Cancelled, Waiting)
+ * For a specific event. This activity implements the new vertically stacked
+ * button UI.
  */
 public class WaitingListActivity extends AppCompatActivity {
 
@@ -56,6 +57,7 @@ public class WaitingListActivity extends AppCompatActivity {
 
     /**
      * Factory method to create an Intent to start this activity.
+     * 
      * @param context The application context.
      * @param eventId The ID of the event to view.
      * @return An Intent configured to start WaitingListActivity.
@@ -149,11 +151,20 @@ public class WaitingListActivity extends AppCompatActivity {
         String subtitle = event.getName() + " • Entrants";
         textEventName.setText(subtitle);
 
-        // Update tab counts (assuming tab indexes are 0=Selected, 1=Enrolled, 2=Cancelled, 3=Waiting)
+        // Update tab counts (assuming tab indexes are 0=Selected, 1=Enrolled,
+        // 2=Cancelled, 3=Waiting)
         tabStatus.getTabAt(0).setText("Selected (" + event.getSelectedCount() + ")");
         tabStatus.getTabAt(1).setText("Enrolled (" + event.getEnrolledCount() + ")");
-        tabStatus.getTabAt(2).setText("Cancelled (" + (event.getCancelled() != null ? event.getCancelled().size() : 0) + ")");
+        tabStatus.getTabAt(2)
+                .setText("Cancelled (" + (event.getCancelled() != null ? event.getCancelled().size() : 0) + ")");
         tabStatus.getTabAt(3).setText("Waiting (" + event.getWaitingListSize() + ")");
+
+        // Show/hide View Map button based on geolocation requirement
+        if (event.isGeolocationRequired()) {
+            btnViewMap.setVisibility(View.VISIBLE);
+        } else {
+            btnViewMap.setVisibility(View.GONE);
+        }
     }
 
     /**
@@ -163,7 +174,8 @@ public class WaitingListActivity extends AppCompatActivity {
         tabStatus.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                if (currentEvent == null) return;
+                if (currentEvent == null)
+                    return;
                 List<String> entrantIds = new ArrayList<>();
                 String status = "";
 
@@ -190,8 +202,13 @@ public class WaitingListActivity extends AppCompatActivity {
                 updateEntrantList(entrantIds, status);
             }
 
-            @Override public void onTabUnselected(TabLayout.Tab tab) {}
-            @Override public void onTabReselected(TabLayout.Tab tab) {}
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
         });
     }
 
@@ -199,7 +216,8 @@ public class WaitingListActivity extends AppCompatActivity {
      * Fetch entrant details for the given IDs and update the RecyclerView.
      */
     /**
-     * Fetch entrant details for the given IDs from Firestore and update the RecyclerView.
+     * Fetch entrant details for the given IDs from Firestore and update the
+     * RecyclerView.
      */
     private void updateEntrantList(List<String> entrantIds, String status) {
         if (entrantIds == null || entrantIds.isEmpty()) {
@@ -213,16 +231,16 @@ public class WaitingListActivity extends AppCompatActivity {
         // Firestore: load the matching profile docs by their document IDs
         FirebaseFirestore.getInstance()
                 .collection("profiles")
-                .whereIn(FieldPath.documentId(), entrantIds)  // IDs in your event lists
+                .whereIn(FieldPath.documentId(), entrantIds) // IDs in your event lists
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     List<Entrant> realEntrants = new ArrayList<>();
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        String id          = doc.getId();
+                        String id = doc.getId();
                         String displayName = doc.getString("displayName");
-                        String email       = doc.getString("email");
-                        String phone       = doc.getString("phone");  // or null if you don’t store it
+                        String email = doc.getString("email");
+                        String phone = doc.getString("phone"); // or null if you don’t store it
 
                         Entrant e = new Entrant(id, displayName, email, phone);
                         realEntrants.add(e);
@@ -242,7 +260,8 @@ public class WaitingListActivity extends AppCompatActivity {
     }
 
     /**
-     * Export the entrants for the currently selected tab (Selected / Enrolled / Cancelled / Waiting)
+     * Export the entrants for the currently selected tab (Selected / Enrolled /
+     * Cancelled / Waiting)
      * to a CSV file using CSVExporter.
      */
     private void exportCurrentTabToCsv() {
@@ -281,8 +300,7 @@ public class WaitingListActivity extends AppCompatActivity {
             Toast.makeText(
                     this,
                     "No " + statusLabel.toLowerCase() + " entrants to export.",
-                    Toast.LENGTH_SHORT
-            ).show();
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -295,32 +313,27 @@ public class WaitingListActivity extends AppCompatActivity {
             Toast.makeText(
                     this,
                     "No " + statusLabel.toLowerCase() + " entrants to export.",
-                    Toast.LENGTH_SHORT
-            ).show();
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
         File csvFile = exporter.exportEntrants(
                 this,
                 currentEvent.getName() + "_" + statusLabel,
-                entrantsToExport
-        );
+                entrantsToExport);
 
         if (csvFile != null) {
             Toast.makeText(
                     this,
                     "CSV exported to:\n" + csvFile.getAbsolutePath(),
-                    Toast.LENGTH_LONG
-            ).show();
+                    Toast.LENGTH_LONG).show();
         } else {
             Toast.makeText(
                     this,
                     "Failed to export CSV.",
-                    Toast.LENGTH_SHORT
-            ).show();
+                    Toast.LENGTH_SHORT).show();
         }
     }
-
 
     /**
      * Set up the click listeners for the three main action buttons.
@@ -358,10 +371,10 @@ public class WaitingListActivity extends AppCompatActivity {
             this.entrants = newEntrants;
             notifyDataSetChanged();
         }
+
         public List<Entrant> getEntrants() {
             return new ArrayList<>(entrants); // copy so callers can’t mess with internal list
         }
-
 
         @NonNull
         @Override
@@ -370,8 +383,6 @@ public class WaitingListActivity extends AppCompatActivity {
                     .inflate(R.layout.item_profile_admin, parent, false);
             return new EntrantHolder(view);
         }
-
-
 
         @Override
         public void onBindViewHolder(@NonNull EntrantHolder holder, int position) {
@@ -385,7 +396,7 @@ public class WaitingListActivity extends AppCompatActivity {
         }
 
         // ViewHolder class for the Entrant item
-// ViewHolder class for the Entrant item (admin-style card)
+        // ViewHolder class for the Entrant item (admin-style card)
         class EntrantHolder extends RecyclerView.ViewHolder {
 
             private final TextView nameTextView;
@@ -398,10 +409,10 @@ public class WaitingListActivity extends AppCompatActivity {
             public EntrantHolder(@NonNull View itemView) {
                 super(itemView);
                 // IDs from item_profile_admin.xml
-                nameTextView  = itemView.findViewById(R.id.profileName);
+                nameTextView = itemView.findViewById(R.id.profileName);
                 emailTextView = itemView.findViewById(R.id.profileEmail);
-                roleTextView  = itemView.findViewById(R.id.profileRole);
-                deleteButton  = itemView.findViewById(R.id.btnDeleteProfile);
+                roleTextView = itemView.findViewById(R.id.profileRole);
+                deleteButton = itemView.findViewById(R.id.btnDeleteProfile);
             }
 
             public void bind(Entrant entrant) {
@@ -413,7 +424,8 @@ public class WaitingListActivity extends AppCompatActivity {
 
                 deleteButton.setOnClickListener(v -> {
                     int position = getAdapterPosition();
-                    if (position == RecyclerView.NO_POSITION) return;
+                    if (position == RecyclerView.NO_POSITION)
+                        return;
 
                     Entrant toDelete = entrants.get(position);
                     String entrantId = toDelete.getId();
@@ -481,16 +493,21 @@ public class WaitingListActivity extends AppCompatActivity {
                                                     .document(eventId)
                                                     .update(
                                                             fFromField, FieldValue.arrayRemove(fEntrantId),
-                                                            "cancelled", FieldValue.arrayUnion(fEntrantId)
-                                                    )
+                                                            "cancelled", FieldValue.arrayUnion(fEntrantId))
                                                     .addOnSuccessListener(unused -> {
                                                         // Update local Event model
                                                         if (currentEvent != null) {
                                                             List<String> fromList = null;
                                                             switch (fTabPos) {
-                                                                case 0: fromList = currentEvent.getSelected(); break;
-                                                                case 1: fromList = currentEvent.getEnrolled(); break;
-                                                                case 3: fromList = currentEvent.getWaitingList(); break;
+                                                                case 0:
+                                                                    fromList = currentEvent.getSelected();
+                                                                    break;
+                                                                case 1:
+                                                                    fromList = currentEvent.getEnrolled();
+                                                                    break;
+                                                                case 3:
+                                                                    fromList = currentEvent.getWaitingList();
+                                                                    break;
                                                             }
                                                             if (fromList != null) {
                                                                 fromList.remove(fEntrantId);
@@ -510,21 +527,18 @@ public class WaitingListActivity extends AppCompatActivity {
                                                         Toast.makeText(
                                                                 itemView.getContext(),
                                                                 "Moved to Cancelled.",
-                                                                Toast.LENGTH_SHORT
-                                                        ).show();
+                                                                Toast.LENGTH_SHORT).show();
                                                     })
                                                     .addOnFailureListener(e -> Toast.makeText(
                                                             itemView.getContext(),
                                                             "Failed: " + e.getMessage(),
-                                                            Toast.LENGTH_LONG
-                                                    ).show());
+                                                            Toast.LENGTH_LONG).show());
                                         } else {
                                             // We’re already in Cancelled: just remove
                                             db.collection("events")
                                                     .document(eventId)
                                                     .update(
-                                                            fFromField, FieldValue.arrayRemove(fEntrantId)
-                                                    )
+                                                            fFromField, FieldValue.arrayRemove(fEntrantId))
                                                     .addOnSuccessListener(unused -> {
                                                         if (currentEvent != null &&
                                                                 currentEvent.getCancelled() != null) {
@@ -538,17 +552,14 @@ public class WaitingListActivity extends AppCompatActivity {
                                                         Toast.makeText(
                                                                 itemView.getContext(),
                                                                 "Removed from Cancelled.",
-                                                                Toast.LENGTH_SHORT
-                                                        ).show();
+                                                                Toast.LENGTH_SHORT).show();
                                                     })
                                                     .addOnFailureListener(e -> Toast.makeText(
                                                             itemView.getContext(),
                                                             "Failed: " + e.getMessage(),
-                                                            Toast.LENGTH_LONG
-                                                    ).show());
+                                                            Toast.LENGTH_LONG).show());
                                         }
-                                    }
-                            )
+                                    })
                             .setNegativeButton("Keep", null)
                             .show();
                 });
