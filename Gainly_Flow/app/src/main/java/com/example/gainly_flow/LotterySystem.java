@@ -48,9 +48,11 @@ public class LotterySystem {
     }
 
     /**
-     * Helper used by replacement draws to select entrants deterministically for testing.
+     * Helper used by replacement draws to select entrants deterministically for
+     * testing.
      */
-    static ReplacementSelection selectReplacements(List<String> waitingList, int numberToSelect, int availableSpots, Random rng) {
+    static ReplacementSelection selectReplacements(List<String> waitingList, int numberToSelect, int availableSpots,
+            Random rng) {
         List<String> safeWaiting = waitingList == null ? Collections.emptyList() : waitingList;
 
         if (numberToSelect <= 0 || availableSpots <= 0 || safeWaiting.isEmpty()) {
@@ -64,7 +66,8 @@ public class LotterySystem {
         Collections.shuffle(shuffledWaiting, rng);
 
         List<String> replacements = new ArrayList<>(shuffledWaiting.subList(0, replacementsToDraw));
-        List<String> remainingWaiting = new ArrayList<>(shuffledWaiting.subList(replacementsToDraw, shuffledWaiting.size()));
+        List<String> remainingWaiting = new ArrayList<>(
+                shuffledWaiting.subList(replacementsToDraw, shuffledWaiting.size()));
 
         return new ReplacementSelection(replacements, remainingWaiting);
     }
@@ -155,7 +158,8 @@ public class LotterySystem {
     }
 
     /**
-     * Draw the requested number of replacements, capped by available spots and waiting list size.
+     * Draw the requested number of replacements, capped by available spots and
+     * waiting list size.
      */
     public void drawReplacements(final int numberToSelect, final LotteryDrawCallback callback) {
         if (event == null || event.getId() == null) {
@@ -237,6 +241,8 @@ public class LotterySystem {
                         for (String replacement : replacements) {
                             sendWinnerNotification(replacement, true);
                         }
+                        // Notify everyone still waiting they were not selected this round
+                        notifyWaitingListNotSelected(remainingWaiting, true);
 
                         callback.onSuccess(replacements);
                     }
@@ -335,6 +341,8 @@ public class LotterySystem {
                         for (String replacement : replacements) {
                             sendWinnerNotification(replacement, true);
                         }
+                        // Notify remaining waiting list they were not selected in this draw
+                        notifyWaitingListNotSelected(event.getWaitingList(), true);
 
                         callback.onSuccess(replacements);
                     }
@@ -413,13 +421,17 @@ public class LotterySystem {
      * US 01.04.01 & US 01.04.02 - Notify winners and losers
      */
     private void notifyWinnersAndLosers(List<String> winners, List<String> remainingWaitingList) {
+        Log.d(TAG, "notifyWinnersAndLosers: Winners=" + winners.size() + ", Losers=" + remainingWaitingList.size());
+
         // Notify winners (US 01.04.01)
         for (String winnerId : winners) {
+            Log.d(TAG, "Sending WIN notification to: " + winnerId);
             sendWinnerNotification(winnerId, false);
         }
 
         // Notify losers (US 01.04.02)
         for (String loserId : remainingWaitingList) {
+            Log.d(TAG, "Sending LOSE notification to: " + loserId);
             sendLoserNotification(loserId);
         }
 
@@ -461,17 +473,56 @@ public class LotterySystem {
         checkAndSendNotification(entrantId, new NotificationCreator() {
             @Override
             public NotificationItem createNotification(String entrantId, String entrantName) {
+                String title = String.format("Not Selected • %s", event.getName());
+                String message = String.format(
+                        "You have not been selected for %s. You remain on the waiting list and will be notified if a replacement spot opens.",
+                        event.getName());
+
                 return new NotificationItem(
-                        "Lottery Results for " + event.getName(),
-                        String.format(
-                                "Thank you for your interest in %s. Unfortunately, you were not selected in the initial draw, but you may still have a chance if spots open up.",
-                                event.getName()),
-                        NotificationItem.NotificationType.INFO.name(),
+                        title,
+                        message,
+                        NotificationItem.NotificationType.LOSE.name(),
                         entrantId,
                         event.getId(),
                         event.getName());
             }
         });
+    }
+
+    /**
+     * Notify entrants who remain on the waiting list that they were not selected in
+     * this draw.
+     */
+    private void notifyWaitingListNotSelected(List<String> waitingList, boolean isReplacementDraw) {
+        if (waitingList == null || waitingList.isEmpty()) {
+            return;
+        }
+
+        for (String waitingId : waitingList) {
+            checkAndSendNotification(waitingId, new NotificationCreator() {
+                @Override
+                public NotificationItem createNotification(String entrantId, String entrantName) {
+                    String title = isReplacementDraw
+                            ? String.format("Still Waiting • %s", event.getName())
+                            : String.format("Not Selected • %s", event.getName());
+                    String message = isReplacementDraw
+                            ? String.format(
+                                    "You were not selected in the latest draw for %s, but you remain on the waiting list for the next available spot.",
+                                    event.getName())
+                            : String.format(
+                                    "You have not been selected for %s. You remain on the waiting list and will be notified if a replacement spot opens.",
+                                    event.getName());
+
+                    return new NotificationItem(
+                            title,
+                            message,
+                            NotificationItem.NotificationType.LOSE.name(),
+                            entrantId,
+                            event.getId(),
+                            event.getName());
+                }
+            });
+        }
     }
 
     /**
@@ -497,9 +548,11 @@ public class LotterySystem {
 
                             // Create and save notification
                             NotificationItem notification = creator.createNotification(entrantId, entrantName);
+                            Log.d(TAG, "Saving notification for " + entrantId + " (Profile exists)");
                             saveNotification(notification);
                         } else {
                             // Create notification even if profile doesn't exist (for device ID users)
+                            Log.d(TAG, "Saving notification for " + entrantId + " (Profile not found)");
                             NotificationItem notification = creator.createNotification(entrantId, null);
                             saveNotification(notification);
                         }

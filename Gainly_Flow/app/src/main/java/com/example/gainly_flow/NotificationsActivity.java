@@ -156,13 +156,13 @@ public class NotificationsActivity extends AppCompatActivity {
         loadGlobalNotifications();
 
         // Method 2: Load from user's profile document (using user ID)
-        loadUserProfileNotifications();
+        // loadUserProfileNotifications();
 
         // Method 3: Load from device profile (using device ID) - for backward
         // compatibility
-        if (currentDeviceId != null && !currentDeviceId.equals(currentUserId)) {
-            loadDeviceProfileNotifications();
-        }
+        // if (currentDeviceId != null && !currentDeviceId.equals(currentUserId)) {
+        // loadDeviceProfileNotifications();
+        // }
     }
 
     /**

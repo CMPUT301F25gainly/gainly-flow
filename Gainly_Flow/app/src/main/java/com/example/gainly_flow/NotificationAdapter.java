@@ -16,6 +16,9 @@ import java.util.Locale;
 
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.ViewHolder> {
 
+    private static final int VIEW_TYPE_DEFAULT = 0;
+    private static final int VIEW_TYPE_NOT_SELECTED = 1;
+
     private final List<NotificationItem> notifications;
     private final OnActionClickListener actionClickListener;
 
@@ -26,14 +29,18 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
     public interface OnActionClickListener {
         void onAcceptClicked(NotificationItem item);
+
         void onDeclineClicked(NotificationItem item);
     }
 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        int layoutRes = viewType == VIEW_TYPE_NOT_SELECTED ? R.layout.item_notification_not_selected
+                : R.layout.item_notification;
+
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_notification, parent, false);
+                .inflate(layoutRes, parent, false);
         return new ViewHolder(view);
     }
 
@@ -85,7 +92,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         int color;
 
         if (type != null) {
-            switch (type) {
+            switch (type.toUpperCase(Locale.ROOT)) {
                 case "WIN":
                     color = holder.itemView.getContext().getResources().getColor(android.R.color.holo_green_dark);
                     break;
@@ -104,6 +111,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 case "INVITATION":
                     color = holder.itemView.getContext().getResources().getColor(android.R.color.holo_purple);
                     break;
+                case "LOSE":
+                    color = holder.itemView.getContext().getResources().getColor(android.R.color.holo_red_dark);
+                    break;
                 default:
                     color = holder.itemView.getContext().getResources().getColor(android.R.color.darker_gray);
             }
@@ -112,6 +122,19 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         }
 
         holder.indicatorBar.setBackgroundColor(color);
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        NotificationItem item = notifications.get(position);
+        if (isLoseType(item.getType())) {
+            return VIEW_TYPE_NOT_SELECTED;
+        }
+        return VIEW_TYPE_DEFAULT;
+    }
+
+    private boolean isLoseType(String type) {
+        return type != null && type.equalsIgnoreCase(NotificationItem.NotificationType.LOSE.name());
     }
 
     @Override

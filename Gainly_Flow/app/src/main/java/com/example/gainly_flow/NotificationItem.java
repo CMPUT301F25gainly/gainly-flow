@@ -27,7 +27,7 @@ public class NotificationItem implements Serializable { // Add Serializable here
 
     // Notification types
     public enum NotificationType {
-        WIN, INFO, REMINDER, UPDATE, CANCELLATION, INVITATION
+        WIN, INFO, REMINDER, UPDATE, CANCELLATION, INVITATION, LOSE
     }
 
     /** Default constructor required for Firebase */
@@ -79,60 +79,134 @@ public class NotificationItem implements Serializable { // Add Serializable here
     }
 
     /** Constructor for event-related notifications */
-    public NotificationItem(String title, String message, String type, String recipientId, String eventId, String eventName) {
+    public NotificationItem(String title, String message, String type, String recipientId, String eventId,
+            String eventName) {
         this(title, message, type, recipientId);
         this.eventId = eventId;
         this.eventName = eventName;
     }
 
     // ... rest of your getters and setters remain the same
-    public String getId() { return id; }
-    public String getTitle() { return title; }
-    public String getDescription() { return description; }
-    public String getMessage() { return message; }
-    public String getEventId() { return eventId; }
-    public String getEventName() { return eventName; }
-    public Date getTimestamp() { return timestamp; }
-    public boolean isActionRequired() { return actionRequired; }
-    public boolean isRead() { return isRead; }
-    public String getType() { return type; }
-    public String getRecipientId() { return recipientId; }
+    public String getId() {
+        return id;
+    }
 
-    public void setId(String id) { this.id = id; }
-    public void setTitle(String title) { this.title = title; }
-    public void setDescription(String description) { this.description = description; }
-    public void setMessage(String message) { this.message = message; }
-    public void setEventId(String eventId) { this.eventId = eventId; }
-    public void setEventName(String eventName) { this.eventName = eventName; }
-    public void setTimestamp(Date timestamp) { this.timestamp = timestamp; }
-    public void setActionRequired(boolean actionRequired) { this.actionRequired = actionRequired; }
-    public void setRead(boolean read) { isRead = read; }
+    public String getTitle() {
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public String getEventName() {
+        return eventName;
+    }
+
+    public Date getTimestamp() {
+        return timestamp;
+    }
+
+    public boolean isActionRequired() {
+        return actionRequired;
+    }
+
+    public boolean isRead() {
+        return isRead;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getRecipientId() {
+        return recipientId;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
+    public void setEventName(String eventName) {
+        this.eventName = eventName;
+    }
+
+    public void setTimestamp(Date timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public void setActionRequired(boolean actionRequired) {
+        this.actionRequired = actionRequired;
+    }
+
+    public void setRead(boolean read) {
+        isRead = read;
+    }
+
     public void setType(String type) {
         this.type = type;
         this.actionRequired = NotificationType.WIN.name().equals(type) ||
                 NotificationType.INVITATION.name().equals(type);
     }
-    public void setRecipientId(String recipientId) { this.recipientId = recipientId; }
+
+    public void setRecipientId(String recipientId) {
+        this.recipientId = recipientId;
+    }
 
     // ... rest of your helper methods remain the same
     @Exclude
     public String getDisplayMessage() {
-        if (message != null && !message.isEmpty()) return message;
-        if (description != null && !description.isEmpty()) return description;
+        if (message != null && !message.isEmpty())
+            return message;
+        if (description != null && !description.isEmpty())
+            return description;
         return title != null ? title : "No message";
     }
 
     @Exclude
     public String getDisplayTitle() {
-        if (title != null && !title.isEmpty()) return title;
+        if (title != null && !title.isEmpty())
+            return title;
         if (type != null) {
             switch (type) {
-                case "WIN": return "You Won!";
-                case "REMINDER": return "Event Reminder";
-                case "UPDATE": return "Event Update";
-                case "CANCELLATION": return "Event Cancelled";
-                case "INVITATION": return "New Invitation";
-                default: return "Notification";
+                case "WIN":
+                    return "You Won!";
+                case "REMINDER":
+                    return "Event Reminder";
+                case "UPDATE":
+                    return "Event Update";
+                case "CANCELLATION":
+                    return "Event Cancelled";
+                case "INVITATION":
+                    return "New Invitation";
+                case "LOSE":
+                    return "Lottery Result";
+                default:
+                    return "Notification";
             }
         }
         return "Notification";
@@ -150,15 +224,20 @@ public class NotificationItem implements Serializable { // Add Serializable here
 
     @Exclude
     public String getFormattedTimestamp() {
-        if (timestamp == null) return "";
+        if (timestamp == null)
+            return "";
         long diff = System.currentTimeMillis() - timestamp.getTime();
         long minutes = diff / (60 * 1000);
         long hours = diff / (60 * 60 * 1000);
         long days = diff / (24 * 60 * 60 * 1000);
-        if (minutes < 1) return "Just now";
-        if (minutes < 60) return minutes + " min ago";
-        if (hours < 24) return hours + " hour" + (hours > 1 ? "s" : "") + " ago";
-        if (days < 7) return days + " day" + (days > 1 ? "s" : "") + " ago";
+        if (minutes < 1)
+            return "Just now";
+        if (minutes < 60)
+            return minutes + " min ago";
+        if (hours < 24)
+            return hours + " hour" + (hours > 1 ? "s" : "") + " ago";
+        if (days < 7)
+            return days + " day" + (days > 1 ? "s" : "") + " ago";
         return timestamp.toString();
     }
 
@@ -198,8 +277,10 @@ public class NotificationItem implements Serializable { // Add Serializable here
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         NotificationItem that = (NotificationItem) o;
         return id != null ? id.equals(that.id) : that.id == null;
     }
