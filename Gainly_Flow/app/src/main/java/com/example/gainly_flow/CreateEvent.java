@@ -70,6 +70,7 @@ public class CreateEvent extends AppCompatActivity {
     // Formats
     private final SimpleDateFormat dateFmt;
     private final SimpleDateFormat firestoreDateFormat;
+    private final SimpleDateFormat saveDateFmt;
 
     private boolean isUpdatePosterOnly = false;
     private String existingEventId = null;
@@ -77,6 +78,9 @@ public class CreateEvent extends AppCompatActivity {
     {
         dateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
         dateFmt.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+
+        saveDateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+        // saveDateFmt uses default local timezone
 
         firestoreDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         firestoreDateFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
@@ -617,7 +621,7 @@ public class CreateEvent extends AppCompatActivity {
     @Nullable
     private Date parseDate(String dateStr) {
         try {
-            return dateFmt.parse(dateStr);
+            return saveDateFmt.parse(dateStr);
         } catch (Exception e) {
             Log.e("CreateEvent", "Error parsing date: " + dateStr, e);
             return null;

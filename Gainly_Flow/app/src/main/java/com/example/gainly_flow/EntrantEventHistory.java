@@ -40,8 +40,7 @@ public class EntrantEventHistory extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private LinearLayout eventListContainer;
     private MaterialButtonToggleGroup historyFilterGroup;
-    private MaterialButton filterAllButton, filterWaitingButton, filterWonButton, filterLostButton;
-    private EditText searchInput; // not wired yet, but ready for later
+
 
     // Date format reused from entrant view
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -75,11 +74,7 @@ public class EntrantEventHistory extends AppCompatActivity {
         bottomNav = findViewById(R.id.bottomNav);
         eventListContainer = findViewById(R.id.eventListContainer);
         historyFilterGroup = findViewById(R.id.historyFilterGroup);
-        filterAllButton = findViewById(R.id.filterAllButton);
-        filterWaitingButton = findViewById(R.id.filterWaitingButton);
-        filterWonButton = findViewById(R.id.filterWonButton);
-        filterLostButton = findViewById(R.id.filterLostButton);
-        searchInput = findViewById(R.id.searchInput);
+
 
         // IMPORTANT: highlight Events tab BEFORE attaching listener,
         // so it doesn't trigger navigation.
@@ -272,69 +267,34 @@ public class EntrantEventHistory extends AppCompatActivity {
     // ----------------------------------------------------
 
     private Event createEventFromDocument(DocumentSnapshot doc) {
-        Event event = new Event(doc.getId());
+        // Use the shared mapper so registration windows and status are accurate
+        Event event = new Event();
+        event.fromDocument(doc);
 
-        event.setName(doc.getString("name"));
-        event.setDescription(doc.getString("description"));
-        String posterId = doc.getString("posterImageId");
-        if (posterId == null || posterId.isEmpty()) {
-            posterId = doc.getString("posterUri");
-        }
-        event.setPosterImageId(posterId);
-        event.setLocation(doc.getString("location"));
-        event.setTimeString(doc.getString("timeString"));
-
-        Long capLong = doc.getLong("capacity");
-        event.setCapacity(capLong != null ? capLong.intValue() : 20);
-
-        Long currentLong = doc.getLong("currentParticipants");
-        event.setCurrentParticipants(currentLong != null ? currentLong.intValue() : 0);
-
-        Boolean geo = doc.getBoolean("geolocationRequired");
-        event.setGeolocationRequired(Boolean.TRUE.equals(geo));
-
-        Object eventDateObj = doc.get("eventDate");
-        if (eventDateObj instanceof Date) {
-            event.setEventDate((Date) eventDateObj);
-        } else if (eventDateObj instanceof Long) {
-            event.setEventDate(new Date((Long) eventDateObj));
-        }
-
-        Object openObj = doc.get("registrationOpen");
-        if (openObj instanceof Date) {
-            event.setRegistrationOpen((Date) openObj);
-        } else if (openObj instanceof Long) {
-            event.setRegistrationOpen(new Date((Long) openObj));
-        }
-
-        Object closeObj = doc.get("registrationClose");
-        if (closeObj instanceof Date) {
-            event.setRegistrationClose((Date) closeObj);
-        } else if (closeObj instanceof Long) {
-            event.setRegistrationClose(new Date((Long) closeObj));
-        }
-
-        Double price = doc.getDouble("price");
-        if (price != null) {
-            event.setPrice(price);
-        }
-
-        String category = doc.getString("category");
-        if (category != null) {
-            try {
-                event.setCategory(Event.Category.valueOf(category));
-            } catch (IllegalArgumentException e) {
-                event.setCategory(Event.Category.ALL);
+        // Legacy support: if dates were stored as raw timestamps, convert them
+        if (event.getRegistrationOpen() == null) {
+            Object openObj = doc.get("registrationOpen");
+            if (openObj instanceof Long) {
+                event.setRegistrationOpen(new Date((Long) openObj));
+            } else {
+                Object openTs = doc.get("registrationOpenTimestamp");
+                if (openTs instanceof Long) event.setRegistrationOpen(new Date((Long) openTs));
             }
         }
 
-        event.setWaitingList((List<String>) doc.get("waitingList"));
-        event.setSelected((List<String>) doc.get("selected"));
-        event.setEnrolled((List<String>) doc.get("enrolled"));
-        event.setCancelled((List<String>) doc.get("cancelled"));
-        Object waitingLimit = doc.get("waitingListLimit");
-        if (waitingLimit instanceof Long) {
-            event.setWaitingListLimit(((Long) waitingLimit).intValue());
+        if (event.getRegistrationClose() == null) {
+            Object closeObj = doc.get("registrationClose");
+            if (closeObj instanceof Long) {
+                event.setRegistrationClose(new Date((Long) closeObj));
+            } else {
+                Object closeTs = doc.get("registrationCloseTimestamp");
+                if (closeTs instanceof Long) event.setRegistrationClose(new Date((Long) closeTs));
+            }
+        }
+
+        // Provide sensible defaults for legacy documents missing capacity
+        if (!doc.contains("capacity")) {
+            event.setCapacity(20);
         }
 
         return event;
