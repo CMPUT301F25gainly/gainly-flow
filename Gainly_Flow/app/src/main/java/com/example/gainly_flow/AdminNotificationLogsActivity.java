@@ -21,8 +21,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Activity for administrators to review logs of all notifications sent to entrants.
- * Implements US 03.08.01: "As an administrator, I want to review logs of all notifications
+ * Activity for administrators to review logs of all notifications sent to
+ * entrants.
+ * Implements US 03.08.01: "As an administrator, I want to review logs of all
+ * notifications
  * sent to entrants by organizers."
  */
 public class AdminNotificationLogsActivity extends AppCompatActivity {
@@ -31,17 +33,15 @@ public class AdminNotificationLogsActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
     private LogAdapter logAdapter;
-    private List<NotificationLog.Entry> logList;
+    private List<NotificationItem> logList;
     private TextView tvLogCount;
     private ImageButton btnBack;
-    private NotificationLog notificationLog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_notification_logs);
 
-        notificationLog = new NotificationLog();
         logList = new ArrayList<>();
 
         initializeViews();
@@ -64,22 +64,38 @@ public class AdminNotificationLogsActivity extends AppCompatActivity {
     }
 
     /**
-     * Loads all notification logs from Firestore.
+     * Loads all notification logs from Firestore 'notifications' collection.
      */
     private void loadLogs() {
-        notificationLog.listAll(logs -> {
-            logList.clear();
-            logList.addAll(logs);
+        com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("notifications")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    logList.clear();
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        try {
+                            NotificationItem item = new NotificationItem(doc);
+                            logList.add(item);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing notification: " + e.getMessage());
+                        }
+                    }
 
-            // Sort by timestamp (most recent first)
-            Collections.sort(logList, (a, b) -> {
-                if (a.timestamp == null) return 1;
-                if (b.timestamp == null) return -1;
-                return b.timestamp.compareTo(a.timestamp);
-            });
+                    // Sort by timestamp (most recent first)
+                    Collections.sort(logList, (a, b) -> {
+                        if (a.getTimestamp() == null)
+                            return 1;
+                        if (b.getTimestamp() == null)
+                            return -1;
+                        return b.getTimestamp().compareTo(a.getTimestamp());
+                    });
 
-            updateUI();
-        });
+                    updateUI();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error fetching notifications: " + e.getMessage());
+                    Toast.makeText(this, "Error loading logs: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void updateUI() {
@@ -95,10 +111,10 @@ public class AdminNotificationLogsActivity extends AppCompatActivity {
      * RecyclerView adapter for displaying notification logs.
      */
     private class LogAdapter extends RecyclerView.Adapter<LogAdapter.LogViewHolder> {
-        private final List<NotificationLog.Entry> logs;
+        private final List<NotificationItem> logs;
         private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
 
-        public LogAdapter(List<NotificationLog.Entry> logs) {
+        public LogAdapter(List<NotificationItem> logs) {
             this.logs = logs;
         }
 
@@ -112,7 +128,7 @@ public class AdminNotificationLogsActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(@NonNull LogViewHolder holder, int position) {
-            NotificationLog.Entry entry = logs.get(position);
+            NotificationItem entry = logs.get(position);
             holder.bind(entry);
         }
 
@@ -139,49 +155,50 @@ public class AdminNotificationLogsActivity extends AppCompatActivity {
                 statusIndicator = itemView.findViewById(R.id.status_indicator);
             }
 
-            public void bind(NotificationLog.Entry entry) {
+            public void bind(NotificationItem entry) {
                 // Set recipient
-                String recipientText = "Recipient: " + (entry.to != null ? entry.to : "Unknown");
+                String recipientText = "Recipient: "
+                        + (entry.getRecipientId() != null ? entry.getRecipientId() : "Unknown");
                 if (recipientText.length() > 40) {
                     recipientText = recipientText.substring(0, 37) + "...";
                 }
                 tvRecipient.setText(recipientText);
 
                 // Set event
-                String eventText = "Event: " + (entry.eventId != null ? entry.eventId : "Unknown");
+                String eventText = "Event: " + (entry.getEventId() != null ? entry.getEventId() : "N/A");
                 if (eventText.length() > 50) {
                     eventText = eventText.substring(0, 47) + "...";
                 }
                 tvEvent.setText(eventText);
 
                 // Set message
-                tvMessage.setText(entry.message != null ? entry.message : "No message");
+                String message = entry.getMessage();
+                if (message == null || message.isEmpty()) {
+                    message = entry.getTitle();
+                }
+                tvMessage.setText(message != null ? message : "No content");
 
                 // Set timestamp
-                if (entry.timestamp != null) {
-                    tvTimestamp.setText(getRelativeTime(entry.timestamp.getTime()));
+                if (entry.getTimestamp() != null) {
+                    tvTimestamp.setText(getRelativeTime(entry.getTimestamp().getTime()));
                 } else {
                     tvTimestamp.setText("Unknown time");
                 }
 
-                // Set status
-                String status = entry.status != null ? entry.status.toUpperCase() : "UNKNOWN";
+                // Set status - Assuming SENT for all existing notifications in this collection
+                // We could also check if it's read or not, but for "Log" purposes, "SENT" is
+                // appropriate
+                // unless we want to show "READ" vs "UNREAD".
+                // Let's stick to "SENT" as per the plan, or maybe "DELIVERED".
+                String status = "SENT";
                 tvStatus.setText(status);
 
-                // Set status color
-                if ("SENT".equals(status)) {
-                    tvStatus.setBackgroundTintList(getResources().getColorStateList(android.R.color.holo_green_light, null));
-                    tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
-                    statusIndicator.setBackgroundTintList(getResources().getColorStateList(android.R.color.holo_green_dark, null));
-                } else if ("FAILED".equals(status)) {
-                    tvStatus.setBackgroundTintList(getResources().getColorStateList(android.R.color.holo_red_light, null));
-                    tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
-                    statusIndicator.setBackgroundTintList(getResources().getColorStateList(android.R.color.holo_red_dark, null));
-                } else {
-                    tvStatus.setBackgroundTintList(getResources().getColorStateList(android.R.color.darker_gray, null));
-                    tvStatus.setTextColor(getResources().getColor(android.R.color.black, null));
-                    statusIndicator.setBackgroundTintList(getResources().getColorStateList(android.R.color.darker_gray, null));
-                }
+                // Set status color (Green for SENT)
+                tvStatus.setBackgroundTintList(
+                        getResources().getColorStateList(android.R.color.holo_green_light, null));
+                tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
+                statusIndicator
+                        .setBackgroundTintList(getResources().getColorStateList(android.R.color.holo_green_dark, null));
             }
 
             /**
