@@ -18,8 +18,9 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:navigationIcon="@drawable/ic_arrow_back_24"
+        app:navigationIconTint="@color/white"
         app:title="Create New Event"
-        app:titleTextColor="?attr/colorOnSurface" />
+        app:titleTextColor="@color/white" />
 
     <!-- Scrollable content -->
     <androidx.core.widget.NestedScrollView

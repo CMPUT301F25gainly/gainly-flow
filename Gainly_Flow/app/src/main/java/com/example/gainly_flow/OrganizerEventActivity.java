@@ -103,6 +103,9 @@ public class OrganizerEventActivity extends AppCompatActivity {
     }
 
     private void setupEventListeners() {
+        // Back button
+        findViewById(R.id.back_button_organizer_event).setOnClickListener(v -> finish());
+
         // Quick Actions
         btnViewWaitingList.setOnClickListener(v -> viewWaitingList());
         btnUpdate.setOnClickListener(v -> openUpdatePoster()); // <- new behaviour
@@ -376,7 +379,8 @@ public class OrganizerEventActivity extends AppCompatActivity {
                     if (!query.isEmpty()) {
                         DocumentSnapshot document = query.getDocuments().get(0);
                         if (hasOptedOut(document)) {
-                            Log.d(TAG, "Skipping notification for " + document.getId() + " (opted out via email lookup)");
+                            Log.d(TAG,
+                                    "Skipping notification for " + document.getId() + " (opted out via email lookup)");
                             return;
                         }
                         String resolvedId = document.getId();
