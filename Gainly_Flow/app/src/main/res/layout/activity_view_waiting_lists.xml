@@ -14,7 +14,7 @@
         android:id="@+id/toolbar_entrant_lists"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="?attr/colorPrimary"
+        android:background="@color/purple_500"
         android:theme="@style/ThemeOverlay.MaterialComponents.ActionBar"
         app:title="Waiting Lists"
         app:titleTextColor="@android:color/white"
