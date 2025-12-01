@@ -2,6 +2,7 @@ package com.example.gainly_flow;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -9,6 +10,11 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
+
+import java.util.Arrays;
 
 /**
  * {@code AdminMainActivity} serves as the main dashboard for administrators.
@@ -21,7 +27,7 @@ import androidx.appcompat.app.AppCompatActivity;
  * <p><b>Features:</b></p>
  * <ul>
  *     <li>Navigation to different admin management activities.</li>
- *     <li>Displays total counts of events and users (currently stubbed with placeholder data).</li>
+ *     <li>Displays total counts of events and users fetched from Firestore.</li>
  *     <li>Includes a back button to return to the previous activity.</li>
  * </ul>
  *
@@ -56,9 +62,11 @@ public class AdminMainActivity extends AppCompatActivity {
     /** Back button to return to the previous screen. */
     private ImageButton backButton;
 
+    private FirebaseFirestore db;
+
     /**
      * Initializes the admin dashboard and sets up UI components,
-     * click listeners, and placeholder data.
+     * click listeners, and loads real data from Firestore.
      *
      * @param savedInstanceState the previously saved instance state, if available
      */
@@ -66,6 +74,9 @@ public class AdminMainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_main);
+
+        // Initialize Firestore
+        db = FirebaseFirestore.getInstance();
 
         // ---- Bind views (IDs come from activity_admin_main.xml) ----
         rowBrowseEvents = findViewById(R.id.rowBrowseEvents);
@@ -99,9 +110,97 @@ public class AdminMainActivity extends AppCompatActivity {
                 startActivity(new Intent(AdminMainActivity.this, AdminNotificationLogsActivity.class))
         );
 
-        // ---- Populate dashboard stats (stubbed; replace with real data source) ----
-        tvTotalEvents.setText(String.valueOf(getFakeEventCount()));
-        tvTotalUsers.setText(String.valueOf(getFakeUserCount()));
+        // ---- Load real data from Firestore ----
+        loadEventCount();
+        loadUserCount();
+    }
+
+    /**
+     * Loads the total number of events from Firestore.
+     */
+    private void loadEventCount() {
+        db.collection("events")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int eventCount = querySnapshot.size();
+                    tvTotalEvents.setText(String.valueOf(eventCount));
+                    Log.d("AdminMain", "Loaded " + eventCount + " events");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("AdminMain", "Error loading event count: " + e.getMessage());
+                    tvTotalEvents.setText("0");
+                });
+    }
+
+    /**
+     * Loads the total number of users from Firestore.
+     * Assumes users are stored in a "profiles" collection.
+     */
+    private void loadUserCount() {
+        db.collection("profiles")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int userCount = querySnapshot.size();
+                    tvTotalUsers.setText(String.valueOf(userCount));
+                    Log.d("AdminMain", "Loaded " + userCount + " users");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("AdminMain", "Error loading user count: " + e.getMessage());
+                    tvTotalUsers.setText("0");
+                });
+    }
+
+    /**
+     * Alternative method to load user count with role filtering.
+     * Use this if you want to count only specific roles (e.g., exclude admins).
+     */
+    private void loadUserCountByRole() {
+        // If you want to count only entrants and organizers (exclude admins)
+        db.collection("profiles")
+                .whereIn("role", Arrays.asList("Entrant", "Organizer"))
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int userCount = querySnapshot.size();
+                    tvTotalUsers.setText(String.valueOf(userCount));
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("AdminMain", "Error loading user count: " + e.getMessage());
+                    tvTotalUsers.setText("0");
+                });
+    }
+
+    /**
+     * Loads both counts simultaneously for better performance.
+     */
+    private void loadAllCounts() {
+        // Load events count
+        db.collection("events").get().addOnSuccessListener(eventSnapshot -> {
+            int eventCount = eventSnapshot.size();
+            tvTotalEvents.setText(String.valueOf(eventCount));
+        }).addOnFailureListener(e -> {
+            Log.e("AdminMain", "Error loading event count: " + e.getMessage());
+            tvTotalEvents.setText("0");
+        });
+
+        // Load users count
+        db.collection("profiles").get().addOnSuccessListener(userSnapshot -> {
+            int userCount = userSnapshot.size();
+            tvTotalUsers.setText(String.valueOf(userCount));
+        }).addOnFailureListener(e -> {
+            Log.e("AdminMain", "Error loading user count: " + e.getMessage());
+            tvTotalUsers.setText("0");
+        });
+    }
+
+    /**
+     * Refreshes the counts when the activity resumes.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh counts when returning to this activity
+        loadEventCount();
+        loadUserCount();
     }
 
     /**
@@ -113,26 +212,4 @@ public class AdminMainActivity extends AppCompatActivity {
         // You can swap this for a Snackbar/Toast to indicate the screen is coming soon.
         // Toast.makeText(this, "Coming soon", Toast.LENGTH_SHORT).show();
     }
-
-    /**
-     * Returns a stubbed count of events.
-     * <p>
-     * This method currently returns a hardcoded value and should be replaced
-     * with a real data source connection once implemented.
-     * </p>
-     *
-     * @return a fake total event count
-     */
-    private int getFakeEventCount() { return 3; }
-
-    /**
-     * Returns a stubbed count of users.
-     * <p>
-     * This method currently returns a hardcoded value and should be replaced
-     * with a real data source connection once implemented.
-     * </p>
-     *
-     * @return a fake total user count
-     */
-    private int getFakeUserCount()  { return 3; }
 }

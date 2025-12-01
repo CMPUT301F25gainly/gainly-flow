@@ -121,47 +121,45 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Administrator Card -->
+        <!-- Administrator Card - Made extremely hard to see -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="8dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="6dp"
-            android:backgroundTint="#FFFFFF">
+            android:layout_marginVertical="2dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="0dp"
+            android:backgroundTint="#E3F2FD"
+            android:layout_marginTop="24dp"
+            android:alpha="0.3">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="8dp"
+                android:gravity="center_horizontal">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Administrator"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#EB5757"
-                    android:layout_marginBottom="4dp"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Manage system, review content, and moderate platform activity"
-                    android:textColor="#666666"
-                    android:textSize="14sp"
-                    android:layout_marginBottom="16dp"/>
+                    android:text="Admin"
+                    android:textSize="11sp"
+                    android:textColor="#90A4AE"
+                    android:layout_marginBottom="1dp"/>
 
                 <Button
                     android:id="@+id/btnAdminLogin"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Continue as Admin"
-                    android:backgroundTint="#EB5757"
-                    android:textColor="#FFFFFF"
-                    android:paddingVertical="10dp"
-                    android:fontFamily="sans-serif-medium" />
+                    android:text="•••"
+                    android:backgroundTint="#E3F2FD"
+                    android:textColor="#90A4AE"
+                    android:paddingVertical="2dp"
+                    android:paddingHorizontal="8dp"
+                    android:textSize="10sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 

@@ -353,27 +353,83 @@ public class EntrantViewMain extends AppCompatActivity {
         event.setLocation(doc.getString("location"));
         event.setTimeString(doc.getString("timeString"));
 
+        // Capacity and participants
         Long capLong = doc.getLong("capacity");
         event.setCapacity(capLong != null ? capLong.intValue() : 20);
 
         Long currentLong = doc.getLong("currentParticipants");
         event.setCurrentParticipants(currentLong != null ? currentLong.intValue() : 0);
 
+        // Geolocation
         Boolean geo = doc.getBoolean("geolocationRequired");
         event.setGeolocationRequired(Boolean.TRUE.equals(geo));
 
+        // Event date - handle multiple possible types
         Object eventDateObj = doc.get("eventDate");
         if (eventDateObj instanceof Date) {
             event.setEventDate((Date) eventDateObj);
         } else if (eventDateObj instanceof Long) {
             event.setEventDate(new Date((Long) eventDateObj));
+        } else if (eventDateObj instanceof com.google.firebase.Timestamp) {
+            event.setEventDate(((com.google.firebase.Timestamp) eventDateObj).toDate());
+        }
+
+        // Registration dates - crucial for status calculation
+        Object regOpenObj = doc.get("registrationOpen");
+        if (regOpenObj instanceof Date) {
+            event.setRegistrationOpen((Date) regOpenObj);
+        } else if (regOpenObj instanceof Long) {
+            event.setRegistrationOpen(new Date((Long) regOpenObj));
+        } else if (regOpenObj instanceof com.google.firebase.Timestamp) {
+            event.setRegistrationOpen(((com.google.firebase.Timestamp) regOpenObj).toDate());
+        }
+
+        Object regCloseObj = doc.get("registrationClose");
+        if (regCloseObj instanceof Date) {
+            event.setRegistrationClose((Date) regCloseObj);
+        } else if (regCloseObj instanceof Long) {
+            event.setRegistrationClose(new Date((Long) regCloseObj));
+        } else if (regCloseObj instanceof com.google.firebase.Timestamp) {
+            event.setRegistrationClose(((com.google.firebase.Timestamp) regCloseObj).toDate());
         }
 
         // Category handling
         String category = doc.getString("category");
+        if (category != null) {
+            try {
+                event.setCategory(Event.Category.valueOf(category));
+            } catch (IllegalArgumentException e) {
+                event.setCategory(Event.Category.ALL);
+            }
+        } else {
+            event.setCategory(Event.Category.ALL);
+        }
 
+        // Waiting list and participant lists
+        List<String> waitingList = (List<String>) doc.get("waitingList");
+        if (waitingList != null) {
+            event.setWaitingList(waitingList);
+        }
 
-        // Add other event fields as needed...
+        List<String> selected = (List<String>) doc.get("selected");
+        if (selected != null) {
+            event.setSelected(selected);
+        }
+
+        List<String> cancelled = (List<String>) doc.get("cancelled");
+        if (cancelled != null) {
+            event.setCancelled(cancelled);
+        }
+
+        List<String> enrolled = (List<String>) doc.get("enrolled");
+        if (enrolled != null) {
+            event.setEnrolled(enrolled);
+        }
+
+        // Active status
+        Boolean isActive = doc.getBoolean("isActive");
+        event.setActive(isActive != null ? isActive : true);
+
         return event;
     }
 
