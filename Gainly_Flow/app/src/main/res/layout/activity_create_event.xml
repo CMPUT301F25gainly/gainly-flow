@@ -207,8 +207,7 @@
                             android:layout_height="wrap_content"
                             android:inputType="textCapWords|textMultiLine"
                             android:maxLines="2"
-                            android:minLines="1"
-                            android:hint="e.g., music, jazz, live" />
+                            android:minLines="1" />
 
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -261,8 +260,7 @@
                                 android:id="@+id/eventPriceInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="numberDecimal"
-                                android:hint="0.00" />
+                                android:inputType="numberDecimal" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
@@ -330,8 +328,7 @@
                                 android:id="@+id/eventStartDateInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="none"
-                                android:hint="mm/dd/yyyy" />
+                                android:inputType="none" />
 
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -351,8 +348,7 @@
                                 android:id="@+id/scheduleDetailsInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="text"
-                                android:hint="e.g., Every Monday, 2:00 PM - 3:00 PM" />
+                                android:inputType="text" />
 
                     </com.google.android.material.textfield.TextInputLayout>
 
@@ -429,8 +425,7 @@
                                 android:id="@+id/registrationOpenInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="none"
-                                android:hint="mm/dd/yyyy" />
+                                android:inputType="none" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
@@ -452,8 +447,7 @@
                                 android:id="@+id/registrationCloseInput"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:inputType="none"
-                                android:hint="mm/dd/yyyy" />
+                                android:inputType="none" />
 
                         </com.google.android.material.textfield.TextInputLayout>
 
