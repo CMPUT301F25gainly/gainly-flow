@@ -529,44 +529,66 @@ public class LotterySystem {
      * Check notification preferences and send notification if allowed
      */
     private void checkAndSendNotification(String entrantId, NotificationCreator creator) {
-        // Check user profile for notification preferences
         db.collection("profiles").document(entrantId)
                 .get()
-                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
-                    @Override
-                    public void onSuccess(DocumentSnapshot document) {
-                        if (document.exists()) {
-                            // Check if entrant has opted out of notifications (US 01.04.03)
-                            Boolean notificationsEnabled = document.getBoolean("notificationsEnabled");
-                            if (notificationsEnabled != null && !notificationsEnabled) {
-                                Log.d(TAG, "Entrant " + entrantId + " has notifications disabled");
-                                return;
-                            }
-
-                            // Get entrant's name for personalized message
-                            String entrantName = document.getString("name");
-
-                            // Create and save notification
-                            NotificationItem notification = creator.createNotification(entrantId, entrantName);
-                            Log.d(TAG, "Saving notification for " + entrantId + " (Profile exists)");
-                            saveNotification(notification);
-                        } else {
-                            // Create notification even if profile doesn't exist (for device ID users)
-                            Log.d(TAG, "Saving notification for " + entrantId + " (Profile not found)");
-                            NotificationItem notification = creator.createNotification(entrantId, null);
-                            saveNotification(notification);
-                        }
+                .addOnSuccessListener(document -> {
+                    if (document.exists()) {
+                        sendIfAllowed(document, creator);
+                    } else {
+                        queryProfileByEmail(entrantId, creator);
                     }
                 })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        Log.e(TAG, "Failed to load profile for " + entrantId + ": " + e.getMessage());
-                        // Create notification anyway
-                        NotificationItem notification = creator.createNotification(entrantId, null);
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load profile for " + entrantId + ": " + e.getMessage());
+                    NotificationItem notification = creator.createNotification(entrantId, null);
+                    saveNotification(notification);
+                });
+    }
+
+    private void queryProfileByEmail(String email, NotificationCreator creator) {
+        db.collection("profiles")
+                .whereEqualTo("email", email)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(query -> {
+                    if (!query.isEmpty()) {
+                        sendIfAllowed(query.getDocuments().get(0), creator);
+                    } else {
+                        Log.d(TAG, "Profile not found by email, sending fallback to " + email);
+                        NotificationItem notification = creator.createNotification(email, null);
                         saveNotification(notification);
                     }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to query profile by email: " + e.getMessage());
+                    NotificationItem notification = creator.createNotification(email, null);
+                    saveNotification(notification);
                 });
+    }
+
+    private void sendIfAllowed(DocumentSnapshot document, NotificationCreator creator) {
+        if (hasOptedOut(document)) {
+            Log.d(TAG, "User " + document.getId() + " opted out of notifications");
+            return;
+        }
+
+        String recipientId = document.getId();
+        String entrantName = document.getString("name");
+        if (entrantName == null || entrantName.isEmpty()) {
+            entrantName = document.getString("displayName");
+        }
+
+        NotificationItem notification = creator.createNotification(recipientId, entrantName);
+        notification.setRecipientId(recipientId);
+        Log.d(TAG, "Saving notification for " + recipientId + " (Profile exists)");
+        saveNotification(notification);
+    }
+
+    private boolean hasOptedOut(DocumentSnapshot document) {
+        Boolean notificationsEnabled = document.getBoolean("notificationsEnabled");
+        Boolean receiveNotifications = document.getBoolean("receiveNotifications");
+        return (notificationsEnabled != null && !notificationsEnabled)
+                || (receiveNotifications != null && !receiveNotifications);
     }
 
     /**

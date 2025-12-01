@@ -8,6 +8,7 @@ import android.util.Log;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.*;
@@ -336,12 +337,68 @@ public class OrganizerEventActivity extends AppCompatActivity {
 
     private void sendNotificationsToUsers(List<String> userIds, String message, String recipientGroup) {
         for (String userId : userIds) {
-            saveNotificationToGlobalCollection(userId, message);
-            saveNotificationToUserProfile(userId, message);
+            sendNotificationRespectingPreference(userId, message);
         }
 
         String toastMessage = String.format("Notification sent to %s (%d users)", recipientGroup, userIds.size());
         Toast.makeText(this, toastMessage, Toast.LENGTH_LONG).show();
+    }
+
+    private void sendNotificationRespectingPreference(String userId, String message) {
+        db.collection("profiles").document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        if (hasOptedOut(documentSnapshot)) {
+                            Log.d(TAG, "Skipping notification for " + documentSnapshot.getId() + " (opted out)");
+                            return;
+                        }
+                        String resolvedId = documentSnapshot.getId();
+                        saveNotificationToGlobalCollection(resolvedId, message);
+                        saveNotificationToUserProfile(resolvedId, message);
+                    } else {
+                        queryProfileByEmail(userId, message);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load profile " + userId + ": " + e.getMessage());
+                    saveNotificationToGlobalCollection(userId, message);
+                    saveNotificationToUserProfile(userId, message);
+                });
+    }
+
+    private void queryProfileByEmail(String email, String message) {
+        db.collection("profiles")
+                .whereEqualTo("email", email)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(query -> {
+                    if (!query.isEmpty()) {
+                        DocumentSnapshot document = query.getDocuments().get(0);
+                        if (hasOptedOut(document)) {
+                            Log.d(TAG, "Skipping notification for " + document.getId() + " (opted out via email lookup)");
+                            return;
+                        }
+                        String resolvedId = document.getId();
+                        saveNotificationToGlobalCollection(resolvedId, message);
+                        saveNotificationToUserProfile(resolvedId, message);
+                    } else {
+                        saveNotificationToGlobalCollection(email, message);
+                        saveNotificationToUserProfile(email, message);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to query profile by email " + email + ": " + e.getMessage());
+                    saveNotificationToGlobalCollection(email, message);
+                    saveNotificationToUserProfile(email, message);
+                });
+    }
+
+    private boolean hasOptedOut(DocumentSnapshot document) {
+        Boolean notificationsEnabled = document.getBoolean("notificationsEnabled");
+        Boolean receiveNotifications = document.getBoolean("receiveNotifications");
+        return (notificationsEnabled != null && !notificationsEnabled)
+                || (receiveNotifications != null && !receiveNotifications);
     }
 
     private void saveNotificationToGlobalCollection(String userId, String message) {

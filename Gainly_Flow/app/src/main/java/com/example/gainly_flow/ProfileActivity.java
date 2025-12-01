@@ -199,6 +199,8 @@ public class ProfileActivity extends AppCompatActivity {
         profileRef.set(profileToSave)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Profile created successfully!", Toast.LENGTH_SHORT).show();
+                    // Store compatibility flag for notification preference
+                    profileRef.update("notificationsEnabled", profileToSave.isReceiveNotifications());
                     this.profile = finalProfileToSave;
                     isExistingProfile = true;
                     updateUIWithProfile();
@@ -328,6 +330,8 @@ public class ProfileActivity extends AppCompatActivity {
         profileRef.set(profileToSave)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "Profile updated successfully!", Toast.LENGTH_SHORT).show();
+                    // Keep backward-compatible flag in Firestore for notification preference
+                    profileRef.update("notificationsEnabled", notificationsEnabled);
 
                     // Update UI with new name and role
                     String displayText = name;
