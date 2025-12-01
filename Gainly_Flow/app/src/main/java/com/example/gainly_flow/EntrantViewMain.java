@@ -18,6 +18,7 @@ import androidx.cardview.widget.CardView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -139,7 +140,7 @@ public class EntrantViewMain extends AppCompatActivity {
             startActivity(intent);
         });
 
-        lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelines());
+        lotteryGuidelinesButton.setOnClickListener(v -> showLotteryGuidelinesSheet());
 
         eventHistoryButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, EntrantEventHistory.class);
@@ -565,21 +566,21 @@ public class EntrantViewMain extends AppCompatActivity {
         return true;
     }
 
-    private void showLotteryGuidelines() {
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Lottery Guidelines & Process")
-                .setMessage(
-                        "1. Register for the event before the deadline.\n" +
-                                "2. Join the event waiting list by scanning the QR code or using the app.\n" +
-                                "3. After registration closes, the system randomly selects winners.\n" +
-                                "4. Winners are notified via app notification or email.\n" +
-                                "5. If a winner declines or does not confirm, a replacement is drawn from the waiting list.\n" +
-                                "6. Confirm your spot to complete registration.\n" +
-                                "7. If not selected, you will be notified and may have another chance if spots open.\n\n" +
-                                "All selections are fair and random. For questions, contact support."
-                )
-                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
-                .show();
+    /**
+     * Bold, ad-style bottom sheet for lottery guidelines.
+     */
+    private void showLotteryGuidelinesSheet() {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_lottery_guidelines, null, false);
+
+        BottomSheetDialog dialog = new BottomSheetDialog(this,
+                com.google.android.material.R.style.ThemeOverlay_Material3_BottomSheetDialog);
+        dialog.setContentView(dialogView);
+        dialog.setDismissWithAnimation(true);
+
+        MaterialButton gotItButton = dialogView.findViewById(R.id.btn_got_it);
+        gotItButton.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
     }
 
     @Override
