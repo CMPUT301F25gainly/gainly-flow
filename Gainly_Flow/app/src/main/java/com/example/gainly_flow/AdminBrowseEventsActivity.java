@@ -23,23 +23,27 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * {@code AdminBrowseEventsActivity} allows administrators to browse, view, and delete events
+ * {@code AdminBrowseEventsActivity} allows administrators to browse, view, and
+ * delete events
  * stored in Firebase Firestore.
  * <p>
  * The activity displays all events in descending order of their creation time.
- * Each event is represented by a card containing details such as title, date, capacity,
- * and registration status. Administrators can also delete an event after a confirmation dialog.
+ * Each event is represented by a card containing details such as title, date,
+ * capacity,
+ * and registration status. Administrators can also delete an event after a
+ * confirmation dialog.
  * </p>
  *
  * <h3>Features:</h3>
  * <ul>
- *     <li>Displays a list of all events fetched from Firestore.</li>
- *     <li>Supports reloading the list dynamically after event deletion.</li>
- *     <li>Provides a back button to return to the previous screen.</li>
- *     <li>Shows a placeholder message if no events are available.</li>
+ * <li>Displays a list of all events fetched from Firestore.</li>
+ * <li>Supports reloading the list dynamically after event deletion.</li>
+ * <li>Provides a back button to return to the previous screen.</li>
+ * <li>Shows a placeholder message if no events are available.</li>
  * </ul>
  *
  * <h3>Firestore Structure:</h3>
+ * 
  * <pre>
  * Collection: events
  * ├── id: String
@@ -54,9 +58,9 @@ import java.util.Locale;
  * </pre>
  *
  * @author
- *     Gainly Flow Development Team
+ *         Gainly Flow Development Team
  * @version
- *     1.0, November 2025
+ *          1.0, November 2025
  */
 public class AdminBrowseEventsActivity extends AppCompatActivity {
 
@@ -119,7 +123,8 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String id = doc.getString("id");
-                        if (id == null) id = doc.getId();
+                        if (id == null)
+                            id = doc.getId();
 
                         Event e = new Event(id);
 
@@ -136,7 +141,8 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
 
     /**
      * Dynamically adds a new event card to the list container.
-     * Each card displays event information such as title, date, spots, waiting count, and status.
+     * Each card displays event information such as title, date, spots, waiting
+     * count, and status.
      * It also provides a delete button for removing the event from Firestore.
      *
      * @param event the {@link Event} object containing event details.
@@ -157,7 +163,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
             date.setText(dateFormat.format(event.getEventDate()));
 
         spots.setText(event.getCapacity() + " spots");
-        waiting.setText("45 waiting"); // Placeholder value; to be replaced with dynamic data.
+        waiting.setText(event.getWaitingListSize() + " waiting");
 
         if (event.isRegistrationOpen()) {
             status.setText("Open");
@@ -181,8 +187,8 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                                 Toast.makeText(this, "Event deleted", Toast.LENGTH_SHORT).show();
                                 loadEventsFromFirebase();
                             })
-                            .addOnFailureListener(e ->
-                                    Toast.makeText(this, "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                            .addOnFailureListener(
+                                    e -> Toast.makeText(this, "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
                 })
                 .setNegativeButton("Cancel", null)
                 .show());
