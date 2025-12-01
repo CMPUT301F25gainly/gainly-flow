@@ -153,75 +153,28 @@ public class QRCodeScanner extends AppCompatActivity {
     }
 
     /**
-     * Launches {@link EventDetailActivity} with the details extracted from the given Firestore document.
+     * Launches {@link EventDetailActivity} with the event ID from the Firestore document.
+     * EventDetailActivity will load the full event details using Event.fromDocument().
      *
      * @param doc The Firestore document containing event information.
      */
     private void launchEventDetail(DocumentSnapshot doc) {
         try {
-            Intent intent = new Intent(this, EventDetailActivity.class);
+            String eventId = doc.getId();
+            if (eventId == null || eventId.isEmpty()) {
+                Toast.makeText(this, "Invalid event ID", Toast.LENGTH_SHORT).show();
+                isScanning = false;
+                return;
+            }
 
-            intent.putExtra("event_id", doc.getString("id"));
-            intent.putExtra("event_name", doc.getString("name"));
-            intent.putExtra("event_description", doc.getString("description"));
-            intent.putExtra("event_capacity", parseIntSafely(doc.getString("capacity")));
-            intent.putExtra("event_date", parseLongSafely(doc.getString("eventDateUtc")));
-            intent.putExtra("registration_open", parseLongSafely(doc.getString("registrationOpenUtc")));
-            intent.putExtra("registration_close", parseLongSafely(doc.getString("registrationCloseUtc")));
-            intent.putExtra("geo_required", Boolean.parseBoolean(doc.getString("geolocationEnabled")));
-            intent.putExtra("event_location", "Unknown");
-            intent.putExtra("event_time_string", convertMsToTime(doc.getString("eventTimeOfDayMs")));
+            Intent intent = new Intent(this, EventDetailActivity.class);
+            intent.putExtra("event_id", eventId);
 
             startActivity(intent);
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Error launching event: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             isScanning = false;
-        }
-    }
-
-    /**
-     * Safely parses an integer value from a string.
-     *
-     * @param value The string to parse.
-     * @return The integer value, or {@code 0} if parsing fails.
-     */
-    private int parseIntSafely(String value) {
-        try {
-            return Integer.parseInt(value);
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    /**
-     * Safely parses a long value from a string.
-     *
-     * @param value The string to parse.
-     * @return The long value, or {@code 0L} if parsing fails.
-     */
-    private long parseLongSafely(String value) {
-        try {
-            return Long.parseLong(value);
-        } catch (Exception e) {
-            return 0L;
-        }
-    }
-
-    /**
-     * Converts milliseconds since midnight to a human-readable time string (HH:mm).
-     *
-     * @param msString Milliseconds as a string.
-     * @return The formatted time string, or "Not specified" if parsing fails.
-     */
-    private String convertMsToTime(String msString) {
-        try {
-            long ms = Long.parseLong(msString);
-            long hours = (ms / (1000 * 60 * 60)) % 24;
-            long minutes = (ms / (1000 * 60)) % 60;
-            return String.format("%02d:%02d", hours, minutes);
-        } catch (Exception e) {
-            return "Not specified";
         }
     }
 
