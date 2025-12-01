@@ -53,22 +53,23 @@
         app:layout_constraintTop_toBottomOf="@id/text_event_name"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/tab_waiting"
+            android:text="Waiting (0)" />
+
+        <com.google.android.material.tabs.TabItem
+        android:id="@+id/tab_enrolled"
+        android:text="Enrolled (0)" />
 
         <com.google.android.material.tabs.TabItem
             android:id="@+id/tab_selected"
             android:text="Selected (0)" />
 
         <com.google.android.material.tabs.TabItem
-            android:id="@+id/tab_enrolled"
-            android:text="Enrolled (0)" />
-
-        <com.google.android.material.tabs.TabItem
             android:id="@+id/tab_cancelled"
             android:text="Cancelled (0)" />
 
-        <com.google.android.material.tabs.TabItem
-            android:id="@+id/tab_waiting"
-            android:text="Waiting (0)" />
+
     </com.google.android.material.tabs.TabLayout>
 
     <!-- Actions row: Export CSV / Send Message / View Map -->
