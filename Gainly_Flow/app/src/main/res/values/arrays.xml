@@ -2,9 +2,9 @@
 <resources>
     <string-array name="event_categories">
         <item>ALL</item>
-        <item>SPORTS</item>
+        <item>SPORT</item>
         <item>MUSIC</item>
-        <item>ARTS</item>
+        <item>ART</item>
         <item>EDUCATION</item>
     </string-array>
 </resources>
