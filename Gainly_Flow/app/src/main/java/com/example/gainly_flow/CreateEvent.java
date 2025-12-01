@@ -74,7 +74,6 @@ public class CreateEvent extends AppCompatActivity {
     private boolean isUpdatePosterOnly = false;
     private String existingEventId = null;
 
-
     {
         dateFmt = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
         dateFmt.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
@@ -101,7 +100,7 @@ public class CreateEvent extends AppCompatActivity {
 
         bindViews();
 
-// NEW: check if we are in update-poster-only mode
+        // NEW: check if we are in update-poster-only mode
         Intent intent = getIntent();
         if (intent != null) {
             String mode = intent.getStringExtra("mode");
@@ -142,8 +141,7 @@ public class CreateEvent extends AppCompatActivity {
                         uploadText.setVisibility(View.GONE);
                         uploadSubtext.setVisibility(View.GONE);
                     }
-                }
-        );
+                });
     }
 
     private void wireToolbar() {
@@ -155,13 +153,15 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     private String getCurrentOrganizerId() {
-        return android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        return android.provider.Settings.Secure.getString(getContentResolver(),
+                android.provider.Settings.Secure.ANDROID_ID);
     }
 
     // ... (rest of the file)
 
     private void updateOrganizerEvents(String eventId) {
-        if (currentOrganizerId == null) return;
+        if (currentOrganizerId == null)
+            return;
 
         // Use set with merge to create the document if it doesn't exist
         HashMap<String, Object> data = new HashMap<>();
@@ -210,6 +210,7 @@ public class CreateEvent extends AppCompatActivity {
         saveEventButton = findViewById(R.id.saveEventButton);
         cancelButton = findViewById(R.id.cancelButton);
     }
+
     private void setupUpdatePosterOnlyMode() {
         // Change button text so it’s clear
         saveEventButton.setText("Update Poster");
@@ -232,17 +233,15 @@ public class CreateEvent extends AppCompatActivity {
         // The upload card & posterPreview stay enabled so user can pick a new image
     }
 
-
     private void setupCategoryDropdown() {
-        String[] categories = new String[]{
+        String[] categories = new String[] {
                 "All", "Sport", "Music", "Art", "Education"
         };
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_dropdown_item_1line,
-                categories
-        );
+                categories);
         categoryDropdown.setAdapter(adapter);
         categoryDropdown.setText("All", false); // Default value
     }
@@ -266,9 +265,16 @@ public class CreateEvent extends AppCompatActivity {
     private void setupFormValidation() {
         // Add text watchers for real-time validation
         TextWatcher validationWatcher = new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
                 validateForm();
             }
         };
@@ -324,7 +330,8 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     private void saveEvent() {
-        // If we are only updating the poster for an existing event, follow a simpler path
+        // If we are only updating the poster for an existing event, follow a simpler
+        // path
         if (isUpdatePosterOnly) {
             updatePosterForExistingEvent();
             return;
@@ -345,9 +352,12 @@ public class CreateEvent extends AppCompatActivity {
         final boolean geoEnabled = geolocationCheckbox.isChecked();
 
         // Validation
-        if (!require(name, eventNameInput)) return;
-        if (!require(startDateStr, eventStartDateInput)) return;
-        if (!require(capStr, capacityInput)) return;
+        if (!require(name, eventNameInput))
+            return;
+        if (!require(startDateStr, eventStartDateInput))
+            return;
+        if (!require(capStr, capacityInput))
+            return;
 
         // Parse dates
         final Date eventStartDate = parseDate(startDateStr);
@@ -462,6 +472,7 @@ public class CreateEvent extends AppCompatActivity {
             saveEventToFirestore(event);
         }
     }
+
     private void updatePosterForExistingEvent() {
         if (existingEventId == null) {
             Toast.makeText(this, "Error: missing event ID", Toast.LENGTH_SHORT).show();
@@ -493,7 +504,7 @@ public class CreateEvent extends AppCompatActivity {
                                         "Poster updated successfully",
                                         Toast.LENGTH_SHORT).show();
                                 setResult(RESULT_OK);
-                                finish();   // go back to OrganizerEventActivity
+                                finish(); // go back to OrganizerEventActivity
                             })
                             .addOnFailureListener(e -> {
                                 saveEventButton.setEnabled(true);
@@ -509,7 +520,6 @@ public class CreateEvent extends AppCompatActivity {
                             Toast.LENGTH_SHORT).show();
                 });
     }
-
 
     private void saveEventToFirestore(Event event) {
         // Convert event to map for Firestore
@@ -586,11 +596,10 @@ public class CreateEvent extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.e("CreateEvent", "Failed to create event: " + e.getMessage());
-                    Toast.makeText(CreateEvent.this, "Failed to create event: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(CreateEvent.this, "Failed to create event: " + e.getMessage(), Toast.LENGTH_LONG)
+                            .show();
                 });
     }
-
-
 
     private void updateQrUrlInFirestore(String eventId, String qrUrl) {
         HashMap<String, Object> updateData = new HashMap<>();
@@ -616,7 +625,9 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     // Picker interfaces and methods
-    private interface DatePicked { void onPicked(long utcMidnightMillis); }
+    private interface DatePicked {
+        void onPicked(long utcMidnightMillis);
+    }
 
     private void showDatePicker(String title, DatePicked callback) {
         MaterialDatePicker<Long> picker = MaterialDatePicker.Builder.datePicker()
@@ -652,7 +663,8 @@ public class CreateEvent extends AppCompatActivity {
 
     private static ArrayList<String> parseTags(String tagsStr) {
         ArrayList<String> tags = new ArrayList<>();
-        if (tagsStr == null || tagsStr.trim().isEmpty()) return tags;
+        if (tagsStr == null || tagsStr.trim().isEmpty())
+            return tags;
 
         String[] parts = tagsStr.split(",");
         for (String p : parts) {
@@ -665,7 +677,8 @@ public class CreateEvent extends AppCompatActivity {
     }
 
     private static boolean require(String value, EditText field) {
-        if (!value.isEmpty()) return true;
+        if (!value.isEmpty())
+            return true;
         field.setError("Required");
         field.requestFocus();
         return false;
@@ -687,14 +700,16 @@ public class CreateEvent extends AppCompatActivity {
     private Bitmap generateQRCode(String qrUrl, int size) {
         // TODO: Implement QR code generation
         // This is a placeholder - you'll need to use a QR code library like ZXing
-        Toast.makeText(this, "QR generation to be implemented", Toast.LENGTH_SHORT).show();
+        // Toast.makeText(this, "QR generation to be implemented",
+        // Toast.LENGTH_SHORT).show();
         return null;
     }
 
     private void showQrDialog(String qrUrl, @Nullable Bitmap bmp, @Nullable Runnable onClose) {
         if (bmp == null) {
-            Toast.makeText(this, "Couldn't generate QR", Toast.LENGTH_SHORT).show();
-            if (onClose != null) onClose.run();
+            // Toast.makeText(this, "Couldn't generate QR", Toast.LENGTH_SHORT).show();
+            if (onClose != null)
+                onClose.run();
             return;
         }
 
@@ -707,7 +722,8 @@ public class CreateEvent extends AppCompatActivity {
                 .setView(view)
                 .setPositiveButton("Done", (d, w) -> {
                     d.dismiss();
-                    if (onClose != null) onClose.run();
+                    if (onClose != null)
+                        onClose.run();
                 })
                 .setNeutralButton("Share", (d, w) -> shareQrPng(qrUrl))
                 .show();
