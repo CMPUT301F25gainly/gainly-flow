@@ -19,6 +19,7 @@
         app:title="Waiting Lists"
         app:titleTextColor="@android:color/white"
         app:navigationIcon="@drawable/ic_arrow_back_24"
+        app:navigationIconTint="@android:color/white"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
