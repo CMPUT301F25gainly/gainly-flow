@@ -31,6 +31,10 @@ import java.util.Locale;
 import com.bumptech.glide.Glide;
 import com.google.firebase.storage.StorageReference;
 
+/**
+ * Displays full details for a single event, including poster, capacity, QR code,
+ * and lets entrants join or leave the waiting list with optional geolocation capture.
+ */
 public class EventDetailActivity extends AppCompatActivity {
 
     private static final String TAG = "EventDetailActivity";

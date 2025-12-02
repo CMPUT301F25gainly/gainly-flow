@@ -26,6 +26,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Entrant home screen that lists drawable events and lets users search, filter,
+ * and switch into organizer mode while keeping bottom navigation consistent.
+ */
 public class EntrantViewMain extends AppCompatActivity {
 
     private MaterialButton browseEventsButton, lotteryGuidelinesButton, eventHistoryButton;

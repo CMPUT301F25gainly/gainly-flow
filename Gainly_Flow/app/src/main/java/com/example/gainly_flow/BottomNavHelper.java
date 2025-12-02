@@ -7,6 +7,10 @@ import android.view.MenuItem;
 import androidx.annotation.NonNull;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+/**
+ * Centralizes bottom navigation wiring for entrant-facing screens so each activity
+ * can share consistent tab behavior and extras when switching destinations.
+ */
 public class BottomNavHelper {
 
     public static void setupBottomNav(Activity activity, BottomNavigationView bottomNav, Entrant entrant,

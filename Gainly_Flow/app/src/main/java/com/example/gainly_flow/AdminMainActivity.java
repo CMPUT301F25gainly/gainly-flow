@@ -14,33 +14,17 @@ import com.google.firebase.firestore.AggregateSource;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 /**
- * {@code AdminMainActivity} serves as the main dashboard for administrators.
- * <p>
+ * Main dashboard activity for administrators.
  * This activity provides quick navigation to administrative management screens,
  * including browsing events, profiles, images, and notification logs.
- * It also displays basic statistics such as the total number of events and
- * users.
- * </p>
+ * It also displays basic statistics such as the total number of events and users.
  *
- * <p>
- * <b>Features:</b>
- * </p>
- * <ul>
- * <li>Navigation to different admin management activities.</li>
- * <li>Displays total counts of events and users (currently stubbed with
- * placeholder data).</li>
- * <li>Includes a back button to return to the previous activity.</li>
- * </ul>
+ * Features:
+ * Navigation to different admin management activities.
+ * Displays total counts of events and users.
+ * Includes a back button to return to the previous activity.
  *
- * <p>
- * <b>Associated Layout:</b>
- * </p>
- * <ul>
- * <li>{@code activity_admin_main.xml} — Defines the main layout for the admin
- * dashboard.</li>
- * </ul>
- *
- * @author
+ * @author Gainly Flow Team
  * @version 1.0
  */
 public class AdminMainActivity extends AppCompatActivity {

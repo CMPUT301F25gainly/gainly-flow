@@ -19,33 +19,10 @@ import com.journeyapps.barcodescanner.BarcodeResult;
 import com.journeyapps.barcodescanner.DecoratedBarcodeView;
 
 /**
- * {@code QRCodeScanner} is an {@link AppCompatActivity} responsible for scanning QR codes
- * and retrieving corresponding event data from Firebase Firestore.
- * <p>
- * The activity uses {@link com.journeyapps.barcodescanner.DecoratedBarcodeView} to continuously
- * decode QR codes through the camera feed. When a QR code matching the expected
- * "gainlyflow://event/{eventId}" format is detected, the associated event is fetched
- * from the "events" collection in Firestore, and the user is redirected to
- * {@link EventDetailActivity} to view event details.
- * </p>
- *
- * <p>
- * If the camera permission is not granted, the activity requests it at runtime.
- * </p>
- *
- * <h3>Expected QR Format:</h3>
- * <pre>
- *     gainlyflow://event/{eventId}
- * </pre>
- *
- * <h3>Responsibilities:</h3>
- * <ul>
- *     <li>Request and verify camera permission.</li>
- *     <li>Continuously scan QR codes using the device camera.</li>
- *     <li>Validate QR content and extract event IDs.</li>
- *     <li>Fetch event data from Firebase Firestore.</li>
- *     <li>Launch the {@link EventDetailActivity} with event data.</li>
- * </ul>
+ * Activity that scans QR codes, validates event links, and opens the corresponding
+ * event details screen after fetching the event from Firestore.
+ * Expects codes in the form {@code gainlyflow://event/{eventId}} and requests camera
+ * permission at runtime if it has not yet been granted.
  */
 public class QRCodeScanner extends AppCompatActivity {
 

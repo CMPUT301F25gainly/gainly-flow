@@ -23,30 +23,19 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * {@code AdminBrowseProfilesActivity} is an activity that allows administrators to
- * view, search, and delete user profiles from the Firebase Firestore database.
- * <p>
+ * Activity that allows administrators to view, search, and delete user profiles
+ * from the Firebase Firestore database.
  * The activity displays all profiles as cards in a scrollable list and includes
- * a search box for dynamic filtering. Administrators can delete a profile by
- * clicking the delete button on each profile card.
- * </p>
+ * a search box for dynamic filtering.
  *
- * <p><b>Features:</b></p>
- * <ul>
- *     <li>Retrieves all profiles from the Firestore "profiles" collection.</li>
- *     <li>Dynamically filters profiles by name or email.</li>
- *     <li>Displays profile information in card views.</li>
- *     <li>Allows administrators to delete profiles.</li>
- *     <li>Includes a back button to return to the previous screen.</li>
- * </ul>
+ * Features:
+ * Retrieves all profiles from the Firestore "profiles" collection.
+ * Dynamically filters profiles by name or email.
+ * Displays profile information in card views.
+ * Allows administrators to delete profiles.
+ * Includes a back button to return to the previous screen.
  *
- * <p><b>Associated Layouts:</b></p>
- * <ul>
- *     <li>{@code activity_admin_browse_profiles.xml} — Defines the layout for this activity.</li>
- *     <li>{@code item_profile_admin.xml} — Defines the layout for each profile card.</li>
- * </ul>
- *
- * @author
+ * @author Gainly Flow Team
  * @version 1.0
  */
 public class AdminBrowseProfilesActivity extends AppCompatActivity {

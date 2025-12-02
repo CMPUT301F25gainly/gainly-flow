@@ -11,6 +11,10 @@ import com.google.firebase.storage.UploadTask;
 
 import java.util.UUID;
 
+/**
+ * Helper around Firebase Storage for uploading, deleting, and resolving poster images
+ * used by events so callers do not deal with storage paths directly.
+ */
 public class ImageManager {
     private static final String TAG = "ImageManager";
     private final FirebaseStorage storage;

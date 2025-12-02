@@ -21,6 +21,10 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Organizer home screen that shows only events owned by the current organizer,
+ * provides quick access to event management, and supports switching back to entrant mode.
+ */
 public class OrganizerViewMain extends AppCompatActivity {
 
     private static final String TAG = "OrganizerViewMain";

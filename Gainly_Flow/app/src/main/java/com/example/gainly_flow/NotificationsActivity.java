@@ -23,6 +23,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Entrant notifications screen that listens to Firestore for updates,
+ * shows lottery and info messages, and lets users act on invitations.
+ */
 public class NotificationsActivity extends AppCompatActivity {
 
     private static final String TAG = "NotificationsActivity";

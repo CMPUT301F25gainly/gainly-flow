@@ -26,6 +26,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Screen for creating, viewing, and updating user profile details and preferences
+ * for both entrant and organizer roles, backed by Firestore.
+ */
 public class ProfileActivity extends AppCompatActivity {
 
     // UI Elements

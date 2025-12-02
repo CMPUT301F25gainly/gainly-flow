@@ -6,6 +6,10 @@ import android.util.Log;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.DocumentSnapshot;
 
+/**
+ * Utility for reading the Android device ID and coordinating creation or conversion
+ * of Firestore-backed profiles into entrant or organizer role classes.
+ */
 public class DeviceIdManager {
     private static final String TAG = "DeviceIdManager";
 

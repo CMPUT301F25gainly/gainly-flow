@@ -14,6 +14,10 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * RecyclerView adapter that renders entrant notifications with type-based styling,
+ * action buttons for lottery invitations, and visual read/unread feedback.
+ */
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.ViewHolder> {
 
     private static final int VIEW_TYPE_DEFAULT = 0;

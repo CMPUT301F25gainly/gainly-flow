@@ -23,44 +23,21 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * {@code AdminBrowseEventsActivity} allows administrators to browse, view, and
- * delete events
+ * Activity that allows administrators to browse, view, and delete events
  * stored in Firebase Firestore.
- * <p>
  * The activity displays all events in descending order of their creation time.
  * Each event is represented by a card containing details such as title, date,
- * capacity,
- * and registration status. Administrators can also delete an event after a
- * confirmation dialog.
- * </p>
+ * capacity, and registration status. Administrators can also delete an event
+ * after a confirmation dialog.
  *
- * <h3>Features:</h3>
- * <ul>
- * <li>Displays a list of all events fetched from Firestore.</li>
- * <li>Supports reloading the list dynamically after event deletion.</li>
- * <li>Provides a back button to return to the previous screen.</li>
- * <li>Shows a placeholder message if no events are available.</li>
- * </ul>
+ * Features:
+ * Displays a list of all events fetched from Firestore.
+ * Supports reloading the list dynamically after event deletion.
+ * Provides a back button to return to the previous screen.
+ * Shows a placeholder message if no events are available.
  *
- * <h3>Firestore Structure:</h3>
- * 
- * <pre>
- * Collection: events
- * ├── id: String
- * ├── name: String
- * ├── description: String
- * ├── capacity: Long
- * ├── geolocationRequired: Boolean
- * ├── posterUri: String
- * ├── registrationOpen: Long (timestamp)
- * ├── registrationClose: Long (timestamp)
- * ├── createdAt: Long (timestamp)
- * </pre>
- *
- * @author
- *         Gainly Flow Development Team
- * @version
- *          1.0, November 2025
+ * @author Gainly Flow Development Team
+ * @version 1.0
  */
 public class AdminBrowseEventsActivity extends AppCompatActivity {
 
@@ -98,12 +75,11 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
 
     /**
      * Loads all events from the Firebase Firestore database.
-     * <p>
      * The events are ordered by creation time (newest first).
      * If no events are found, a placeholder message is displayed.
-     * Each event document is mapped into an {@link Event} object and displayed
-     * via {@link #addEventCard(Event)}.
-     * </p>
+     * Each event document is mapped into an Event object and displayed.
+     *
+     * @see #addEventCard(Event)
      */
     private void loadEventsFromFirebase() {
         FirebaseFirestore.getInstance()

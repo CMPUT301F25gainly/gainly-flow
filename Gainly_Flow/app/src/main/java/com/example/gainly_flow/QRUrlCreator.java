@@ -3,32 +3,16 @@ package com.example.gainly_flow;
 import android.net.Uri;
 
 /**
- * Utility class for generating event-related URLs in different formats.
- * <p>
- * This class provides two styles of QR-compatible URL builders:
- * <ul>
- *     <li><b>Deep link URLs</b> — App-specific URIs that trigger an intent-filter
- *     within the Gainly Flow Android app (e.g., {@code gainlyflow://event/{id}}).</li>
- *     <li><b>HTTPS URLs</b> — Web-based links suitable for Firebase Dynamic Links
- *     or sharing via a website (e.g., {@code https://gainlyflow.app/e/{id}}).</li>
- * </ul>
- * Both methods return well-formed, encoded {@link Uri} strings that can be used for
- * QR code generation or link sharing.
+ * Utility for building QR-compatible deep links and HTTPS links for events.
+ * Provides helpers for {@code gainlyflow://event/{id}} URIs used by the app
+ * and {@code https://gainlyflow.app/e/{id}} links suitable for sharing or
+ * integration with Firebase Dynamic Links.
  */
 public final class QRUrlCreator {
 
     /**
-     * Builds an app-deep-link style URL for the specified event.
-     * <p>
-     * This format is designed for use with Android intent-filters so that scanning
-     * a QR code or clicking the link directly opens the Gainly Flow app and navigates
-     * to the corresponding event page.
-     * </p>
-     *
-     * <pre>
-     * Example output:
-     *     gainlyflow://event/{eventId}
-     * </pre>
+     * Builds an app-deep-link style URL for the specified event so scanned QR codes
+     * or clicked links can open the Gainly Flow app at the event page.
      *
      * @param eventId the unique identifier of the event.
      * @return a deep link URI string in the format {@code gainlyflow://event/{id}}.
@@ -43,16 +27,8 @@ public final class QRUrlCreator {
     }
 
     /**
-     * Builds an HTTPS-style link for the specified event.
-     * <p>
-     * This format is intended for web access or Firebase Dynamic Links integration,
-     * allowing users to open event details in a browser or app depending on their context.
-     * </p>
-     *
-     * <pre>
-     * Example output:
-     *     https://gainlyflow.app/e/{eventId}
-     * </pre>
+     * Builds an HTTPS-style link for the specified event for web access or use
+     * with Firebase Dynamic Links so browsers or apps can open the event.
      *
      * @param eventId the unique identifier of the event.
      * @return an HTTPS URI string in the format {@code https://gainlyflow.app/e/{id}}.

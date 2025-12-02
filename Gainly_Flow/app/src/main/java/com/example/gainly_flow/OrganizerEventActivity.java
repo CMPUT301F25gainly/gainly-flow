@@ -13,6 +13,10 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.*;
 
+/**
+ * Organizer event management screen that runs lottery draws, sends custom notifications,
+ * and links to waiting list and poster update actions for a single event.
+ */
 public class OrganizerEventActivity extends AppCompatActivity {
 
     // UI Components

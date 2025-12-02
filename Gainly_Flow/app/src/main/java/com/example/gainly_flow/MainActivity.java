@@ -11,6 +11,10 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+/**
+ * Entry activity that detects the device profile and routes users to entrant, organizer,
+ * or hidden admin flows while creating role-specific profiles as needed.
+ */
 public class MainActivity extends AppCompatActivity {
 
     private String deviceId;

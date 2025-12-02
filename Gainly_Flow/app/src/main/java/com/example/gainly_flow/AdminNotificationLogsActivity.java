@@ -21,11 +21,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Activity for administrators to review logs of all notifications sent to
- * entrants.
- * Implements US 03.08.01: "As an administrator, I want to review logs of all
- * notifications
- * sent to entrants by organizers."
+ * Activity for administrators to review logs of all notifications sent to entrants.
+ * This implements the administrative function to review all notification logs
+ * sent by organizers to entrants in the system.
+ *
+ * @author Gainly Flow Team
+ * @version 1.0
  */
 public class AdminNotificationLogsActivity extends AppCompatActivity {
 

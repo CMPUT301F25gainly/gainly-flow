@@ -42,6 +42,10 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import android.net.Uri;
 
+/**
+ * Event creation and editing form for organizers, handling poster uploads,
+ * capacity and registration settings, tags, and optional geolocation requirements.
+ */
 public class CreateEvent extends AppCompatActivity {
 
     // UI Components

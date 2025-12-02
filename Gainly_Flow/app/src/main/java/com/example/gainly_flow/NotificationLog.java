@@ -12,25 +12,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The {@code NotificationLog} class provides functionality for recording
- * and retrieving logs of notifications sent to entrants in the system.
- * <p>
- * Each log entry is stored as a document in the Firestore collection
- * {@code "notification_logs"} and includes recipient details, message content,
- * event association, timestamp, and delivery status.
- * <p>
- * This class can be used by administrators or developers for auditing
- * notification activity and debugging message delivery.
+ * Records and retrieves notification history for entrants so administrators can audit deliveries.
+ * Entries are stored in the Firestore {@code notification_logs} collection with recipient, event,
+ * message, timestamp, and delivery status metadata.
+ *
+ * @author Gainly Flow Team
+ * @version 1.0
  */
 public class NotificationLog {
     private static final String TAG = "NotificationLog";
 
     /**
-     * Represents a single notification log entry.
-     * <p>
-     * Each entry contains metadata such as the recipient ID, associated event ID,
-     * message body, timestamp, and status (e.g., "sent", "failed").
-     * Entries can be serialized to and from Firestore documents.
+     * Represents a single notification log entry with recipient, event, message, timestamp,
+     * and status fields that serialize to and from Firestore documents.
      */
     public static class Entry {
         /** The ID of the recipient who received the notification. */
@@ -71,10 +65,7 @@ public class NotificationLog {
         }
 
         /**
-         * Converts this {@code Entry} into a Firestore-compatible map.
-         * <p>
-         * This method is typically used before saving the entry to the
-         * {@code "notification_logs"} collection.
+         * Converts this {@code Entry} into a Firestore-compatible map for storage.
          *
          * @return a {@code Map} containing the entry's fields for Firestore
          */
@@ -108,9 +99,6 @@ public class NotificationLog {
 
     /**
      * Records a new notification log entry into the Firestore collection.
-     * <p>
-     * This method generates a unique deterministic log ID based on the event ID,
-     * recipient ID, and current system time.
      *
      * @param entry the {@code NotificationLog.Entry} object to record
      */
@@ -126,10 +114,8 @@ public class NotificationLog {
     }
 
     /**
-     * Generates a deterministic log ID based on the event ID, recipient ID,
-     * and the current timestamp.
-     * <p>
-     * This helps avoid duplicate records for the same user-event pair.
+     * Generates a deterministic log ID based on the event ID, recipient ID, and the current
+     * timestamp to avoid duplicate records for the same user-event pair.
      *
      * @param entry the {@code NotificationLog.Entry} used to build the ID
      * @return a unique string identifier for the log
@@ -139,10 +125,7 @@ public class NotificationLog {
     }
 
     /**
-     * Retrieves all notification logs from Firestore.
-     * <p>
-     * This method can be used by admin panels or debugging tools to list
-     * all recorded notification entries.
+     * Retrieves all notification logs from Firestore for administrative listing or debugging.
      *
      * @param listener a {@code OnSuccessListener} that receives a list of {@code Entry} objects
      */

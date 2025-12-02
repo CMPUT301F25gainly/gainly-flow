@@ -42,9 +42,11 @@ import java.util.Map;
 
 /**
  * Activity for administrators to browse and manage all uploaded images.
- * Implements US 03.06.01: "As an administrator, I want to be able to browse
- * images
- * that are uploaded so I can remove them if necessary."
+ * This implements the administrative function to view all images uploaded
+ * to the system and remove them if necessary.
+ *
+ * @author Gainly Flow Team
+ * @version 1.0
  */
 public class AdminBrowseImagesActivity extends AppCompatActivity {
 
