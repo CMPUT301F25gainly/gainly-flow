@@ -79,18 +79,5 @@
         android:layout_marginBottom="24dp" />
 
     <!-- Upload QR Image Button -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnUploadQR"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        style="@style/Widget.Material3.Button.TonalButton"
-        android:text="Upload QR Image"
-        android:textAllCaps="false"
-        android:textColor="#FFFFFF"
-        app:icon="@android:drawable/ic_menu_upload"
-        app:iconTint="#FFFFFF"
-        android:backgroundTint="#2F81F7"
-        app:cornerRadius="20dp"
-        android:layout_gravity="center" />
 
 </LinearLayout>
