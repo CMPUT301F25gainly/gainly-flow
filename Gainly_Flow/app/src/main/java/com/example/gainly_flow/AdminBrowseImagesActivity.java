@@ -42,7 +42,8 @@ import java.util.Map;
 
 /**
  * Activity for administrators to browse and manage all uploaded images.
- * Implements US 03.06.01: "As an administrator, I want to be able to browse images
+ * Implements US 03.06.01: "As an administrator, I want to be able to browse
+ * images
  * that are uploaded so I can remove them if necessary."
  */
 public class AdminBrowseImagesActivity extends AppCompatActivity {
@@ -88,7 +89,8 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
     /**
      * Loads all images from Firebase Storage and matches them with events.
      * Optimized to use bulk queries instead of N+1 pattern.
-     * Handles both "posterImageId" and "posterUri" field names for backward compatibility.
+     * Handles both "posterImageId" and "posterUri" field names for backward
+     * compatibility.
      */
     private void loadImages() {
         imageList.clear();
@@ -134,8 +136,7 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
                                                 imageId,
                                                 "Event: " + (eventName != null ? eventName : "Unknown"),
                                                 "poster",
-                                                eventId
-                                        );
+                                                eventId);
                                         imageList.add(imageItem);
                                     } else {
                                         // Orphaned image
@@ -143,8 +144,7 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
                                                 imageId,
                                                 "Orphaned poster (no event found)",
                                                 "poster",
-                                                ""
-                                        );
+                                                "");
                                         imageList.add(imageItem);
                                     }
                                 }
@@ -177,8 +177,7 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
                                     profileImageId,
                                     "Profile: " + (displayName != null ? displayName : "Unknown"),
                                     "profile",
-                                    profileId
-                            );
+                                    profileId);
                             imageList.add(item);
                         }
                     }
@@ -232,9 +231,11 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
                             .load(uri.toString())
                             .into(new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
                                 @Override
-                                public void onResourceReady(@NonNull Bitmap resource, @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super Bitmap> transition) {
+                                public void onResourceReady(@NonNull Bitmap resource,
+                                        @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super Bitmap> transition) {
                                     loadingIndicator.setVisibility(View.GONE);
-                                    Log.d(TAG, "Image loaded successfully, size: " + resource.getWidth() + "x" + resource.getHeight());
+                                    Log.d(TAG, "Image loaded successfully, size: " + resource.getWidth() + "x"
+                                            + resource.getHeight());
                                     previewImage.setImageBitmap(resource);
                                 }
 
@@ -242,7 +243,8 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
                                 public void onLoadFailed(@androidx.annotation.Nullable Drawable errorDrawable) {
                                     loadingIndicator.setVisibility(View.GONE);
                                     Log.e(TAG, "Failed to load image");
-                                    Toast.makeText(AdminBrowseImagesActivity.this, "Failed to load image", Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(AdminBrowseImagesActivity.this, "Failed to load image",
+                                            Toast.LENGTH_SHORT).show();
                                 }
 
                                 @Override
@@ -335,10 +337,21 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
             this.ownerId = ownerId;
         }
 
-        public String getImageId() { return imageId; }
-        public String getDescription() { return description; }
-        public String getType() { return type; }
-        public String getOwnerId() { return ownerId; }
+        public String getImageId() {
+            return imageId;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public String getOwnerId() {
+            return ownerId;
+        }
     }
 
     /**
@@ -390,16 +403,22 @@ public class AdminBrowseImagesActivity extends AppCompatActivity {
                 // Get download URL and load with Glide
                 imageRef.getDownloadUrl()
                         .addOnSuccessListener(uri -> {
-                            Glide.with(itemView.getContext())
-                                    .load(uri)
-                                    .placeholder(R.drawable.blue_gradient_bg)
-                                    .error(R.drawable.blue_gradient_bg)
-                                    .centerCrop()
-                                    .into(imageView);
+                            // Check if activity is still alive before loading image
+                            if (!isFinishing() && !isDestroyed()) {
+                                Glide.with(AdminBrowseImagesActivity.this)
+                                        .load(uri)
+                                        .placeholder(R.drawable.blue_gradient_bg)
+                                        .error(R.drawable.blue_gradient_bg)
+                                        .centerCrop()
+                                        .into(imageView);
+                            }
                         })
                         .addOnFailureListener(e -> {
                             Log.e(TAG, "Failed to get download URL for " + item.getImageId() + ": " + e.getMessage());
-                            imageView.setImageResource(R.drawable.blue_gradient_bg);
+                            // Check if activity is still alive before setting image
+                            if (!isFinishing() && !isDestroyed()) {
+                                imageView.setImageResource(R.drawable.blue_gradient_bg);
+                            }
                         });
 
                 tvDescription.setText(item.getDescription());
